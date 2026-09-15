@@ -18,8 +18,11 @@ class AppConstants {
   // Map style
   static const String osmStyleUrl =
       'https://demotiles.maplibre.org/style.json';
+  // Carto basemaps (OSM data). Do not use tile.openstreetmap.org in apps.
   static const String osmTileUrl =
-      'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
+  static const String osmTileUrlLight =
+      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
 
   // API endpoints
   static const String ndwApiUrl =

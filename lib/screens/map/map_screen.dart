@@ -67,9 +67,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             children: [
               TileLayer(
                 urlTemplate: isDark
-                    ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-                    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    ? AppConstants.osmTileUrl
+                    : AppConstants.osmTileUrlLight,
+                subdomains: const ['a', 'b', 'c', 'd'],
                 userAgentPackageName: 'com.milieualert.app',
+              ),
+              RichAttributionWidget(
+                attributions: [
+                  TextSourceAttribution(
+                    '© OpenStreetMap contributors © CARTO',
+                    onTap: () {},
+                  ),
+                ],
               ),
               zonesAsync.when(
                 data: (zones) => PolygonLayer(polygons: _polygonsFor(zones)),
