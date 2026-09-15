@@ -16,17 +16,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-      imgSrc: ["'self'", "https://tile.openstreetmap.org", "data:", "blob:"],
-      connectSrc: ["'self'", "https://tile.openstreetmap.org", "https://cdn.jsdelivr.net"],
-      workerSrc: ["'self'", "blob:"],
-    },
-  },
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
 }));
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -40,8 +31,27 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // Serve Flutter web app static files
-const webBuildPath = path.join(__dirname, '..', 'web');
+const webBuildPath = path.join(__dirname, '..', 'public');
 app.use(express.static(webBuildPath));
+
+app.get('/api/status', (req, res) => {
+  res.json({
+    name: 'MilieuAlert API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: [
+      'POST /api/auth/register',
+      'POST /api/auth/login',
+      'GET /api/users/profile',
+      'PUT /api/users/profile',
+      'POST /api/ai/chat',
+      'POST /api/ai/zone-check',
+      'POST /api/trips/log',
+      'GET /api/trips/history',
+      'GET /api/zones/sync',
+    ],
+  });
+});
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
