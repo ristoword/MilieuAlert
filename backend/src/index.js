@@ -58,12 +58,15 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/api/db-check', async (req, res) => {
+  const dbVars = Object.keys(process.env).filter(k => 
+    k.includes('DATABASE') || k.includes('POSTGRES') || k.includes('PG') || k.includes('DB_')
+  );
   try {
     const pool = require('./db/pool');
     const result = await pool.query('SELECT NOW() as time');
-    res.json({ status: 'connected', time: result.rows[0].time, database_url_set: !!process.env.DATABASE_URL });
+    res.json({ status: 'connected', time: result.rows[0].time, db_vars: dbVars });
   } catch (err) {
-    res.status(500).json({ status: 'error', message: err.message, database_url_set: !!process.env.DATABASE_URL });
+    res.status(500).json({ status: 'error', message: String(err.message || err), db_vars: dbVars });
   }
 });
 
