@@ -28,16 +28,20 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isAuthenticated = ref.read(authProvider).isAuthenticated;
       final onboardingComplete = ref.read(onboardingCompleteProvider);
-      final isOnAuthPage = state.matchedLocation == '/auth';
+      final location = state.matchedLocation;
+      final isOnAuthPage = location == '/auth';
+      final isOnboarding = location.startsWith('/onboarding');
 
-      // Not authenticated → force to /auth
       if (!isAuthenticated && !isOnAuthPage) {
         return '/auth';
       }
 
-      // Authenticated but on auth page → redirect away
-      if (isAuthenticated && isOnAuthPage) {
-        return onboardingComplete ? '/map' : '/onboarding/language';
+      if (isAuthenticated && !onboardingComplete && !isOnboarding) {
+        return '/onboarding/language';
+      }
+
+      if (isAuthenticated && onboardingComplete && (isOnAuthPage || isOnboarding)) {
+        return '/map';
       }
 
       return null;

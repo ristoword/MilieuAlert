@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/settings_provider.dart';
+import '../../core/widgets/install_app_button.dart';
 
 class LanguageScreen extends ConsumerWidget {
   const LanguageScreen({super.key});
@@ -86,6 +87,8 @@ class LanguageScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              const InstallAppButton(),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

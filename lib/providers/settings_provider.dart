@@ -43,7 +43,20 @@ class AlertDistanceNotifier extends StateNotifier<int> {
   }
 }
 
-final onboardingCompleteProvider = Provider<bool>((ref) {
+final onboardingCompleteProvider =
+    StateNotifierProvider<OnboardingNotifier, bool>((ref) {
   final prefs = ref.watch(sharedPrefsProvider);
-  return prefs.getBool('onboardingComplete') ?? false;
+  return OnboardingNotifier(prefs);
 });
+
+class OnboardingNotifier extends StateNotifier<bool> {
+  final SharedPreferences _prefs;
+
+  OnboardingNotifier(this._prefs)
+      : super(_prefs.getBool('onboardingComplete') ?? false);
+
+  Future<void> complete() async {
+    state = true;
+    await _prefs.setBool('onboardingComplete', true);
+  }
+}

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/vehicle.dart';
 import '../../providers/vehicle_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../core/widgets/install_app_button.dart';
 
 class VehicleSetupScreen extends ConsumerStatefulWidget {
   const VehicleSetupScreen({super.key});
@@ -88,7 +89,9 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
                         child: Text(_vehicleTypeLabel(t)),
                       ))
                   .toList(),
-              onChanged: (v) => setState(() => _vehicleType = v!),
+              onChanged: (v) {
+                if (v != null) setState(() => _vehicleType = v);
+              },
             ),
             const SizedBox(height: 16),
             _sectionLabel('Fuel Type'),
@@ -104,7 +107,9 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
                         child: Text(f.label),
                       ))
                   .toList(),
-              onChanged: (v) => setState(() => _fuelType = v!),
+              onChanged: (v) {
+                if (v != null) setState(() => _fuelType = v);
+              },
             ),
             const SizedBox(height: 16),
             _sectionLabel('Euro Class'),
@@ -120,7 +125,9 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
                         child: Text(e.label),
                       ))
                   .toList(),
-              onChanged: (v) => setState(() => _euroClass = v!),
+              onChanged: (v) {
+                if (v != null) setState(() => _euroClass = v);
+              },
             ),
             const SizedBox(height: 16),
             _sectionLabel('License Plate (optional)'),
@@ -147,7 +154,9 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
                         child: Text(c.$2),
                       ))
                   .toList(),
-              onChanged: (v) => setState(() => _country = v!),
+              onChanged: (v) {
+                if (v != null) setState(() => _country = v);
+              },
             ),
             const SizedBox(height: 32),
             SizedBox(
@@ -172,6 +181,8 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
                       ),
               ),
             ),
+            const SizedBox(height: 16),
+            const Center(child: InstallAppButton()),
           ],
         ),
       ),
@@ -206,30 +217,36 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
   }
 
   Future<void> _saveVehicle() async {
+    if (_saving) return;
     setState(() => _saving = true);
+
+    final vehicle = Vehicle(
+      type: _vehicleType,
+      fuelType: _fuelType,
+      euroClass: _euroClass,
+      licensePlate: _licensePlateController.text.trim().isNotEmpty
+          ? _licensePlateController.text.trim()
+          : null,
+      country: _country,
+    );
+
     try {
-      final vehicle = Vehicle(
-        type: _vehicleType,
-        fuelType: _fuelType,
-        euroClass: _euroClass,
-        licensePlate: _licensePlateController.text.isNotEmpty
-            ? _licensePlateController.text
-            : null,
-        country: _country,
-      );
-
-      await ref.read(vehicleProvider.notifier).saveVehicle(vehicle);
-
-      final prefs = ref.read(sharedPrefsProvider);
-      await prefs.setBool('onboardingComplete', true);
-
-      if (mounted) {
-        context.go('/map');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
+      await ref
+          .read(vehicleProvider.notifier)
+          .saveVehicle(vehicle)
+          .timeout(const Duration(seconds: 8));
+    } catch (e, st) {
+      debugPrint('Vehicle save failed, continuing onboarding: $e\n$st');
     }
+
+    try {
+      await ref.read(onboardingCompleteProvider.notifier).complete();
+    } catch (e, st) {
+      debugPrint('Failed to persist onboarding flag: $e\n$st');
+    }
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+    context.go('/map');
   }
 }

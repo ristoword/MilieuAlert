@@ -2,5 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/web.dart';
 
 QueryExecutor openConnection() {
-  return WebDatabase('milieu_alert');
+  return LazyDatabase(() async {
+    return WebDatabase('milieu_alert');
+  });
 }

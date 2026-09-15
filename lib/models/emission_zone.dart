@@ -33,6 +33,29 @@ class EmissionZone {
     this.lastVerifiedAt,
   });
 
+  factory EmissionZone.fromJson(Map<String, dynamic> json) {
+    final rawPoly = json['polygonCoordinates'] as List? ?? const [];
+    final polygon = rawPoly
+        .map((ring) => (ring as List)
+            .map((pt) => (pt as List)
+                .map((n) => (n as num).toDouble())
+                .toList())
+            .toList())
+        .toList();
+
+    return EmissionZone(
+      id: json['id']?.toString() ?? 'zone',
+      country: json['country']?.toString() ?? '',
+      city: json['city']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      zoneType: json['zoneType']?.toString() ?? 'ENVIRONMENTAL_ZONE',
+      polygonCoordinates: polygon,
+      minimumEuroLevel: json['minimumEuroLevel'] as int?,
+      restrictions: json['restrictions']?.toString(),
+      officialSource: json['officialSource']?.toString(),
+    );
+  }
+
   bool get isCurrentlyActive {
     final now = DateTime.now();
     if (activeFrom != null && now.isBefore(activeFrom!)) return false;

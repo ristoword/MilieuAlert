@@ -9,8 +9,14 @@ final zonesProvider =
 class ZonesNotifier extends AsyncNotifier<List<EmissionZone>> {
   @override
   Future<List<EmissionZone>> build() async {
-    final db = ref.watch(databaseProvider);
-    return db.zoneDao.getAllZones();
+    try {
+      final db = ref.watch(databaseProvider);
+      return await db.zoneDao
+          .getAllZones()
+          .timeout(const Duration(seconds: 5), onTimeout: () => []);
+    } catch (_) {
+      return [];
+    }
   }
 
   Future<void> refresh() async {

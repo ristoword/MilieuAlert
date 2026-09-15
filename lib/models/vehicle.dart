@@ -67,4 +67,34 @@ class Vehicle {
       country: country ?? this.country,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'type': type.name,
+        'fuelType': fuelType.name,
+        'euroClass': euroClass.name,
+        'licensePlate': licensePlate,
+        'country': country,
+      };
+
+  factory Vehicle.fromJson(Map<String, dynamic> json) {
+    T enumByName<T extends Enum>(List<T> values, Object? raw, T fallback) {
+      final name = raw?.toString();
+      if (name == null || name.isEmpty) return fallback;
+      for (final value in values) {
+        if (value.name == name) return value;
+      }
+      return fallback;
+    }
+
+    return Vehicle(
+      id: json['id'] is int ? json['id'] as int : null,
+      type: enumByName(VehicleType.values, json['type'], VehicleType.car),
+      fuelType: enumByName(FuelType.values, json['fuelType'], FuelType.diesel),
+      euroClass:
+          enumByName(EuroClass.values, json['euroClass'], EuroClass.euro4),
+      licensePlate: json['licensePlate'] as String?,
+      country: json['country'] as String?,
+    );
+  }
 }

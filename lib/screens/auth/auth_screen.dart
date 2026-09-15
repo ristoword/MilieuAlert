@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/install_app_button.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
 
@@ -160,6 +161,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
                     // Glassmorphism form card
                     _buildFormCard(authState),
+                    const SizedBox(height: 20),
+                    const InstallAppButton(neon: true),
                   ],
                 ),
               ),

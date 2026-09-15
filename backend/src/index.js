@@ -32,7 +32,19 @@ app.use('/api/', limiter);
 
 // Serve Flutter web app static files
 const webBuildPath = path.join(__dirname, '..', 'public');
-app.use(express.static(webBuildPath));
+app.use(express.static(webBuildPath, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('manifest.json')) {
+      res.setHeader('Content-Type', 'application/manifest+json');
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+    if (filePath.endsWith(`${path.sep}sw.js`) || filePath.endsWith('/sw.js')) {
+      res.setHeader('Service-Worker-Allowed', '/');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Content-Type', 'application/javascript');
+    }
+  },
+}));
 
 app.get('/api/status', (req, res) => {
   res.json({

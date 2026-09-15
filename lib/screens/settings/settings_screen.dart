@@ -6,6 +6,7 @@ import '../../models/vehicle.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/vehicle_provider.dart';
+import '../../core/widgets/install_app_button.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -174,6 +175,27 @@ class SettingsScreen extends ConsumerWidget {
                       label: const Text('Edit Vehicle'),
                     ),
                   ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Install on this PC',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Add MilieuAlert as an app on your desktop — no store or SDK required.',
+                  ),
+                  SizedBox(height: 12),
+                  InstallAppButton(),
                 ],
               ),
             ),
