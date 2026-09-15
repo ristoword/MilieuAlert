@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 
 const { runMigrations } = require('./db/migrate');
 const authRoutes = require('./routes/auth');
@@ -14,7 +15,19 @@ const zoneRoutes = require('./routes/zones');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc: ["'self'", "https://tile.openstreetmap.org", "data:", "blob:"],
+      connectSrc: ["'self'", "https://tile.openstreetmap.org", "https://cdn.jsdelivr.net"],
+      workerSrc: ["'self'", "blob:"],
+    },
+  },
+}));
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
@@ -26,24 +39,9 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-app.get('/', (req, res) => {
-  res.json({
-    name: 'MilieuAlert API',
-    version: '1.0.0',
-    status: 'running',
-    endpoints: [
-      'POST /api/auth/register',
-      'POST /api/auth/login',
-      'GET /api/users/profile',
-      'PUT /api/users/profile',
-      'POST /api/ai/chat',
-      'POST /api/ai/zone-check',
-      'POST /api/trips/log',
-      'GET /api/trips/history',
-      'GET /api/zones/sync',
-    ],
-  });
-});
+// Serve Flutter web app static files
+const webBuildPath = path.join(__dirname, '..', 'web');
+app.use(express.static(webBuildPath));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -54,6 +52,12 @@ app.use('/api/users', userRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/zones', zoneRoutes);
+
+// SPA fallback - serve index.html for non-API routes
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  res.sendFile(path.join(webBuildPath, 'index.html'));
+});
 
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);

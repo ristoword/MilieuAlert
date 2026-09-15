@@ -1,8 +1,6 @@
-import 'dart:io';
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
+import 'connection/native.dart'
+    if (dart.library.js_interop) 'connection/web.dart';
 import 'tables.dart';
 import 'daos/zone_dao.dart';
 import 'daos/vehicle_dao.dart';
@@ -32,7 +30,7 @@ part 'app_database.g.dart';
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase() : super(openConnection());
 
   @override
   int get schemaVersion => 2;
@@ -50,11 +48,4 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 
-  static LazyDatabase _openConnection() {
-    return LazyDatabase(() async {
-      final dbFolder = await getApplicationDocumentsDirectory();
-      final file = File(p.join(dbFolder.path, 'milieu_alert.sqlite'));
-      return NativeDatabase.createInBackground(file);
-    });
-  }
 }
