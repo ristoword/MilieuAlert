@@ -57,6 +57,16 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+app.get('/api/db-check', async (req, res) => {
+  try {
+    const pool = require('./db/pool');
+    const result = await pool.query('SELECT NOW() as time');
+    res.json({ status: 'connected', time: result.rows[0].time, database_url_set: !!process.env.DATABASE_URL });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message, database_url_set: !!process.env.DATABASE_URL });
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/ai', aiRoutes);

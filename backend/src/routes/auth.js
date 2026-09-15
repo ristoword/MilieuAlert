@@ -33,8 +33,8 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({ user, token });
   } catch (err) {
-    console.error('Register error:', err.message, err.stack);
-    res.status(500).json({ error: 'Registration failed', detail: err.message });
+    console.error('Register error:', err);
+    res.status(500).json({ error: 'Registration failed', detail: String(err.message || err) });
   }
 });
 
