@@ -66,7 +66,12 @@ app.get('/api/db-check', async (req, res) => {
     const result = await pool.query('SELECT NOW() as time');
     res.json({ status: 'connected', time: result.rows[0].time, db_vars: dbVars });
   } catch (err) {
-    res.status(500).json({ status: 'error', message: String(err.message || err), db_vars: dbVars });
+    const errInfo = {
+      message: String(err.message || err),
+      code: err.code,
+      errors: err.errors ? err.errors.map(e => ({ message: e.message, code: e.code })) : undefined,
+    };
+    res.status(500).json({ status: 'error', ...errInfo, db_vars: dbVars, db_url_prefix: (process.env.DATABASE_URL || '').substring(0, 30) });
   }
 });
 
