@@ -9,7 +9,7 @@ async function runMigrations() {
     await pool.query(schema);
     console.log('Database migrations completed successfully');
   } catch (err) {
-    console.error('Migration error:', err.message);
+    console.error('Migration error:', err.message, err.stack);
   }
 }
 
