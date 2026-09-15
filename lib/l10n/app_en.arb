@@ -1,0 +1,133 @@
+﻿{
+  "@@locale": "en",
+  "appTitle": "MilieuAlert",
+  "alertApproaching": "Warning: in {distance} metres you will enter the {zoneName}.",
+  "@alertApproaching": {
+    "placeholders": {
+      "distance": {"type": "int"},
+      "zoneName": {"type": "String"}
+    }
+  },
+  "alertEntering": "You are entering the {zoneName}.",
+  "@alertEntering": {
+    "placeholders": {
+      "zoneName": {"type": "String"}
+    }
+  },
+  "alertNotAuthorized": "Your vehicle {euroClass} {fuelType} may not be authorized to drive in this zone.",
+  "@alertNotAuthorized": {
+    "placeholders": {
+      "euroClass": {"type": "String"},
+      "fuelType": {"type": "String"}
+    }
+  },
+  "alertAuthorized": "Your vehicle is authorized to drive in this zone.",
+  "alertLeaving": "Low emission zone ended.",
+  "onboardingLanguageTitle": "Select Language",
+  "onboardingVehicleTitle": "Vehicle Setup",
+  "vehicleType": "Vehicle Type",
+  "fuelType": "Fuel Type",
+  "euroClass": "Euro Class",
+  "licensePlate": "License Plate (optional)",
+  "country": "Country of Registration",
+  "next": "Next",
+  "save": "Save",
+  "saveAndContinue": "Save & Continue",
+  "settings": "Settings",
+  "alertDistance": "Alert Distance",
+  "language": "Language",
+  "vehicleInfo": "Vehicle Information",
+  "editVehicle": "Edit Vehicle",
+  "noVehicleConfigured": "No vehicle configured",
+  "vehicleDescription": "Tell us about your vehicle",
+  "vehicleDescriptionSubtext": "This information helps determine if your vehicle is allowed in emission zones.",
+  "chooseLanguage": "Choose your preferred language",
+  "zoneDetails": "Zone Details",
+  "zoneName": "Zone Name",
+  "zoneCity": "City",
+  "zoneCountry": "Country",
+  "zoneType": "Zone Type",
+  "zoneInformation": "Zone Information",
+  "zoneNotFound": "Zone not found",
+  "activeFrom": "Active From",
+  "activeTo": "Active To",
+  "activeDays": "Active Days",
+  "minimumEuro": "Minimum Euro Class",
+  "allowedFuelTypes": "Allowed Fuel Types",
+  "allowedVehicleTypes": "Allowed Vehicle Types",
+  "restrictions": "Restrictions",
+  "officialSource": "Official Source",
+  "lastVerified": "Last Verified",
+  "disclaimer": "Informational result. Always verify official regulations.",
+  "car": "Car",
+  "van": "Van",
+  "truck": "Truck",
+  "camper": "Camper",
+  "motorcycle": "Motorcycle",
+  "diesel": "Diesel",
+  "petrol": "Petrol",
+  "lpg": "LPG",
+  "hybrid": "Hybrid",
+  "electric": "Electric",
+  "speed": "Speed",
+  "kmh": "km/h",
+  "meters": "{count} m",
+  "@meters": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "kilometers": "{count} km",
+  "@kilometers": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "environmentalZone": "Environmental Zone",
+  "zeroEmissionZone": "Zero Emission Zone",
+  "noZonesNearby": "No zones nearby",
+  "syncingZones": "Syncing zone data...",
+  "syncComplete": "Zone data updated",
+  "syncError": "Failed to update zone data",
+  "approachingZone": "Approaching {zoneName} - {distance}m",
+  "@approachingZone": {
+    "placeholders": {
+      "zoneName": {"type": "String"},
+      "distance": {"type": "int"}
+    }
+  },
+  "insideZoneAuthorized": "Inside {zoneName} - Vehicle authorized",
+  "@insideZoneAuthorized": {
+    "placeholders": {
+      "zoneName": {"type": "String"}
+    }
+  },
+  "insideZoneNotAuthorized": "⚠ Vehicle NOT authorized in {zoneName}",
+  "@insideZoneNotAuthorized": {
+    "placeholders": {
+      "zoneName": {"type": "String"}
+    }
+  },
+  "loading": "Loading...",
+  "error": "Error",
+  "retry": "Retry",
+  "cancel": "Cancel",
+  "ok": "OK",
+  "appVersion": "MilieuAlert v{version}",
+  "@appVersion": {
+    "placeholders": {
+      "version": {"type": "String"}
+    }
+  },
+  "licensePlateHint": "e.g. AB-123-CD",
+  "locationPermissionRequired": "Location permission is required for zone alerts",
+  "notificationPermissionRequired": "Notification permission is required for zone alerts",
+  "backgroundLocationRequired": "Background location is needed to alert you while driving",
+  "grantPermission": "Grant Permission",
+  "euro": "Euro {level}",
+  "@euro": {
+    "placeholders": {
+      "level": {"type": "int"}
+    }
+  }
+}

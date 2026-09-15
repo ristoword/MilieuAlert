@@ -1,0 +1,49 @@
+name: milieu_alert
+description: MilieuAlert - Low Emission Zone warnings for drivers
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.0
+  flutter: '>=3.29.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+  maplibre_gl: ^0.26.2
+  tracelet: ^3.8.7
+  flutter_tts: ^4.2.0
+  audio_service: ^0.18.17
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+  drift: ^2.35.0
+  sqlite3_flutter_libs: ^0.5.28
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  dio: ^5.7.0
+  go_router: ^15.1.1
+  shared_preferences: ^2.3.4
+  permission_handler: ^11.3.1
+  geolocator: ^13.0.2
+  flutter_local_notifications: ^18.0.1
+  collection: ^1.19.1
+  google_fonts: ^6.2.1
+  shimmer: ^3.0.0
+  flutter_native_splash: ^2.4.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  drift_dev: ^2.35.0
+  build_runner: ^2.16.0
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/icon/
+    - assets/splash/
