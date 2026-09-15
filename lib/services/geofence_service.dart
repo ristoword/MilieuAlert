@@ -91,6 +91,7 @@ class GeofenceService {
     _proximityController.add(ZoneProximity(
       zoneId: zone.id,
       zoneName: zone.name,
+      zoneType: zone.zoneType,
       status: status,
     ));
   }

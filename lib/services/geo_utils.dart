@@ -72,6 +72,7 @@ ZoneProximity? nearestProximity({
       inside = ZoneProximity(
         zoneId: zone.id,
         zoneName: zone.name,
+        zoneType: zone.zoneType,
         status: ZoneStatus.inside,
         distanceMeters: 0,
         isVehicleAllowed: allowed,
@@ -80,17 +81,19 @@ ZoneProximity? nearestProximity({
     }
 
     final dist = minDistanceToZone(lat, lon, zone);
-    if (dist <= alertDistanceMeters) {
-      if (approaching == null ||
-          (approaching.distanceMeters ?? double.infinity) > dist) {
-        approaching = ZoneProximity(
-          zoneId: zone.id,
-          zoneName: zone.name,
-          status: ZoneStatus.approaching,
-          distanceMeters: dist,
-          isVehicleAllowed: allowed,
-        );
-      }
+    if (dist.isFinite &&
+        (approaching == null ||
+            (approaching.distanceMeters ?? double.infinity) > dist)) {
+      approaching = ZoneProximity(
+        zoneId: zone.id,
+        zoneName: zone.name,
+        zoneType: zone.zoneType,
+        status: dist <= alertDistanceMeters
+            ? ZoneStatus.approaching
+            : ZoneStatus.safe,
+        distanceMeters: dist,
+        isVehicleAllowed: allowed,
+      );
     }
   }
 

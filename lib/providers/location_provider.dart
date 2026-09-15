@@ -18,6 +18,7 @@ class LocationState {
   final double? heading;
   final ZoneProximity? nearestZone;
   final bool tracking;
+  final bool follow;
   final String? error;
 
   const LocationState({
@@ -27,6 +28,7 @@ class LocationState {
     this.heading,
     this.nearestZone,
     this.tracking = false,
+    this.follow = true,
     this.error,
   });
 
@@ -37,6 +39,7 @@ class LocationState {
     double? heading,
     ZoneProximity? nearestZone,
     bool? tracking,
+    bool? follow,
     String? error,
     bool clearError = false,
     bool clearZone = false,
@@ -48,6 +51,7 @@ class LocationState {
       heading: heading ?? this.heading,
       nearestZone: clearZone ? nearestZone : (nearestZone ?? this.nearestZone),
       tracking: tracking ?? this.tracking,
+      follow: follow ?? this.follow,
       error: clearError ? null : (error ?? this.error),
     );
   }
@@ -100,10 +104,21 @@ class LocationNotifier extends StateNotifier<LocationState> {
         state = state.copyWith(error: e.toString());
       });
 
-      state = state.copyWith(tracking: true, clearError: true);
+      state = state.copyWith(tracking: true, follow: true, clearError: true);
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
+  }
+
+  void setFollow(bool enabled) {
+    state = state.copyWith(follow: enabled);
+    if (enabled && !state.tracking) {
+      startTracking();
+    }
+  }
+
+  void toggleFollow() {
+    setFollow(!state.follow);
   }
 
   void _applyPosition(Position pos) {

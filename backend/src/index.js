@@ -11,6 +11,7 @@ const userRoutes = require('./routes/users');
 const aiRoutes = require('./routes/ai');
 const tripRoutes = require('./routes/trips');
 const zoneRoutes = require('./routes/zones');
+const geoRoutes = require('./routes/geo');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,7 +25,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 250,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -74,6 +75,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/zones', zoneRoutes);
+app.use('/api/geo', geoRoutes);
 
 // SPA fallback - serve index.html for non-API routes
 app.get('*', (req, res, next) => {
