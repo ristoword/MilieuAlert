@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -103,7 +104,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     if (!mounted) return;
 
     if (success) {
-      context.go('/onboarding/language');
+      if (!_isLogin) {
+        await ref
+            .read(localeProvider.notifier)
+            .setLocale(_selectedLanguage.toLowerCase());
+      }
+      if (!mounted) return;
+      final onboardingComplete = ref.read(onboardingCompleteProvider);
+      context.go(onboardingComplete ? '/map' : '/onboarding/language');
     } else {
       final error = ref.read(authProvider).errorMessage ?? 'Unknown error';
       ScaffoldMessenger.of(context).showSnackBar(
@@ -471,7 +479,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     required ValueChanged<T?> onChanged,
   }) {
     return DropdownButtonFormField<T>(
-      value: value,
+      initialValue: value,
       items: items,
       onChanged: onChanged,
       dropdownColor: NeonColors.darkCard,

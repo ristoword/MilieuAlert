@@ -88,19 +88,30 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final response = await _dio.post(
         '/api/auth/login',
-        data: jsonEncode({'email': email, 'password': password}),
+        data: {'email': email, 'password': password},
       );
 
-      final data = response.data;
-      final token = data['token'] as String;
-      final user = data['user'] as Map<String, dynamic>;
+      final data = response.data is Map
+          ? Map<String, dynamic>.from(response.data as Map)
+          : jsonDecode(response.data as String) as Map<String, dynamic>;
+      final token = data['token'] as String?;
+      if (token == null || token.isEmpty) {
+        state = state.copyWith(
+            isLoading: false, errorMessage: 'Invalid server response');
+        return false;
+      }
+      final user = Map<String, dynamic>.from(data['user'] as Map? ?? {});
       final displayName =
           user['display_name'] as String? ?? user['email'] as String? ?? email;
+      final language = (user['preferred_language'] as String?)?.toLowerCase();
 
       if (rememberMe) {
         await _prefs.setString('auth_token', token);
         await _prefs.setString('user_email', email);
         await _prefs.setString('user_name', displayName);
+        if (language != null && language.isNotEmpty) {
+          await _prefs.setString('locale', language);
+        }
       }
 
       state = AuthState(
@@ -133,21 +144,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final response = await _dio.post(
         '/api/auth/register',
-        data: jsonEncode({
+        data: {
           'email': email,
           'password': password,
           'display_name': displayName,
-          'preferred_language': preferredLanguage,
+          'preferred_language': preferredLanguage.toLowerCase(),
           'country': country,
-        }),
+        },
       );
 
-      final data = response.data;
-      final token = data['token'] as String;
+      final data = response.data is Map
+          ? Map<String, dynamic>.from(response.data as Map)
+          : jsonDecode(response.data as String) as Map<String, dynamic>;
+      final token = data['token'] as String?;
+      if (token == null || token.isEmpty) {
+        state = state.copyWith(
+            isLoading: false, errorMessage: 'Invalid server response');
+        return false;
+      }
 
       await _prefs.setString('auth_token', token);
       await _prefs.setString('user_email', email);
       await _prefs.setString('user_name', displayName);
+      await _prefs.setString('locale', preferredLanguage.toLowerCase());
 
       state = AuthState(
         isAuthenticated: true,

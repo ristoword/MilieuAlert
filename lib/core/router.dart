@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../screens/auth/auth_screen.dart';
@@ -10,13 +11,23 @@ import '../providers/auth_provider.dart';
 import '../providers/settings_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
-  final onboardingComplete = ref.watch(onboardingCompleteProvider);
+  final refresh = ValueNotifier<int>(0);
 
-  return GoRouter(
+  ref.listen<bool>(
+    authProvider.select((s) => s.isAuthenticated),
+    (_, __) => refresh.value++,
+  );
+  ref.listen<bool>(
+    onboardingCompleteProvider,
+    (_, __) => refresh.value++,
+  );
+
+  final router = GoRouter(
     initialLocation: '/auth',
+    refreshListenable: refresh,
     redirect: (context, state) {
-      final isAuthenticated = authState.isAuthenticated;
+      final isAuthenticated = ref.read(authProvider).isAuthenticated;
+      final onboardingComplete = ref.read(onboardingCompleteProvider);
       final isOnAuthPage = state.matchedLocation == '/auth';
 
       // Not authenticated → force to /auth
@@ -29,7 +40,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         return onboardingComplete ? '/map' : '/onboarding/language';
       }
 
-      return null; // no redirect
+      return null;
     },
     routes: [
       GoRoute(
@@ -61,4 +72,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+
+  ref.onDispose(() {
+    router.dispose();
+    refresh.dispose();
+  });
+
+  return router;
 });

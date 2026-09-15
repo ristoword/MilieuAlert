@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants.dart';
 import '../../models/vehicle.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/vehicle_provider.dart';
 
@@ -175,6 +176,18 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                await ref.read(authProvider.notifier).logout();
+                if (context.mounted) context.go('/auth');
+              },
+              icon: const Icon(Icons.logout),
+              label: const Text('Sign Out'),
             ),
           ),
           const SizedBox(height: 24),
