@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
+const { runMigrations } = require('./db/migrate');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const aiRoutes = require('./routes/ai');
@@ -59,6 +60,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`MilieuAlert API running on port ${PORT}`);
+  await runMigrations();
 });
