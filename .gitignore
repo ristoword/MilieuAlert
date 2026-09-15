@@ -5,6 +5,7 @@
 *.swp
 .DS_Store
 .atom/
+.build/
 .buildlog/
 .history
 .svn/
@@ -16,8 +17,9 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# VS Code related
+# VS Code / Cursor related
 .vscode/
+.cursor/
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -31,6 +33,9 @@ migrate_working_dir/
 /build/
 pubspec.lock
 
+# Drift / build_runner generated files
+*.g.dart
+
 # Symbolication related
 app.*.symbols
 
@@ -42,17 +47,13 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Platform specific
+# Platform build directories
 /android/.gradle/
-/ios/.symlinks/
 /ios/Pods/
+/ios/.symlinks/
 /ios/Runner.xcworkspace/
-/linux/flutter/ephemeral/
 /macos/Flutter/ephemeral/
 /windows/flutter/ephemeral/
+/linux/flutter/ephemeral/
 
-# Generated
-*.g.dart
-!lib/data/database/app_database.g.dart
-!lib/data/database/daos/zone_dao.g.dart
-!lib/data/database/daos/vehicle_dao.g.dart
+# NOTE: Do NOT ignore lib/l10n/ - generated localization files are needed
