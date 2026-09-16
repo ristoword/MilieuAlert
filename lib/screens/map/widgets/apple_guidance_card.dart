@@ -68,6 +68,7 @@ class AppleGuidanceCard extends StatelessWidget {
     final dist = step != null && step.distanceMeters > 0
         ? formatDistance(step.distanceMeters)
         : formatDistance(live?.remainingMeters ?? nav.routeDistanceMeters);
+    final action = step?.maneuverIt ?? mapsInstruction(live, nav);
     final street = step?.name.trim().isNotEmpty == true
         ? step!.name
         : (nav.destination?.label ?? '');
@@ -108,8 +109,8 @@ class AppleGuidanceCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    mapsInstruction(live, nav),
-                    maxLines: 1,
+                    action,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
                       fontSize: 15,
@@ -120,7 +121,7 @@ class AppleGuidanceCard extends StatelessWidget {
                   if (street.isNotEmpty)
                     Text(
                       street,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
                         fontSize: 13,

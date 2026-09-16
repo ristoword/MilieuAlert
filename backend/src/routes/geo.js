@@ -1,8 +1,44 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
+const {
+  parseTileCoord,
+  isValidTile,
+  loadTileBuffer,
+} = require('../services/tiles');
 const router = express.Router();
 
 const USER_AGENT =
   'MilieuAlert/1.0 (https://milieualert-production.up.railway.app)';
+
+const tileLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 400,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.get('/tiles/:z/:x/:file', tileLimiter, async (req, res) => {
+  const fileMatch = String(req.params.file || '').match(/^(\d+)(?:\.png)?$/i);
+  const z = parseTileCoord(req.params.z);
+  const x = parseTileCoord(req.params.x);
+  const y = fileMatch ? parseTileCoord(fileMatch[1]) : null;
+  if (!isValidTile(z, x, y)) {
+    return res.status(400).end();
+  }
+  const theme =
+    String(req.query.theme || '').toLowerCase() === 'dark' ? 'dark' : 'light';
+  try {
+    const tile = await loadTileBuffer(z, x, y, theme);
+    res.setHeader('Content-Type', tile.contentType || 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(tile.buf);
+  } catch (err) {
+    console.error('geo tile failed:', err.message);
+    res.status(502).end();
+  }
+});
+
 
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, {

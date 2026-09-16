@@ -15,14 +15,19 @@ class AppConstants {
   static const List<int> alertDistances = [100, 300, 500, 1000, 2000];
   static const int defaultAlertDistance = 500;
 
+  // Backend API (Railway)
+  static const String apiBaseUrl =
+      'https://milieualert-production.up.railway.app';
+
   // Map style
   static const String osmStyleUrl =
       'https://demotiles.maplibre.org/style.json';
-  // Carto basemaps (OSM data). Do not use tile.openstreetmap.org in apps.
+  // Raster tiles via our backend proxy (OSM, or Carto/MapTiler/Stadia with key).
+  // Never hit keyless Carto from the PWA (watermarked "API KEY REQUIRED").
   static const String osmTileUrl =
-      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
+      '$apiBaseUrl/api/geo/tiles/{z}/{x}/{y}.png?theme=dark';
   static const String osmTileUrlLight =
-      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+      '$apiBaseUrl/api/geo/tiles/{z}/{x}/{y}.png';
 
   // API endpoints
   static const String ndwApiUrl =
@@ -39,10 +44,6 @@ class AppConstants {
   static const double initialLat = 52.3676;
   static const double initialLng = 4.9041;
   static const double initialZoom = 7.0;
-
-  // Backend API (Railway)
-  static const String apiBaseUrl =
-      'https://milieualert-production.up.railway.app';
 
   // OpenAI config (used by backend, not directly in app)
   static const String aiModel = 'gpt-4o-mini';

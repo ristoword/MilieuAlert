@@ -121,40 +121,53 @@ class NavStep {
     );
   }
 
-  String get instructionIt {
-    final road = name.trim().isEmpty ? '' : ' su $name';
+  /// Turn action only, so the HUD can show the full street name on its own line.
+  String get maneuverIt {
     switch (type) {
       case 'depart':
-        return 'Partenza$road';
+        return 'Partenza';
       case 'arrive':
         return 'Sei arrivato';
       case 'roundabout':
       case 'rotary':
-        return 'Immettersi in rotonda$road';
+        return 'Immettersi in rotonda';
       case 'merge':
-        return 'Immettersi$road';
+        return 'Immettersi';
       case 'fork':
         return modifier.contains('left')
-            ? 'Tenersi a sinistra$road'
-            : 'Tenersi a destra$road';
+            ? 'Tenersi a sinistra'
+            : 'Tenersi a destra';
       case 'on ramp':
-        return 'Prendere la rampa$road';
+        return 'Prendere la rampa';
       case 'off ramp':
       case 'exit':
-        return 'Uscire$road';
+        return 'Uscire';
       case 'turn':
-        if (modifier.contains('sharp left')) return 'Svolta secca a sinistra$road';
-        if (modifier.contains('sharp right')) return 'Svolta secca a destra$road';
-        if (modifier.contains('slight left')) return 'Tieni la sinistra$road';
-        if (modifier.contains('slight right')) return 'Tieni la destra$road';
-        if (modifier.contains('left')) return 'Gira a sinistra$road';
-        if (modifier.contains('right')) return 'Gira a destra$road';
-        if (modifier.contains('uturn')) return 'Inverti marcia$road';
-        return 'Svolta$road';
+        if (modifier.contains('sharp left')) return 'Svolta secca a sinistra';
+        if (modifier.contains('sharp right')) return 'Svolta secca a destra';
+        if (modifier.contains('slight left')) return 'Tieni la sinistra';
+        if (modifier.contains('slight right')) return 'Tieni la destra';
+        if (modifier.contains('left')) return 'Gira a sinistra';
+        if (modifier.contains('right')) return 'Gira a destra';
+        if (modifier.contains('uturn')) return 'Inverti marcia';
+        return 'Svolta';
       case 'new name':
       case 'continue':
       default:
+        return name.trim().isEmpty ? 'Prosegui dritto' : 'Prosegui';
+    }
+  }
+
+  String get instructionIt {
+    final road = name.trim().isEmpty ? '' : ' su $name';
+    switch (type) {
+      case 'arrive':
+        return maneuverIt;
+      case 'new name':
+      case 'continue':
         return name.trim().isEmpty ? 'Prosegui dritto' : 'Prosegui su $name';
+      default:
+        return '$maneuverIt$road';
     }
   }
 }

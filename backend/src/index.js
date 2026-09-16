@@ -30,7 +30,10 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use('/api/', limiter);
+app.use('/api/', (req, res, next) => {
+  if (req.path.startsWith('/geo/tiles/')) return next();
+  return limiter(req, res, next);
+});
 
 // Crawlable locale landings, robots.txt and sitemap.xml (before static / SPA).
 seo.mount(app);

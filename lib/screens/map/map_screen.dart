@@ -388,8 +388,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 urlTemplate: isDark
                     ? AppConstants.osmTileUrl
                     : AppConstants.osmTileUrlLight,
-                subdomains: const ['a', 'b', 'c', 'd'],
                 userAgentPackageName: 'com.milieualert.app',
+                maxNativeZoom: 19,
               ),
               zonesAsync.when(
                 data: (zones) => PolygonLayer(
@@ -475,7 +475,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
               ]),
               const RichAttributionWidget(
                 attributions: [
-                  TextSourceAttribution('© OpenStreetMap © CARTO'),
+                  TextSourceAttribution('© OpenStreetMap contributors'),
                 ],
               ),
             ],
