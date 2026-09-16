@@ -20,6 +20,7 @@ import '../../providers/hazard_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/voice_guidance_provider.dart';
 import '../../providers/zone_provider.dart';
 import 'widgets/ai_assist_sheet.dart';
 import 'widgets/ai_hint_banner.dart';
@@ -364,6 +365,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final nav = ref.watch(navigationProvider);
     final hazards = ref.watch(hazardProvider);
     final ai = ref.watch(aiAssistProvider);
+    ref.watch(voiceGuidanceProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final topPad = MediaQuery.of(context).padding.top;
 
@@ -465,7 +467,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
               FocusManager.instance.primaryFocus?.unfocus();
               if (!_userSetMapMode) _tilt3d = true;
             } else {
-              _sheetExpanded = true;
+              // Full map when driving without a destination.
+              _sheetExpanded = nav.destination != null;
               _trayExpanded = false;
               _seenCameraAlertId = null;
               if (!_userSetMapMode) _tilt3d = false;
@@ -630,21 +633,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 else
                   Align(
                     alignment: Alignment.topRight,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _RoundMapButton(
-                          icon: Icons.auto_awesome,
-                          tooltip: 'Assistente AI',
-                          onTap: _openAi,
-                        ),
-                        const SizedBox(width: 8),
-                        _RoundMapButton(
-                          icon: Icons.settings_outlined,
-                          tooltip: 'Impostazioni',
-                          onTap: () => context.push('/settings'),
-                        ),
-                      ],
+                    child: _RoundMapButton(
+                      icon: Icons.settings_outlined,
+                      tooltip: 'Impostazioni',
+                      onTap: () => context.push('/settings'),
                     ),
                   ),
                 const SizedBox(height: 8),
@@ -877,7 +869,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 onSelectAlternative: (i) {
                   ref.read(navigationProvider.notifier).selectAlternative(i);
                 },
-                onOpenAi: _openAi,
               ),
                 ],
               ),

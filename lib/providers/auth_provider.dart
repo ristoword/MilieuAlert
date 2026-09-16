@@ -15,6 +15,8 @@ class AuthState {
   final String? token;
   final String? email;
   final String? displayName;
+  final String? country;
+  final String? preferredLanguage;
   final String? errorMessage;
 
   const AuthState({
@@ -23,6 +25,8 @@ class AuthState {
     this.token,
     this.email,
     this.displayName,
+    this.country,
+    this.preferredLanguage,
     this.errorMessage,
   });
 
@@ -32,6 +36,8 @@ class AuthState {
     String? token,
     String? email,
     String? displayName,
+    String? country,
+    String? preferredLanguage,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -41,6 +47,8 @@ class AuthState {
       token: token ?? this.token,
       email: email ?? this.email,
       displayName: displayName ?? this.displayName,
+      country: country ?? this.country,
+      preferredLanguage: preferredLanguage ?? this.preferredLanguage,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
@@ -67,6 +75,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final token = _prefs.getString('auth_token');
     final email = _prefs.getString('user_email');
     final name = _prefs.getString('user_name');
+    final country = _prefs.getString('user_country');
+    final language = _prefs.getString('locale');
 
     if (token != null && token.isNotEmpty) {
       state = AuthState(
@@ -74,7 +84,37 @@ class AuthNotifier extends StateNotifier<AuthState> {
         token: token,
         email: email,
         displayName: name,
+        country: country,
+        preferredLanguage: language,
       );
+    }
+  }
+
+  Options _authOptions() {
+    final token = state.token;
+    return Options(
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      },
+    );
+  }
+
+  Future<void> _persistSession({
+    required String token,
+    required String email,
+    required String displayName,
+    String? country,
+    String? language,
+  }) async {
+    await _prefs.setString('auth_token', token);
+    await _prefs.setString('user_email', email);
+    await _prefs.setString('user_name', displayName);
+    if (country != null && country.isNotEmpty) {
+      await _prefs.setString('user_country', country);
+    }
+    if (language != null && language.isNotEmpty) {
+      await _prefs.setString('locale', language.toLowerCase());
     }
   }
 
@@ -104,21 +144,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final displayName =
           user['display_name'] as String? ?? user['email'] as String? ?? email;
       final language = (user['preferred_language'] as String?)?.toLowerCase();
+      final country = user['country'] as String?;
 
       if (rememberMe) {
-        await _prefs.setString('auth_token', token);
-        await _prefs.setString('user_email', email);
-        await _prefs.setString('user_name', displayName);
-        if (language != null && language.isNotEmpty) {
-          await _prefs.setString('locale', language);
-        }
+        await _persistSession(
+          token: token,
+          email: user['email'] as String? ?? email,
+          displayName: displayName,
+          country: country,
+          language: language,
+        );
       }
 
       state = AuthState(
         isAuthenticated: true,
         token: token,
-        email: email,
+        email: user['email'] as String? ?? email,
         displayName: displayName,
+        country: country,
+        preferredLanguage: language,
       );
       return true;
     } on DioException catch (e) {
@@ -163,16 +207,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return false;
       }
 
-      await _prefs.setString('auth_token', token);
-      await _prefs.setString('user_email', email);
-      await _prefs.setString('user_name', displayName);
-      await _prefs.setString('locale', preferredLanguage.toLowerCase());
+      await _persistSession(
+        token: token,
+        email: email,
+        displayName: displayName,
+        country: country,
+        language: preferredLanguage,
+      );
 
       state = AuthState(
         isAuthenticated: true,
         token: token,
         email: email,
         displayName: displayName,
+        country: country,
+        preferredLanguage: preferredLanguage.toLowerCase(),
       );
       return true;
     } on DioException catch (e) {
@@ -190,7 +239,144 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _prefs.remove('auth_token');
     await _prefs.remove('user_email');
     await _prefs.remove('user_name');
+    await _prefs.remove('user_country');
     state = const AuthState();
+  }
+
+  Future<bool> refreshProfile() async {
+    if (state.token == null || state.token!.isEmpty) return false;
+    try {
+      final response = await _dio.get(
+        '/api/users/profile',
+        options: _authOptions(),
+      );
+      final data = response.data is Map
+          ? Map<String, dynamic>.from(response.data as Map)
+          : jsonDecode(response.data as String) as Map<String, dynamic>;
+      _applyProfileMap(data, token: state.token);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> updateProfile({
+    required String displayName,
+    required String email,
+    required String country,
+    required String preferredLanguage,
+    String? password,
+    Map<String, dynamic>? vehicle,
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    final trimmedName = displayName.trim();
+    final trimmedEmail = email.trim().toLowerCase();
+    final lang = preferredLanguage.toLowerCase();
+
+    if (trimmedName.isEmpty) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Name is required',
+      );
+      return false;
+    }
+    if (trimmedEmail.isEmpty || !trimmedEmail.contains('@')) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Enter a valid email',
+      );
+      return false;
+    }
+    if (password != null && password.isNotEmpty && password.length < 8) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Password must be at least 8 characters',
+      );
+      return false;
+    }
+
+    try {
+      final payload = <String, dynamic>{
+        'display_name': trimmedName,
+        'email': trimmedEmail,
+        'country': country,
+        'preferred_language': lang,
+        if (password != null && password.isNotEmpty) 'password': password,
+        if (vehicle != null) 'vehicle': vehicle,
+      };
+
+      Response response;
+      try {
+        response = await _dio.patch(
+          '/api/users/profile',
+          data: payload,
+          options: _authOptions(),
+        );
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 404) {
+          response = await _dio.patch(
+            '/api/auth/me',
+            data: payload,
+            options: _authOptions(),
+          );
+        } else {
+          rethrow;
+        }
+      }
+
+      final data = response.data is Map
+          ? Map<String, dynamic>.from(response.data as Map)
+          : jsonDecode(response.data as String) as Map<String, dynamic>;
+      final user = data['user'] is Map
+          ? Map<String, dynamic>.from(data['user'] as Map)
+          : data;
+      _applyProfileMap(
+        user,
+        token: data['token'] as String? ?? state.token,
+      );
+      state = state.copyWith(isLoading: false, clearError: true);
+      return true;
+    } on DioException catch (e) {
+      final msg = _extractError(e);
+      state = state.copyWith(isLoading: false, errorMessage: msg);
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Could not save profile: $e',
+      );
+      return false;
+    }
+  }
+
+  void _applyProfileMap(Map<String, dynamic> data, {String? token}) {
+    final email = data['email'] as String? ?? state.email ?? '';
+    final displayName =
+        data['display_name'] as String? ?? data['email'] as String? ?? email;
+    final country = data['country'] as String? ?? state.country;
+    final language =
+        (data['preferred_language'] as String?)?.toLowerCase() ??
+            state.preferredLanguage;
+    final nextToken = token ?? state.token ?? '';
+    if (nextToken.isNotEmpty) {
+      _persistSession(
+        token: nextToken,
+        email: email,
+        displayName: displayName,
+        country: country,
+        language: language,
+      );
+    }
+    state = state.copyWith(
+      isAuthenticated: true,
+      token: nextToken.isEmpty ? state.token : nextToken,
+      email: email,
+      displayName: displayName,
+      country: country,
+      preferredLanguage: language,
+      isLoading: false,
+      clearError: true,
+    );
   }
 
   void clearError() {

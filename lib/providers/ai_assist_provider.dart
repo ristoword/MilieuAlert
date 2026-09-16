@@ -5,13 +5,13 @@ import '../models/saved_places.dart';
 import '../models/zone_status.dart';
 import '../services/ai_assist_service.dart';
 import '../services/ai_fallback.dart';
-import '../services/tts_service.dart';
 import 'auth_provider.dart';
 import 'favorites_provider.dart';
 import 'location_provider.dart';
 import 'navigation_provider.dart';
 import 'settings_provider.dart';
 import 'vehicle_provider.dart';
+import 'voice_guidance_provider.dart';
 
 class AiAssistState {
   final List<AiChatMessage> messages;
@@ -60,10 +60,8 @@ class AiAssistNotifier extends StateNotifier<AiAssistState> {
 
   final Ref _ref;
   final AiAssistService _service;
-  final TtsService _tts = TtsService();
   final List<String> _hinted = [];
   DateTime? _lastHintAt;
-  bool _ttsReady = false;
   int _seq = 0;
 
   String get _lang => _ref.read(localeProvider).languageCode;
@@ -121,7 +119,7 @@ class AiAssistNotifier extends StateNotifier<AiAssistState> {
         intent: 'alert_hint',
         message: alert.message,
         extraAlerts: [alert],
-        speak: true,
+        speak: false,
       );
     }
   }
@@ -141,7 +139,7 @@ class AiAssistNotifier extends StateNotifier<AiAssistState> {
             ? 'Sei dentro ${next.zoneName}, veicolo non autorizzato'
             : 'Sei dentro ${next.zoneName}')
         : 'Ti stai avvicinando a ${next.zoneName}';
-    _emitHint(id: key, intent: 'alert_hint', message: msg, speak: true);
+    _emitHint(id: key, intent: 'alert_hint', message: msg, speak: false);
   }
 
   Future<void> send(
@@ -217,6 +215,10 @@ class AiAssistNotifier extends StateNotifier<AiAssistState> {
       final text = result.hint.isEmpty ? result.reply : result.hint;
       if (text.isEmpty) return;
       state = state.copyWith(hint: AiHint(id: id, text: text));
+      Future.delayed(const Duration(seconds: 8), () {
+        if (!mounted) return;
+        if (state.hint?.id == id) dismissHint();
+      });
       if (speak) {
         await _speak(text);
       }
@@ -286,12 +288,11 @@ class AiAssistNotifier extends StateNotifier<AiAssistState> {
 
   Future<void> _speak(String text) async {
     try {
-      if (!_ttsReady) {
-        await _tts.init();
-        _ttsReady = true;
-      }
-      await _tts.setLanguage(_lang);
-      await _tts.speak(text);
+      await _ref.read(ttsServiceProvider).speak(
+            text,
+            languageCode: _lang,
+            gender: _ref.read(navVoiceProvider),
+          );
     } catch (_) {}
   }
 

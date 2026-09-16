@@ -78,6 +78,67 @@ class SearchSheet extends ConsumerWidget {
     final ink = isDark ? Colors.white : MapsColors.ink;
     final muted = isDark ? Colors.white70 : MapsColors.inkMuted;
 
+    if (!expanded) {
+      return MapsGlass(
+        radius: MapsColors.radiusSheet,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onToggleExpanded,
+            borderRadius: BorderRadius.circular(MapsColors.radiusSheet),
+            child: GestureDetector(
+              onVerticalDragEnd: (details) {
+                if (details.velocity.pixelsPerSecond.dy < -80) {
+                  onToggleExpanded();
+                }
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: MapsColors.inkMuted.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.keyboard_arrow_up_rounded,
+                          color: muted,
+                          size: 22,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          destCtrl.text.trim().isEmpty
+                              ? 'Cerca un luogo'
+                              : destCtrl.text.trim(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: destCtrl.text.trim().isEmpty ? muted : ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return MapsGlass(
       radius: MapsColors.radiusSheet,
       child: AnimatedSize(
@@ -102,9 +163,17 @@ class SearchSheet extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(99),
                       ),
                     ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: muted,
+                        size: 20,
+                      ),
+                    ),
                     if (highlighted)
                       Padding(
-                        padding: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           AppLocalizations.of(context)?.navNavigation ??
                               'Navigazione',
@@ -127,64 +196,37 @@ class SearchSheet extends ConsumerWidget {
                 icon: Icons.search_rounded,
                 onChanged: onDestQuery,
               ),
-              if (expanded) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _SheetAddressField(
-                        fieldId: 'origin',
-                        controller: originCtrl,
-                        focusNode: originFocus,
-                        hint: 'Da: La mia posizione',
-                        icon: Icons.my_location_rounded,
-                        onChanged: onOriginQuery,
-                      ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _SheetAddressField(
+                      fieldId: 'origin',
+                      controller: originCtrl,
+                      focusNode: originFocus,
+                      hint: 'Da: La mia posizione',
+                      icon: Icons.my_location_rounded,
+                      onChanged: onOriginQuery,
                     ),
-                    IconButton(
-                      tooltip: 'Usa la mia posizione',
-                      onPressed: onUseMyLocation,
-                      icon: Icon(
-                        Icons.gps_fixed,
-                        color: nav.originIsMyLocation
-                            ? MapsColors.accent
-                            : muted,
-                        size: 20,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Inverti A e B',
-                      onPressed: onSwap,
-                      icon: Icon(Icons.swap_vert_rounded, color: muted),
-                    ),
-                  ],
-                ),
-              ] else
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Row(
-                    children: [
-                      Icon(Icons.near_me_rounded, size: 14, color: muted),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Da: ${originCtrl.text.trim().isEmpty ? 'La mia posizione' : originCtrl.text}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(fontSize: 12, color: muted),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: onToggleExpanded,
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          foregroundColor: MapsColors.route,
-                        ),
-                        child: const Text('A / B'),
-                      ),
-                    ],
                   ),
-                ),
+                  IconButton(
+                    tooltip: 'Usa la mia posizione',
+                    onPressed: onUseMyLocation,
+                    icon: Icon(
+                      Icons.gps_fixed,
+                      color: nav.originIsMyLocation
+                          ? MapsColors.accent
+                          : muted,
+                      size: 20,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Inverti A e B',
+                    onPressed: onSwap,
+                    icon: Icon(Icons.swap_vert_rounded, color: muted),
+                  ),
+                ],
+              ),
               if (_shouldShowGo(nav, destCtrl.text)) ...[
                 const SizedBox(height: 12),
                 _GoCta(
@@ -249,9 +291,7 @@ class SearchSheet extends ConsumerWidget {
                     style: GoogleFonts.inter(fontSize: 13, color: muted),
                   ),
                 ),
-              if (expanded &&
-                  nav.nearbyResults.isEmpty &&
-                  nav.suggestions.isEmpty)
+              if (nav.nearbyResults.isEmpty && nav.suggestions.isEmpty)
                 _Recents(
                   trips: fav.itineraries,
                   onApply: onApplyItinerary,

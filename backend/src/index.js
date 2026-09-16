@@ -63,8 +63,12 @@ app.get('/api/status', (req, res) => {
     endpoints: [
       'POST /api/auth/register',
       'POST /api/auth/login',
+      'GET /api/auth/me',
+      'PUT /api/auth/me',
+      'PATCH /api/auth/me',
       'GET /api/users/profile',
       'PUT /api/users/profile',
+      'PATCH /api/users/profile',
       'POST /api/ai/chat',
       'POST /api/ai/assist',
       'POST /api/ai/zone-check',

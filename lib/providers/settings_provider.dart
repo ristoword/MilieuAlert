@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants.dart';
+import '../services/tts_service.dart';
+
+export '../services/tts_service.dart' show NavVoiceGender;
 
 final sharedPrefsProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('Must be overridden in main');
@@ -58,5 +61,33 @@ class OnboardingNotifier extends StateNotifier<bool> {
   Future<void> complete() async {
     state = true;
     await _prefs.setBool('onboardingComplete', true);
+  }
+}
+
+final navVoiceProvider =
+    StateNotifierProvider<NavVoiceNotifier, NavVoiceGender>((ref) {
+  final prefs = ref.watch(sharedPrefsProvider);
+  return NavVoiceNotifier(prefs);
+});
+
+class NavVoiceNotifier extends StateNotifier<NavVoiceGender> {
+  NavVoiceNotifier(this._prefs)
+      : super(_parse(_prefs.getString('nav_voice_gender')));
+
+  final SharedPreferences _prefs;
+
+  static NavVoiceGender _parse(String? raw) {
+    switch (raw) {
+      case 'male':
+      case 'maschile':
+        return NavVoiceGender.male;
+      default:
+        return NavVoiceGender.female;
+    }
+  }
+
+  Future<void> setGender(NavVoiceGender gender) async {
+    state = gender;
+    await _prefs.setString('nav_voice_gender', gender.name);
   }
 }

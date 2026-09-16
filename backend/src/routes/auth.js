@@ -2,6 +2,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../db/pool');
+const { authenticateToken } = require('../middleware/auth');
+const userRoutes = require('./users');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-me';
@@ -67,6 +69,7 @@ router.post('/login', async (req, res) => {
         email: user.email,
         display_name: user.display_name,
         preferred_language: user.preferred_language,
+        country: user.country,
         is_premium: user.is_premium,
         subscription_plan: user.subscription_plan,
       },
@@ -77,5 +80,9 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ error: 'Login failed' });
   }
 });
+
+router.get('/me', authenticateToken, userRoutes.getProfileHandler);
+router.put('/me', authenticateToken, userRoutes.updateProfileHandler);
+router.patch('/me', authenticateToken, userRoutes.updateProfileHandler);
 
 module.exports = router;

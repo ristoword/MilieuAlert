@@ -1,41 +1,181 @@
-import 'package:flutter_tts/flutter_tts.dart';
+import 'speech_engine_stub.dart'
+    if (dart.library.js_interop) 'speech_engine_web.dart' as engine;
+import 'speech_types.dart';
+
+export 'speech_types.dart';
+
+enum NavVoiceGender { female, male }
 
 class TtsService {
-  final FlutterTts _tts = FlutterTts();
-  String _currentLanguage = 'en-US';
+  bool _ready = false;
 
   Future<void> init() async {
-    try {
-      await _tts.setSharedInstance(true);
-    } catch (_) {}
-    try {
-      await _tts.setSpeechRate(0.5);
-      await _tts.setVolume(1.0);
-      await _tts.setPitch(1.0);
-    } catch (_) {}
+    if (_ready) return;
+    await engine.engineInit();
+    _ready = true;
   }
 
-  Future<void> setLanguage(String locale) async {
-    final langMap = {
-      'it': 'it-IT',
-      'nl': 'nl-NL',
-      'en': 'en-US',
-      'de': 'de-DE',
-      'fr': 'fr-FR',
-    };
-    _currentLanguage = langMap[locale] ?? 'en-US';
-    await _tts.setLanguage(_currentLanguage);
+  bool get speaking => engine.engineSpeaking();
+
+  Future<void> stop() => engine.engineStop();
+
+  Future<void> speak(
+    String text, {
+    required String languageCode,
+    required NavVoiceGender gender,
+    bool critical = false,
+  }) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    if (!critical && speaking) return;
+
+    await init();
+    if (critical && speaking) {
+      await stop();
+    }
+
+    final lang = bcp47(languageCode);
+    final voices = await engine.engineListVoices();
+    final picked = pickVoice(voices, lang: lang, gender: gender);
+    final pitch = gender == NavVoiceGender.female ? 1.14 : 0.84;
+    final rate = gender == NavVoiceGender.female ? 0.98 : 0.9;
+
+    await engine.engineSpeak(
+      text: trimmed,
+      lang: lang,
+      voiceName: picked?.name,
+      pitch: pitch,
+      rate: rate,
+    );
   }
 
-  Future<void> speak(String text) async {
-    await _tts.speak(text);
+  static VoiceInfo? pickVoice(
+    List<VoiceInfo> voices, {
+    required String lang,
+    required NavVoiceGender gender,
+  }) {
+    if (voices.isEmpty) return null;
+    final prefix = lang.split('-').first.toLowerCase();
+    final ranked = [...voices]..sort((a, b) {
+        return _score(b, lang, prefix, gender)
+            .compareTo(_score(a, lang, prefix, gender));
+      });
+    return ranked.first;
   }
 
-  Future<void> stop() async {
-    await _tts.stop();
+  static int _score(
+    VoiceInfo v,
+    String lang,
+    String prefix,
+    NavVoiceGender gender,
+  ) {
+    var s = 0;
+    final vLang = v.lang.toLowerCase();
+    if (vLang == lang.toLowerCase()) {
+      s += 80;
+    } else if (vLang.startsWith(prefix)) {
+      s += 50;
+    }
+    final g = inferGender(v.name);
+    if (g == gender) s += 40;
+    if (g != null && g != gender) s -= 25;
+    return s;
   }
 
-  void dispose() {
-    _tts.stop();
+  static NavVoiceGender? inferGender(String name) {
+    final padded =
+        ' ${name.toLowerCase().replaceAll(RegExp(r'[^a-zàèéìòù]'), ' ')} ';
+    bool has(List<String> tokens) =>
+        tokens.any((t) => padded.contains(' $t '));
+    const female = [
+      'female',
+      'woman',
+      'girl',
+      'femminile',
+      'vrouw',
+      'zira',
+      'samantha',
+      'karen',
+      'susan',
+      'fiona',
+      'nicky',
+      'helena',
+      'hazel',
+      'catherine',
+      'elsa',
+      'elisa',
+      'elena',
+      'giulia',
+      'paola',
+      'clara',
+      'sofia',
+      'laura',
+      'emma',
+      'alice',
+      'rosa',
+      'maria',
+      'anna',
+      'lisa',
+      'isabella',
+      'bianca',
+      'francesca',
+      'silvia',
+      'jenny',
+      'aria',
+      'sonia',
+    ];
+    const male = [
+      'male',
+      'man',
+      'guy',
+      'boy',
+      'maschile',
+      'david',
+      'mark',
+      'daniel',
+      'james',
+      'thomas',
+      'george',
+      'richard',
+      'stefan',
+      'stefano',
+      'luca',
+      'giorgio',
+      'marco',
+      'paolo',
+      'diego',
+      'giuseppe',
+      'alessandro',
+      'roberto',
+      'bruno',
+      'ralf',
+      'frank',
+      'paul',
+      'alex',
+      'ryan',
+      'brian',
+      'christopher',
+      'fred',
+    ];
+    final hasF = has(female);
+    final hasM = has(male);
+    if (hasF && !hasM) return NavVoiceGender.female;
+    if (hasM && !hasF) return NavVoiceGender.male;
+    return null;
+  }
+
+  static String bcp47(String locale) {
+    switch (locale.toLowerCase()) {
+      case 'it':
+        return 'it-IT';
+      case 'nl':
+        return 'nl-NL';
+      case 'de':
+        return 'de-DE';
+      case 'fr':
+        return 'fr-FR';
+      default:
+        return 'en-US';
+    }
   }
 }
