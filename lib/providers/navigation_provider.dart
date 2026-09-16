@@ -7,6 +7,7 @@ import '../models/emission_zone.dart';
 import '../models/navigation_models.dart';
 import '../models/zone_status.dart';
 import '../services/geo_utils.dart';
+import '../services/navigation_guidance.dart';
 import '../services/navigation_service.dart';
 import 'location_provider.dart';
 import 'zone_provider.dart';
@@ -25,6 +26,7 @@ class NavigationState {
   final List<NavStep> steps;
   final List<SpeedCamera> cameras;
   final List<SpeedLimitPoint> limits;
+  final List<double> annotationSpeeds;
   final List<EmissionZone> zonesOnRoute;
   final bool searching;
   final bool routing;
@@ -51,6 +53,7 @@ class NavigationState {
     this.steps = const [],
     this.cameras = const [],
     this.limits = const [],
+    this.annotationSpeeds = const [],
     this.zonesOnRoute = const [],
     this.searching = false,
     this.routing = false,
@@ -80,6 +83,7 @@ class NavigationState {
     List<NavStep>? steps,
     List<SpeedCamera>? cameras,
     List<SpeedLimitPoint>? limits,
+    List<double>? annotationSpeeds,
     List<EmissionZone>? zonesOnRoute,
     bool? searching,
     bool? routing,
@@ -112,6 +116,7 @@ class NavigationState {
       steps: steps ?? this.steps,
       cameras: cameras ?? this.cameras,
       limits: limits ?? this.limits,
+      annotationSpeeds: annotationSpeeds ?? this.annotationSpeeds,
       zonesOnRoute: zonesOnRoute ?? this.zonesOnRoute,
       searching: searching ?? this.searching,
       routing: routing ?? this.routing,
@@ -133,22 +138,39 @@ class NavigationState {
 
 class LiveNavInfo {
   final NavStep? currentStep;
+  final int stepIndex;
+  final double metersToManeuver;
   final double remainingMeters;
   final double remainingSeconds;
   final int? speedLimitKmh;
+  final int? speedKmh;
   final SpeedCamera? nextCamera;
   final double? nextCameraMeters;
   final EmissionZone? currentZone;
+  final double offRouteMeters;
+  final bool offRoute;
 
   const LiveNavInfo({
     this.currentStep,
+    this.stepIndex = 0,
+    this.metersToManeuver = 0,
     required this.remainingMeters,
     this.remainingSeconds = 0,
     this.speedLimitKmh,
+    this.speedKmh,
     this.nextCamera,
     this.nextCameraMeters,
     this.currentZone,
+    this.offRouteMeters = 0,
+    this.offRoute = false,
   });
+
+  bool get speeding {
+    final speed = speedKmh;
+    final limit = speedLimitKmh;
+    if (speed == null || limit == null) return false;
+    return speed > limit + 2;
+  }
 }
 
 final navigationProvider =
@@ -157,7 +179,11 @@ final navigationProvider =
 });
 
 class NavigationNotifier extends StateNotifier<NavigationState> {
-  NavigationNotifier(this._ref, this._service) : super(const NavigationState());
+  NavigationNotifier(this._ref, this._service) : super(const NavigationState()) {
+    _ref.listen<LocationState>(locationProvider, (prev, next) {
+      _onGps(next);
+    });
+  }
 
   final Ref _ref;
   final NavigationService _service;
@@ -165,10 +191,14 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
   Timer? _monitor;
   bool _checking = false;
   DateTime? _watchedAt;
+  DateTime? _lastRerouteAt;
   double? _watchedDuration;
   double? _watchedDistance;
   Set<String> _watchedCameras = {};
   Set<String> _watchedZones = {};
+  RouteMetrics? _metrics;
+  List<LatLng> _metricsRoute = const [];
+  List<NavStep> _metricsSteps = const [];
 
   void setActiveField(SearchField field) {
     if (state.activeField == field) return;
@@ -332,6 +362,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     if (!state.hasRoute) return;
     state = state.copyWith(navigating: true, clearNearby: true, suggestions: const []);
     _ref.read(locationProvider.notifier).setFollow(true);
+    _lastRerouteAt = null;
   }
 
   Future<void> startNavigation(PlaceHit place) {
@@ -396,14 +427,19 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       return;
     }
 
+    final keepFollow = startFollowing || state.navigating;
     state = state.copyWith(
       routing: true,
-      navigating: startFollowing && state.originIsMyLocation,
+      navigating: startFollowing || state.navigating,
       suggestions: const [],
       clearError: true,
       clearNearby: startFollowing,
     );
-    _ref.read(locationProvider.notifier).setFollow(false);
+    if (keepFollow) {
+      _ref.read(locationProvider.notifier).setFollow(true);
+    } else {
+      _ref.read(locationProvider.notifier).setFollow(false);
+    }
 
     List<RoutePlan> plans = const [];
     try {
@@ -523,20 +559,26 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       cameras: cameras,
       zones: onRoute,
     );
+    _invalidateMetrics();
+    final navigating = startFollowing || state.navigating;
     state = state.copyWith(
       route: polyline,
       steps: plan.steps,
       cameras: cameras,
       limits: limits,
+      annotationSpeeds: plan.speeds,
       zonesOnRoute: onRoute,
       routing: false,
-      navigating: startFollowing && state.originIsMyLocation,
+      navigating: navigating,
       selectedRoute: selected,
       routeDistanceMeters: plan.distanceMeters,
       routeDurationSeconds: plan.durationSeconds,
       alerts: _mergeAlerts(forecast, replaceForecast: true),
       lastMonitoredAt: DateTime.now(),
     );
+    if (navigating) {
+      _ref.read(locationProvider.notifier).setFollow(true);
+    }
   }
 
   List<LatLng> _samplePath(List<LatLng> route, int maxPoints) {
@@ -554,10 +596,12 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     _monitor?.cancel();
     _monitor = null;
     _watchedAt = null;
+    _lastRerouteAt = null;
     _watchedDuration = null;
     _watchedDistance = null;
     _watchedCameras = {};
     _watchedZones = {};
+    _invalidateMetrics();
     _ref.read(locationProvider.notifier).setFollow(true);
     state = const NavigationState();
   }
@@ -692,6 +736,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
 
       final applyLive = state.navigating || changed;
       if (applyLive) {
+        _invalidateMetrics();
         final altPolylines = plans
             .map((p) => p.points.map((c) => LatLng(c[1], c[0])).toList())
             .toList();
@@ -703,12 +748,16 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
           steps: plan.steps,
           cameras: cameras,
           limits: limits,
+          annotationSpeeds: plan.speeds,
           zonesOnRoute: onRoute,
           routeDistanceMeters: plan.distanceMeters,
           routeDurationSeconds: plan.durationSeconds,
           alerts: _mergeAlerts(incoming),
           lastMonitoredAt: DateTime.now(),
         );
+        if (state.navigating) {
+          _ref.read(locationProvider.notifier).setFollow(true);
+        }
       } else {
         state = state.copyWith(
           cameras: cameras,
@@ -874,55 +923,158 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     return merged.take(5).toList();
   }
 
-  LiveNavInfo liveInfo(double lat, double lon) {
+  void _invalidateMetrics() {
+    _metrics = null;
+    _metricsRoute = const [];
+    _metricsSteps = const [];
+  }
+
+  RouteMetrics? _routeMetrics() {
+    if (!state.hasRoute) return null;
+    if (_metrics != null &&
+        identical(state.route, _metricsRoute) &&
+        identical(state.steps, _metricsSteps)) {
+      return _metrics;
+    }
+    _metricsRoute = state.route;
+    _metricsSteps = state.steps;
+    _metrics = RouteMetrics.build(state.route, state.steps);
+    return _metrics;
+  }
+
+  void _onGps(LocationState loc) {
+    if (!state.navigating || !state.hasRoute || state.routing) return;
+    if (loc.latitude == null || loc.longitude == null) return;
+    final info = liveInfo(
+      loc.latitude!,
+      loc.longitude!,
+      heading: loc.heading,
+      accuracy: loc.accuracy,
+      speedMps: loc.speed,
+    );
+    if (!info.offRoute) return;
+    final accuracy = loc.accuracy ?? 0;
+    if (accuracy >= 50) return;
+    unawaited(_rerouteFromLiveGps());
+  }
+
+  Future<void> _rerouteFromLiveGps() async {
+    if (_checking || !mounted || state.routing || !state.navigating) return;
     final dest = state.destination;
-    var remaining = dest == null
-        ? 0.0
-        : haversineMeters(lat, lon, dest.lat, dest.lon);
-    if (state.route.length >= 2) {
-      remaining = haversineMeters(
-        lat,
-        lon,
-        state.route.last.latitude,
-        state.route.last.longitude,
+    if (dest == null) return;
+    final now = DateTime.now();
+    if (_lastRerouteAt != null &&
+        now.difference(_lastRerouteAt!) < const Duration(seconds: 8)) {
+      return;
+    }
+    final loc = _ref.read(locationProvider);
+    if (loc.latitude == null || loc.longitude == null) return;
+    _lastRerouteAt = now;
+    _checking = true;
+    try {
+      final bundle = await _service.route(
+        fromLat: loc.latitude!,
+        fromLon: loc.longitude!,
+        toLat: dest.lat,
+        toLon: dest.lon,
+      );
+      final plans = bundle.alternatives.where((p) => p.points.isNotEmpty).toList();
+      if (plans.isEmpty || !mounted) return;
+      final altPolylines = plans
+          .map((p) => p.points.map((c) => LatLng(c[1], c[0])).toList())
+          .toList();
+      state = state.copyWith(
+        alternatives: plans,
+        alternativeRoutes: altPolylines,
+        selectedRoute: 0,
+      );
+      await _applyPlan(
+        plans.first,
+        altPolylines.first,
+        startFollowing: true,
+      );
+      _armMonitor();
+    } catch (_) {
+    } finally {
+      _checking = false;
+    }
+  }
+
+  LiveNavInfo liveInfo(
+    double lat,
+    double lon, {
+    double? heading,
+    double? accuracy,
+    double? speedMps,
+  }) {
+    final dest = state.destination;
+    if (!state.hasRoute) {
+      final remaining = dest == null
+          ? 0.0
+          : haversineMeters(lat, lon, dest.lat, dest.lon);
+      return LiveNavInfo(
+        remainingMeters: remaining,
+        remainingSeconds: 0,
+        speedKmh: gpsSpeedKmh(speedMps),
       );
     }
 
-    NavStep? step;
-    for (final s in state.steps) {
-      if (s.type == 'depart' || s.lat == null || s.lon == null) continue;
-      final d = haversineMeters(lat, lon, s.lat!, s.lon!);
-      if (d < 250) {
-        step = s;
-        break;
-      }
-      step ??= s;
-    }
-    if (step == null && state.steps.isNotEmpty) {
-      step = state.steps.firstWhere(
-        (s) => s.type != 'depart',
-        orElse: () => state.steps.first,
-      );
-    }
+    final metrics = _routeMetrics();
+    final fix = computeGuidance(
+      lat: lat,
+      lon: lon,
+      heading: heading,
+      route: state.route,
+      steps: state.steps,
+      metrics: metrics,
+    );
 
     int? limit;
-    var limitDist = double.infinity;
-    for (final p in state.limits) {
-      final d = haversineMeters(lat, lon, p.lat, p.lon);
-      if (d < limitDist && d < 180) {
-        limitDist = d;
-        limit = p.maxspeed;
+    final cum = metrics?.cum;
+    if (cum != null && cum.length == state.route.length) {
+      limit = currentSpeedLimitKmh(
+        alongMeters: fix.alongMeters,
+        route: state.route,
+        cum: cum,
+        limits: state.limits,
+        annotationSpeeds: state.annotationSpeeds,
+        segmentIndex: fix.segmentIndex,
+      );
+    }
+    if (limit == null) {
+      var limitDist = double.infinity;
+      for (final p in state.limits) {
+        final d = haversineMeters(lat, lon, p.lat, p.lon);
+        if (d < limitDist && d < 180) {
+          limitDist = d;
+          limit = p.maxspeed;
+        }
       }
     }
 
     SpeedCamera? camera;
     double? cameraMeters;
-    for (final c in state.cameras) {
-      final d = haversineMeters(lat, lon, c.lat, c.lon);
-      if (d > 1200) continue;
-      if (cameraMeters == null || d < cameraMeters) {
-        camera = c;
-        cameraMeters = d;
+    if (cum != null && cum.length == state.route.length) {
+      for (final c in state.cameras) {
+        final snap = projectOntoPolyline(c.lat, c.lon, state.route, cum);
+        if (snap == null || snap.offsetMeters > 160) continue;
+        final ahead = snap.alongMeters - fix.alongMeters;
+        if (ahead < -25 || ahead > 1200) continue;
+        final d = ahead < 0 ? 0.0 : ahead;
+        if (cameraMeters == null || d < cameraMeters) {
+          camera = c;
+          cameraMeters = d;
+        }
+      }
+    }
+    if (camera == null) {
+      for (final c in state.cameras) {
+        final d = haversineMeters(lat, lon, c.lat, c.lon);
+        if (d > 1200) continue;
+        if (cameraMeters == null || d < cameraMeters) {
+          camera = c;
+          cameraMeters = d;
+        }
       }
     }
 
@@ -936,20 +1088,25 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     }
 
     var remainingSeconds = state.routeDurationSeconds ?? 0;
-    final totalDist = state.routeDistanceMeters;
+    final totalDist = metrics?.totalMeters ?? state.routeDistanceMeters;
     final totalDur = state.routeDurationSeconds;
     if (totalDist != null && totalDist > 0 && totalDur != null) {
-      remainingSeconds = remaining / totalDist * totalDur;
+      remainingSeconds = fix.remainingMeters / totalDist * totalDur;
     }
 
     return LiveNavInfo(
-      currentStep: step,
-      remainingMeters: remaining,
+      currentStep: fix.currentStep,
+      stepIndex: fix.stepIndex,
+      metersToManeuver: fix.metersToManeuver,
+      remainingMeters: fix.remainingMeters,
       remainingSeconds: remainingSeconds,
       speedLimitKmh: limit,
+      speedKmh: gpsSpeedKmh(speedMps),
       nextCamera: camera,
       nextCameraMeters: cameraMeters,
       currentZone: currentZone,
+      offRouteMeters: fix.offRouteMeters,
+      offRoute: fix.offRoute && (accuracy == null || accuracy < 50),
     );
   }
 

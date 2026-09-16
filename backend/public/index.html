@@ -148,6 +148,41 @@
       a.remove();
     }
 
+    window.__milieuWake = { wanted: false, sentinel: null };
+
+    async function milieuWakeLockAcquire() {
+      window.__milieuWake.wanted = true;
+      try {
+        if (!navigator.wakeLock) return false;
+        if (window.__milieuWake.sentinel && !window.__milieuWake.sentinel.released) {
+          return true;
+        }
+        window.__milieuWake.sentinel = await navigator.wakeLock.request('screen');
+        window.__milieuWake.sentinel.addEventListener('release', () => {
+          window.__milieuWake.sentinel = null;
+        });
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    async function milieuWakeLockRelease() {
+      window.__milieuWake.wanted = false;
+      try {
+        if (window.__milieuWake.sentinel) {
+          await window.__milieuWake.sentinel.release();
+        }
+      } catch (_) {}
+      window.__milieuWake.sentinel = null;
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && window.__milieuWake.wanted) {
+        milieuWakeLockAcquire();
+      }
+    });
+
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       window.__milieuPwa.deferred = e;

@@ -16,6 +16,7 @@ class LocationState {
   final double? longitude;
   final double? speed;
   final double? heading;
+  final double? accuracy;
   final ZoneProximity? nearestZone;
   final bool tracking;
   final bool follow;
@@ -26,6 +27,7 @@ class LocationState {
     this.longitude,
     this.speed,
     this.heading,
+    this.accuracy,
     this.nearestZone,
     this.tracking = false,
     this.follow = true,
@@ -37,6 +39,7 @@ class LocationState {
     double? longitude,
     double? speed,
     double? heading,
+    double? accuracy,
     ZoneProximity? nearestZone,
     bool? tracking,
     bool? follow,
@@ -49,6 +52,7 @@ class LocationState {
       longitude: longitude ?? this.longitude,
       speed: speed ?? this.speed,
       heading: heading ?? this.heading,
+      accuracy: accuracy ?? this.accuracy,
       nearestZone: clearZone ? nearestZone : (nearestZone ?? this.nearestZone),
       tracking: tracking ?? this.tracking,
       follow: follow ?? this.follow,
@@ -75,14 +79,47 @@ class LocationNotifier extends StateNotifier<LocationState> {
   LocationSettings get _streamSettings {
     if (kIsWeb) {
       return WebSettings(
-        accuracy: LocationAccuracy.high,
+        accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: 0,
         maximumAge: Duration.zero,
       );
     }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return AndroidSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          distanceFilter: 0,
+          intervalDuration: const Duration(seconds: 1),
+        );
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return AppleSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          activityType: ActivityType.automotiveNavigation,
+          distanceFilter: 0,
+          pauseLocationUpdatesAutomatically: false,
+        );
+      default:
+        return const LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          distanceFilter: 0,
+        );
+    }
+  }
+
+  LocationSettings get _oneShotSettings {
+    if (kIsWeb) {
+      return WebSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 0,
+        maximumAge: Duration.zero,
+        timeLimit: const Duration(seconds: 12),
+      );
+    }
     return const LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 8,
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: 0,
+      timeLimit: Duration(seconds: 12),
     );
   }
 
@@ -118,7 +155,7 @@ class LocationNotifier extends StateNotifier<LocationState> {
       }
 
       final current = await Geolocator.getCurrentPosition(
-        locationSettings: _streamSettings,
+        locationSettings: _oneShotSettings,
       );
       _applyPosition(current);
 
@@ -166,26 +203,17 @@ class LocationNotifier extends StateNotifier<LocationState> {
     });
   }
 
-  /// Browsers may pause `watchPosition` on a hidden tab; poll if the last
-  /// fix is stale so walking-mode follow keeps receiving coordinates.
+  /// Browsers may pause `watchPosition` on a hidden tab. Restart if the last
+  /// fix is stale (>3s) so meters and the puck keep moving.
   void _startWebKeepAlive() {
     _webKeepAlive?.cancel();
-    if (!kIsWeb) return;
-    _webKeepAlive = Timer.periodic(const Duration(seconds: 12), (_) async {
+    _webKeepAlive = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || !state.tracking) return;
       final last = _lastFixAt;
       final stale = last == null ||
-          DateTime.now().difference(last) > const Duration(seconds: 8);
+          DateTime.now().difference(last) > const Duration(seconds: 3);
       if (!stale) return;
-      try {
-        final pos = await Geolocator.getCurrentPosition(
-          locationSettings: _streamSettings,
-        );
-        if (!mounted) return;
-        _applyPosition(pos);
-      } catch (_) {
-        if (mounted) _scheduleRestart();
-      }
+      startTracking(restart: true);
     });
   }
 
@@ -207,6 +235,7 @@ class LocationNotifier extends StateNotifier<LocationState> {
       longitude: pos.longitude,
       speed: pos.speed,
       heading: pos.heading,
+      accuracy: pos.accuracy,
       nearestZone: proximity,
       clearZone: proximity == null,
       tracking: true,

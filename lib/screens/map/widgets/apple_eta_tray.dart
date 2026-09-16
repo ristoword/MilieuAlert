@@ -5,6 +5,7 @@ import '../../../core/theme.dart';
 import '../../../models/zone_status.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/navigation_provider.dart';
+import 'live_speed_chip.dart';
 
 class AppleEtaTray extends StatelessWidget {
   const AppleEtaTray({
@@ -113,6 +114,13 @@ class AppleEtaTray extends StatelessWidget {
                     ],
                   ),
                 ),
+                LiveSpeedChip(
+                  speedKmh: live?.speedKmh,
+                  limitKmh: live?.speedLimitKmh,
+                  speeding: live?.speeding == true,
+                  compact: true,
+                ),
+                const SizedBox(width: 8),
                 _EndButton(onStop: onStop),
               ],
             ),
@@ -167,6 +175,13 @@ class AppleEtaTray extends StatelessWidget {
                   ],
                 ),
               ),
+              LiveSpeedChip(
+                speedKmh: live?.speedKmh,
+                limitKmh: live?.speedLimitKmh,
+                speeding: live?.speeding == true,
+                compact: true,
+              ),
+              const SizedBox(width: 8),
               _EndButton(onStop: onStop),
             ],
           ),

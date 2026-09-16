@@ -11,6 +11,7 @@ const {
   mergeCameras,
   VISIBLE_HAZARD_SQL,
 } = require('../services/hazards');
+const { serializeOsrmRoute } = require('../services/osrmRoute');
 const router = express.Router();
 
 const USER_AGENT =
@@ -258,40 +259,6 @@ router.get('/nearby', async (req, res) => {
     res.status(502).json({ error: 'Nearby search failed', results: [] });
   }
 });
-
-function serializeOsrmRoute(route) {
-  const points = (route.geometry.coordinates || []).map((c) => ({
-    lon: c[0],
-    lat: c[1],
-  }));
-  const steps = [];
-  for (const leg of route.legs || []) {
-    for (const step of leg.steps || []) {
-      const loc = (step.maneuver && step.maneuver.location) || [];
-      steps.push({
-        instruction: step.maneuver
-          ? `${step.maneuver.type || ''} ${step.maneuver.modifier || ''}`.trim()
-          : 'continue',
-        type: (step.maneuver && step.maneuver.type) || 'continue',
-        modifier: (step.maneuver && step.maneuver.modifier) || '',
-        name: step.name || '',
-        distanceMeters: step.distance || 0,
-        durationSeconds: step.duration || 0,
-        lat: loc[1],
-        lon: loc[0],
-      });
-    }
-  }
-  const speeds = (route.legs || [])
-    .flatMap((leg) => (leg.annotation && leg.annotation.speed) || []);
-  return {
-    points,
-    steps,
-    speeds,
-    distanceMeters: route.distance,
-    durationSeconds: route.duration,
-  };
-}
 
 router.get('/route', async (req, res) => {
   try {

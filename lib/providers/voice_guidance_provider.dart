@@ -49,12 +49,16 @@ class VoiceGuidance {
     final nav = _ref.read(navigationProvider);
     LiveNavInfo? live;
     if (next.latitude != null && next.longitude != null) {
-      live = _ref
-          .read(navigationProvider.notifier)
-          .liveInfo(next.latitude!, next.longitude!);
+      live = _ref.read(navigationProvider.notifier).liveInfo(
+            next.latitude!,
+            next.longitude!,
+            heading: next.heading,
+            accuracy: next.accuracy,
+            speedMps: next.speed,
+          );
     }
     if (nav.navigating) {
-      _maybeSpeakTurn(live?.currentStep);
+      _maybeSpeakTurn(live);
     }
     _maybeSpeakCamera(live?.nextCamera, live?.nextCameraMeters);
   }
@@ -71,6 +75,10 @@ class VoiceGuidance {
     if (prev?.navigating == true && !next.navigating) {
       _spoken.removeWhere((k) => k.startsWith('turn-') || k.startsWith('cam-'));
     }
+    if (prev?.routeDistanceMeters != next.routeDistanceMeters ||
+        prev?.steps != next.steps) {
+      _spoken.removeWhere((k) => k.startsWith('turn-'));
+    }
     final seen = {for (final a in prev?.alerts ?? const []) a.id};
     for (final alert in next.alerts) {
       if (seen.contains(alert.id)) continue;
@@ -82,26 +90,24 @@ class VoiceGuidance {
     }
   }
 
-  void _maybeSpeakTurn(NavStep? step) {
-    if (step == null) return;
-    if (step.type == 'continue' ||
-        step.type == 'depart' ||
-        step.type == 'new name') {
-      return;
-    }
-    final meters = step.distanceMeters;
+  void _maybeSpeakTurn(LiveNavInfo? live) {
+    final step = live?.currentStep;
+    if (step == null || live == null) return;
+    if (!step.isManeuver && step.lanes.isEmpty) return;
+    final meters = live.metersToManeuver;
     final bucket = meters <= 40
         ? 'now'
-        : meters <= 160
-            ? 'near'
-            : meters <= 450
-                ? 'far'
-                : null;
+        : meters <= 80
+            ? 'near80'
+            : meters <= 200
+                ? 'mid200'
+                : meters <= 400
+                    ? 'far400'
+                    : null;
     if (bucket == null) return;
-    final key =
-        'turn-${step.type}-${step.modifier}-${step.name}-$bucket';
+    final key = 'turn-${live.stepIndex}-$bucket';
     final text = _turnPhrase(step, bucket, meters);
-    _speak(key, text);
+    _speak(key, text, critical: bucket == 'now', skipCooldown: true);
   }
 
   void _maybeSpeakLez(ZoneProximity? prev, ZoneProximity? next) {
@@ -268,11 +274,17 @@ class VoiceGuidance {
     );
   }
 
-  Future<void> _speak(String key, String text, {bool critical = false}) async {
+  Future<void> _speak(
+    String key,
+    String text, {
+    bool critical = false,
+    bool skipCooldown = false,
+  }) async {
     if (text.trim().isEmpty) return;
     if (_spoken.contains(key)) return;
     final now = DateTime.now();
     if (!critical &&
+        !skipCooldown &&
         _lastSpeakAt != null &&
         now.difference(_lastSpeakAt!) < const Duration(seconds: 5)) {
       return;

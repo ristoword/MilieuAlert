@@ -104,6 +104,24 @@ class SpeedLimitPoint {
   }
 }
 
+class NavLane {
+  final List<String> indications;
+  final bool valid;
+
+  const NavLane({this.indications = const [], this.valid = false});
+
+  factory NavLane.fromJson(Map<String, dynamic> json) {
+    final raw = json['indications'];
+    final indications = raw is List
+        ? raw.map((e) => e.toString()).where((s) => s.isNotEmpty).toList()
+        : const <String>[];
+    return NavLane(
+      indications: indications,
+      valid: json['valid'] == true,
+    );
+  }
+}
+
 class NavStep {
   final String type;
   final String modifier;
@@ -111,6 +129,7 @@ class NavStep {
   final double distanceMeters;
   final double? lat;
   final double? lon;
+  final List<NavLane> lanes;
 
   const NavStep({
     required this.type,
@@ -119,9 +138,11 @@ class NavStep {
     required this.distanceMeters,
     this.lat,
     this.lon,
+    this.lanes = const [],
   });
 
   factory NavStep.fromJson(Map<String, dynamic> json) {
+    final rawLanes = json['lanes'];
     return NavStep(
       type: json['type']?.toString() ?? 'continue',
       modifier: json['modifier']?.toString() ?? '',
@@ -129,7 +150,27 @@ class NavStep {
       distanceMeters: (json['distanceMeters'] as num?)?.toDouble() ?? 0,
       lat: (json['lat'] as num?)?.toDouble(),
       lon: (json['lon'] as num?)?.toDouble(),
+      lanes: rawLanes is List
+          ? rawLanes
+              .whereType<Map>()
+              .map((e) => NavLane.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+          : const [],
     );
+  }
+
+  /// True for a spoken/HUD turn. Continue/depart keep the previous instruction
+  /// unless OSRM attached real lane data (keep-left vs exit).
+  bool get isManeuver {
+    switch (type) {
+      case 'depart':
+      case 'continue':
+      case 'new name':
+      case 'notification':
+        return lanes.isNotEmpty;
+      default:
+        return true;
+    }
   }
 
   /// Turn action only, so the HUD can show the full street name on its own line.
@@ -153,6 +194,8 @@ class NavStep {
       case 'off ramp':
       case 'exit':
         return 'Uscire';
+      case 'use lane':
+        return laneKeepPhrase;
       case 'turn':
         if (modifier.contains('sharp left')) return 'Svolta secca a sinistra';
         if (modifier.contains('sharp right')) return 'Svolta secca a destra';
@@ -165,6 +208,7 @@ class NavStep {
       case 'new name':
       case 'continue':
       default:
+        if (lanes.isNotEmpty) return laneKeepPhrase;
         return name.trim().isEmpty ? 'Prosegui dritto' : 'Prosegui';
     }
   }
@@ -180,6 +224,21 @@ class NavStep {
       default:
         return '$maneuverIt$road';
     }
+  }
+
+  /// Which side of the carriageway OSRM marked valid. Empty if unknown.
+  String get laneKeepPhrase {
+    if (lanes.isEmpty) return 'Prosegui';
+    final n = lanes.length;
+    final validIdx = [
+      for (var i = 0; i < n; i++)
+        if (lanes[i].valid) i,
+    ];
+    if (validIdx.isEmpty || validIdx.length == n) return 'Prosegui';
+    final lastLeft = (n - 1) / 2;
+    if (validIdx.every((i) => i <= lastLeft)) return 'Tieni la sinistra';
+    if (validIdx.every((i) => i >= n / 2)) return 'Tieni la destra';
+    return 'Prosegui';
   }
 }
 

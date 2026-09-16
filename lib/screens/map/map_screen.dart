@@ -21,6 +21,7 @@ import '../../providers/location_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/voice_guidance_provider.dart';
+import '../../providers/wake_lock_provider.dart';
 import '../../providers/zone_provider.dart';
 import 'widgets/ai_assist_sheet.dart';
 import 'widgets/ai_hint_banner.dart';
@@ -462,6 +463,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final hazards = ref.watch(hazardProvider);
     final ai = ref.watch(aiAssistProvider);
     ref.watch(voiceGuidanceProvider);
+    ref.watch(screenWakeLockProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final topPad = MediaQuery.of(context).padding.top;
 
@@ -471,10 +473,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
             next.latitude!,
             next.longitude!,
           );
-      // Follow the puck whenever follow is on — including walking with no
-      // destination. During A→B, only follow when origin is "my location".
-      final followLive =
-          next.follow && (!nav.navigating || nav.originIsMyLocation);
+      // Follow the puck whenever follow is on — walking or turn-by-turn.
+      final followLive = next.follow;
       if (!_movedToUser || followLive) {
         final zoom = _movedToUser ? null : 16.0;
         _movedToUser = true;
@@ -531,9 +531,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     LiveNavInfo? live;
     if (location.latitude != null && location.longitude != null) {
-      live = ref
-          .read(navigationProvider.notifier)
-          .liveInfo(location.latitude!, location.longitude!);
+      live = ref.read(navigationProvider.notifier).liveInfo(
+            location.latitude!,
+            location.longitude!,
+            heading: location.heading,
+            accuracy: location.accuracy,
+            speedMps: location.speed,
+          );
     }
 
     final guiding = nav.navigating;
