@@ -13,6 +13,20 @@ IconData mapsTurnIcon(NavStep? step) {
   switch (step.type) {
     case 'arrive':
       return Icons.flag_rounded;
+    case 'walk':
+      return Icons.directions_walk_rounded;
+    case 'tram':
+      return Icons.tram_rounded;
+    case 'bus':
+      return Icons.directions_bus_rounded;
+    case 'subway':
+      return Icons.subway_rounded;
+    case 'rail':
+      return Icons.train_rounded;
+    case 'ferry':
+      return Icons.directions_boat_rounded;
+    case 'transit':
+      return Icons.directions_transit_rounded;
     case 'roundabout':
     case 'rotary':
       return Icons.roundabout_left;
@@ -67,11 +81,18 @@ class AppleGuidanceCard extends StatelessWidget {
         live?.remainingMeters ??
         nav.routeDistanceMeters;
     final dist = formatDistance(meters);
-    final action = step?.maneuverIt ?? mapsInstruction(live, nav);
-    final street = step?.name.trim().isNotEmpty == true
-        ? step!.name
-        : (nav.destination?.label ?? '');
-    final lanes = step?.lanes ?? const <NavLane>[];
+    final nearAlight =
+        step?.isTransitVehicle == true && (meters ?? 9999) <= 80;
+    final action = nearAlight
+        ? (step?.alightActionIt ?? mapsInstruction(live, nav))
+        : (step?.maneuverIt ?? mapsInstruction(live, nav));
+    var street = step?.hudSubtitle(metersToManeuver: meters) ?? '';
+    if (street.isEmpty &&
+        step?.isWalkAction != true &&
+        step?.isTransitVehicle != true) {
+      street = nav.destination?.label ?? '';
+    }
+    final lanes = nav.mode.isCar ? (step?.lanes ?? const <NavLane>[]) : const <NavLane>[];
 
     return MapsGlass(
       radius: 20,
@@ -137,11 +158,12 @@ class AppleGuidanceCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                LiveSpeedChip(
-                  speedKmh: live?.speedKmh,
-                  limitKmh: live?.speedLimitKmh,
-                  speeding: live?.speeding == true,
-                ),
+                if (nav.mode.isCar)
+                  LiveSpeedChip(
+                    speedKmh: live?.speedKmh,
+                    limitKmh: live?.speedLimitKmh,
+                    speeding: live?.speeding == true,
+                  ),
               ],
             ),
             if (lanes.isNotEmpty) LaneGuidanceRow(lanes: lanes),

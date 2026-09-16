@@ -60,7 +60,9 @@ class VoiceGuidance {
     if (nav.navigating) {
       _maybeSpeakTurn(live);
     }
-    _maybeSpeakCamera(live?.nextCamera, live?.nextCameraMeters);
+    if (nav.mode.isCar) {
+      _maybeSpeakCamera(live?.nextCamera, live?.nextCameraMeters);
+    }
   }
 
   void onHazards(HazardState? prev, HazardState next) {

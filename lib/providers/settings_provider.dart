@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/navigation_models.dart';
 import '../core/constants.dart';
 import '../services/tts_service.dart';
 
@@ -89,5 +90,24 @@ class NavVoiceNotifier extends StateNotifier<NavVoiceGender> {
   Future<void> setGender(NavVoiceGender gender) async {
     state = gender;
     await _prefs.setString('nav_voice_gender', gender.name);
+  }
+}
+
+final travelModeProvider =
+    StateNotifierProvider<TravelModeNotifier, TravelMode>((ref) {
+  final prefs = ref.watch(sharedPrefsProvider);
+  return TravelModeNotifier(prefs);
+});
+
+class TravelModeNotifier extends StateNotifier<TravelMode> {
+  TravelModeNotifier(this._prefs)
+      : super(parseTravelMode(_prefs.getString('travel_mode')));
+
+  final SharedPreferences _prefs;
+
+  Future<void> setMode(TravelMode mode) async {
+    if (state == mode) return;
+    state = mode;
+    await _prefs.setString('travel_mode', mode.name);
   }
 }

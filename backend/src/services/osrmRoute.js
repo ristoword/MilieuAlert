@@ -37,7 +37,10 @@ function serializeLanes(step) {
   return fallback || [];
 }
 
-function serializeOsrmRoute(route) {
+function serializeOsrmRoute(route, options = {}) {
+  const includeLanes = options.includeLanes !== false;
+  const includeSpeeds = options.includeSpeeds !== false;
+  const mode = options.mode || 'car';
   const points = ((route && route.geometry && route.geometry.coordinates) || []).map(
     (c) => ({ lon: c[0], lat: c[1] })
   );
@@ -56,14 +59,17 @@ function serializeOsrmRoute(route) {
         durationSeconds: step.duration || 0,
         lat: loc[1],
         lon: loc[0],
-        lanes: serializeLanes(step),
+        lanes: includeLanes ? serializeLanes(step) : [],
       });
     }
   }
-  const speeds = (route.legs || []).flatMap(
-    (leg) => (leg.annotation && leg.annotation.speed) || []
-  );
+  const speeds = includeSpeeds
+    ? (route.legs || []).flatMap(
+        (leg) => (leg.annotation && leg.annotation.speed) || []
+      )
+    : [];
   return {
+    mode,
     points,
     steps,
     speeds,

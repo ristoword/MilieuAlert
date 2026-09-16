@@ -9,7 +9,7 @@ class NavigationService {
             Dio(BaseOptions(
               baseUrl: AppConstants.apiBaseUrl,
               connectTimeout: const Duration(seconds: 20),
-              receiveTimeout: const Duration(seconds: 25),
+              receiveTimeout: const Duration(seconds: 35),
             ));
 
   final Dio _dio;
@@ -63,6 +63,7 @@ class NavigationService {
     required double fromLon,
     required double toLat,
     required double toLon,
+    TravelMode mode = TravelMode.car,
   }) async {
     final response = await _dio.get(
       '/api/geo/route',
@@ -71,6 +72,7 @@ class NavigationService {
         'fromLon': fromLon,
         'toLat': toLat,
         'toLon': toLon,
+        'mode': mode.apiValue,
       },
     );
     final data = Map<String, dynamic>.from(response.data as Map);

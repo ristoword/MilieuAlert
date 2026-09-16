@@ -12,6 +12,8 @@ const {
   VISIBLE_HAZARD_SQL,
 } = require('../services/hazards');
 const { serializeOsrmRoute } = require('../services/osrmRoute');
+const { normalizeTravelMode } = require('../services/travelMode');
+const { planTransitRoute } = require('../services/transitRoute');
 const router = express.Router();
 
 const USER_AGENT =
@@ -261,21 +263,67 @@ router.get('/nearby', async (req, res) => {
 });
 
 router.get('/route', async (req, res) => {
-  try {
-    const fromLon = Number(req.query.fromLon);
-    const fromLat = Number(req.query.fromLat);
-    const toLon = Number(req.query.toLon);
-    const toLat = Number(req.query.toLat);
-    if (![fromLon, fromLat, toLon, toLat].every(Number.isFinite)) {
-      return res.status(400).json({ error: 'Invalid coordinates' });
+  const fromLon = Number(req.query.fromLon);
+  const fromLat = Number(req.query.fromLat);
+  const toLon = Number(req.query.toLon);
+  const toLat = Number(req.query.toLat);
+  if (![fromLon, fromLat, toLon, toLat].every(Number.isFinite)) {
+    return res.status(400).json({ error: 'Invalid coordinates' });
+  }
+  const mode = normalizeTravelMode(req.query.mode);
+
+  if (mode === 'transit') {
+    try {
+      const routes = await planTransitRoute(
+        { fromLat, fromLon, toLat, toLon },
+        { userAgent: USER_AGENT }
+      );
+      if (!routes.length) {
+        return res.status(404).json({
+          error: 'Nessun mezzo trovato per questo tragitto.',
+          mode: 'transit',
+          points: [],
+          steps: [],
+          alternatives: [],
+        });
+      }
+      return res.json({
+        ...routes[0],
+        alternatives: routes,
+      });
+    } catch (err) {
+      console.error('geo transit route failed:', err.message);
+      return res.status(502).json({
+        error: 'Percorso mezzi non disponibile. Riprova più tardi.',
+        mode: 'transit',
+        points: [],
+        steps: [],
+        alternatives: [],
+      });
     }
+  }
+
+  try {
+    const profile = mode === 'foot' ? 'foot' : 'driving';
+    const extras =
+      mode === 'car'
+        ? '&annotations=speed'
+        : '';
     const url =
-      `https://router.project-osrm.org/route/v1/driving/` +
+      `https://router.project-osrm.org/route/v1/${profile}/` +
       `${fromLon},${fromLat};${toLon},${toLat}` +
-      `?overview=full&geometries=geojson&alternatives=true&steps=true&annotations=speed`;
+      `?overview=full&geometries=geojson&alternatives=true&steps=true${extras}`;
     const data = await fetchJson(url);
-    const routes = (data.routes || []).slice(0, 3).map(serializeOsrmRoute);
+    const osrmOpts = {
+      mode,
+      includeLanes: mode === 'car',
+      includeSpeeds: mode === 'car',
+    };
+    const routes = (data.routes || [])
+      .slice(0, 3)
+      .map((r) => serializeOsrmRoute(r, osrmOpts));
     const main = routes[0] || {
+      mode,
       points: [],
       steps: [],
       speeds: [],
@@ -288,7 +336,17 @@ router.get('/route', async (req, res) => {
     });
   } catch (err) {
     console.error('geo route failed:', err.message);
-    res.status(502).json({ error: 'Route failed', points: [], steps: [], alternatives: [] });
+    const error =
+      mode === 'foot'
+        ? 'Percorso a piedi non disponibile. Riprova più tardi.'
+        : 'Route failed';
+    res.status(502).json({
+      error,
+      mode,
+      points: [],
+      steps: [],
+      alternatives: [],
+    });
   }
 });
 

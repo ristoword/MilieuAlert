@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -10,6 +11,7 @@ import '../services/geo_utils.dart';
 import '../services/navigation_guidance.dart';
 import '../services/navigation_service.dart';
 import 'location_provider.dart';
+import 'settings_provider.dart';
 import 'zone_provider.dart';
 
 enum SearchField { origin, destination }
@@ -40,6 +42,7 @@ class NavigationState {
   final List<PlaceHit> nearbyResults;
   final String? nearbyCategory;
   final bool nearbySearching;
+  final TravelMode mode;
 
   const NavigationState({
     this.suggestions = const [],
@@ -67,6 +70,7 @@ class NavigationState {
     this.nearbyResults = const [],
     this.nearbyCategory,
     this.nearbySearching = false,
+    this.mode = TravelMode.car,
   });
 
   bool get hasRoute => route.length >= 2;
@@ -97,6 +101,7 @@ class NavigationState {
     List<PlaceHit>? nearbyResults,
     String? nearbyCategory,
     bool? nearbySearching,
+    TravelMode? mode,
     bool clearOrigin = false,
     bool clearDestination = false,
     bool clearError = false,
@@ -132,6 +137,7 @@ class NavigationState {
           ? null
           : (nearbyCategory ?? this.nearbyCategory),
       nearbySearching: nearbySearching ?? this.nearbySearching,
+      mode: mode ?? this.mode,
     );
   }
 }
@@ -426,6 +432,26 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     }
   }
 
+  TravelMode get _travelMode => _ref.read(travelModeProvider);
+
+  String _routeErrorMessage(Object e, TravelMode mode) {
+    if (e is DioException) {
+      final data = e.response?.data;
+      if (data is Map && data['error'] is String) {
+        final msg = (data['error'] as String).trim();
+        if (msg.isNotEmpty) return msg;
+      }
+    }
+    switch (mode) {
+      case TravelMode.transit:
+        return 'Percorso mezzi non disponibile. Riprova più tardi.';
+      case TravelMode.foot:
+        return 'Percorso a piedi non disponibile. Riprova più tardi.';
+      case TravelMode.car:
+        return 'Percorso non disponibile. Riprova più tardi.';
+    }
+  }
+
   ({double lat, double lon})? _originCoords() {
     if (!state.originIsMyLocation && state.origin != null) {
       return (lat: state.origin!.lat, lon: state.origin!.lon);
@@ -473,21 +499,39 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     }
 
     List<RoutePlan> plans = const [];
+    String? routeError;
+    final mode = _travelMode;
     try {
       final bundle = await _service.route(
         fromLat: from.lat,
         fromLon: from.lon,
         toLat: dest.lat,
         toLon: dest.lon,
+        mode: mode,
       );
       plans = bundle.alternatives.where((p) => p.points.isNotEmpty).toList();
-    } catch (_) {
+    } catch (e) {
+      routeError = _routeErrorMessage(e, mode);
       plans = const [];
     }
 
     if (plans.isEmpty) {
+      if (mode != TravelMode.car) {
+        if (!mounted) return;
+        state = state.copyWith(
+          routing: false,
+          navigating: false,
+          mode: mode,
+          error: routeError ??
+              (mode == TravelMode.transit
+                  ? 'Nessun mezzo trovato per questo tragitto.'
+                  : 'Percorso a piedi non disponibile. Riprova più tardi.'),
+        );
+        return;
+      }
       plans = [
         RoutePlan(
+          mode: TravelMode.car,
           points: [
             [from.lon, from.lat],
             [dest.lon, dest.lat],
@@ -547,21 +591,23 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
 
     var cameras = const <SpeedCamera>[];
     var limits = const <SpeedLimitPoint>[];
-    try {
-      final hazards = await _service.hazards(
-        minLat: minLat,
-        minLon: minLon,
-        maxLat: maxLat,
-        maxLon: maxLon,
-        path: pathQuery,
-      );
-      cameras = hazards.cameras
-          .where((c) => isNearPath(c.lat, c.lon, pathLatLon, maxMeters: 160))
-          .toList();
-      limits = hazards.limits
-          .where((p) => isNearPath(p.lat, p.lon, pathLatLon, maxMeters: 90))
-          .toList();
-    } catch (_) {}
+    if (plan.mode.isCar) {
+      try {
+        final hazards = await _service.hazards(
+          minLat: minLat,
+          minLon: minLon,
+          maxLat: maxLat,
+          maxLon: maxLon,
+          path: pathQuery,
+        );
+        cameras = hazards.cameras
+            .where((c) => isNearPath(c.lat, c.lon, pathLatLon, maxMeters: 160))
+            .toList();
+        limits = hazards.limits
+            .where((p) => isNearPath(p.lat, p.lon, pathLatLon, maxMeters: 90))
+            .toList();
+      } catch (_) {}
+    }
 
     final zones = _ref.read(zonesProvider).valueOrNull ?? const <EmissionZone>[];
     final onRoute = <EmissionZone>[];
@@ -602,6 +648,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       routing: false,
       navigating: navigating,
       selectedRoute: selected,
+      mode: plan.mode,
       routeDistanceMeters: plan.distanceMeters,
       routeDurationSeconds: plan.durationSeconds,
       alerts: _mergeAlerts(forecast, replaceForecast: true),
@@ -697,6 +744,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
         fromLon: from.lon,
         toLat: dest.lat,
         toLon: dest.lon,
+        mode: _travelMode,
       );
       final plans = bundle.alternatives.where((p) => p.points.isNotEmpty).toList();
       if (plans.isEmpty || !mounted) return;
@@ -711,23 +759,25 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
 
       var cameras = const <SpeedCamera>[];
       var limits = const <SpeedLimitPoint>[];
-      try {
-        final lats = polyline.map((p) => p.latitude);
-        final lons = polyline.map((p) => p.longitude);
-        final hazards = await _service.hazards(
-          minLat: lats.reduce((a, b) => a < b ? a : b) - 0.01,
-          minLon: lons.reduce((a, b) => a < b ? a : b) - 0.01,
-          maxLat: lats.reduce((a, b) => a > b ? a : b) + 0.01,
-          maxLon: lons.reduce((a, b) => a > b ? a : b) + 0.01,
-          path: pathQuery,
-        );
-        cameras = hazards.cameras
-            .where((c) => isNearPath(c.lat, c.lon, pathLatLon, maxMeters: 160))
-            .toList();
-        limits = hazards.limits
-            .where((p) => isNearPath(p.lat, p.lon, pathLatLon, maxMeters: 90))
-            .toList();
-      } catch (_) {}
+      if (plan.mode.isCar) {
+        try {
+          final lats = polyline.map((p) => p.latitude);
+          final lons = polyline.map((p) => p.longitude);
+          final hazards = await _service.hazards(
+            minLat: lats.reduce((a, b) => a < b ? a : b) - 0.01,
+            minLon: lons.reduce((a, b) => a < b ? a : b) - 0.01,
+            maxLat: lats.reduce((a, b) => a > b ? a : b) + 0.01,
+            maxLon: lons.reduce((a, b) => a > b ? a : b) + 0.01,
+            path: pathQuery,
+          );
+          cameras = hazards.cameras
+              .where((c) => isNearPath(c.lat, c.lon, pathLatLon, maxMeters: 160))
+              .toList();
+          limits = hazards.limits
+              .where((p) => isNearPath(p.lat, p.lon, pathLatLon, maxMeters: 90))
+              .toList();
+        } catch (_) {}
+      }
 
       final zones = _ref.read(zonesProvider).valueOrNull ?? const <EmissionZone>[];
       final onRoute = <EmissionZone>[];
@@ -785,6 +835,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
           limits: limits,
           annotationSpeeds: plan.speeds,
           zonesOnRoute: onRoute,
+          mode: plan.mode,
           routeDistanceMeters: plan.distanceMeters,
           routeDurationSeconds: plan.durationSeconds,
           alerts: _mergeAlerts(incoming),
@@ -1012,6 +1063,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
         fromLon: loc.longitude!,
         toLat: dest.lat,
         toLon: dest.lon,
+        mode: _travelMode,
       );
       final plans = bundle.alternatives.where((p) => p.points.isNotEmpty).toList();
       if (plans.isEmpty || !mounted) return;

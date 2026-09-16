@@ -520,9 +520,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
             right: 12,
             child: Column(
               children: [
-                if (guiding)
-                  const _LiveGuidanceCard()
-                else
+                if (!guiding)
                   Align(
                     alignment: Alignment.topRight,
                     child: _RoundMapButton(
@@ -531,11 +529,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       onTap: () => context.push('/settings'),
                     ),
                   ),
-                const SizedBox(height: 8),
+                if (!guiding) const SizedBox(height: 8),
                 _LiveAlertHost(
                   guiding: guiding,
                   onOpenAi: _openAi,
                 ),
+                if (guiding) ...[
+                  const SizedBox(height: 8),
+                  const _LiveGuidanceCard(),
+                ],
               ],
             ),
           ),
@@ -1037,8 +1039,8 @@ class _LiveAlertHost extends ConsumerWidget {
       out.add(TransientAlert(
         id: 'zone:${zone.zoneId}:${zone.status}:${zone.isVehicleAllowed}',
         priority: unauthorized
-            ? (zone.status == ZoneStatus.inside ? 85 : 80)
-            : (zone.status == ZoneStatus.inside ? 60 : 70),
+            ? (zone.status == ZoneStatus.inside ? 110 : 105)
+            : (zone.status == ZoneStatus.inside ? 92 : 93),
         child: AlertBanner(
           proximity: zone,
           onAskAi: () {
@@ -1127,7 +1129,7 @@ class _LiveAlertHost extends ConsumerWidget {
     if (guiding && nav.zonesOnRoute.isNotEmpty) {
       out.add(TransientAlert(
         id: 'routezones:${nav.zonesOnRoute.map((z) => z.id).join(',')}',
-        priority: 25,
+        priority: 94,
         child: RouteZoneBanner(zones: nav.zonesOnRoute),
       ));
     }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme.dart';
+import '../../../models/navigation_models.dart';
 import '../../../models/zone_status.dart';
 import '../../../providers/location_provider.dart';
 import '../../../providers/navigation_provider.dart';
@@ -114,13 +115,15 @@ class AppleEtaTray extends StatelessWidget {
                     ],
                   ),
                 ),
-                LiveSpeedChip(
-                  speedKmh: live?.speedKmh,
-                  limitKmh: live?.speedLimitKmh,
-                  speeding: live?.speeding == true,
-                  compact: true,
-                ),
-                const SizedBox(width: 8),
+                if (nav.mode.isCar) ...[
+                  LiveSpeedChip(
+                    speedKmh: live?.speedKmh,
+                    limitKmh: live?.speedLimitKmh,
+                    speeding: live?.speeding == true,
+                    compact: true,
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 _EndButton(onStop: onStop),
               ],
             ),
@@ -175,13 +178,15 @@ class AppleEtaTray extends StatelessWidget {
                   ],
                 ),
               ),
-              LiveSpeedChip(
-                speedKmh: live?.speedKmh,
-                limitKmh: live?.speedLimitKmh,
-                speeding: live?.speeding == true,
-                compact: true,
-              ),
-              const SizedBox(width: 8),
+              if (nav.mode.isCar) ...[
+                LiveSpeedChip(
+                  speedKmh: live?.speedKmh,
+                  limitKmh: live?.speedLimitKmh,
+                  speeding: live?.speeding == true,
+                  compact: true,
+                ),
+                const SizedBox(width: 8),
+              ],
               _EndButton(onStop: onStop),
             ],
           ),
@@ -198,6 +203,10 @@ class AppleEtaTray extends StatelessWidget {
                 ? 'Il tragitto evita le LEZ evidenziate'
                 : nav.zonesOnRoute.map((z) => z.name).take(3).join(' · '),
           ),
+          if (nav.mode.isTransit) ...[
+            const SizedBox(height: 10),
+            _TransitLegsList(nav: nav),
+          ],
           if (zone != null && zone.status != ZoneStatus.safe) ...[
             const SizedBox(height: 8),
             _DetailRow(
@@ -212,7 +221,7 @@ class AppleEtaTray extends StatelessWidget {
                   '${zone.zoneName} · ${formatDistance(zone.distanceMeters)}',
             ),
           ],
-          if (live?.nextCamera != null) ...[
+          if (nav.mode.isCar && live?.nextCamera != null) ...[
             const SizedBox(height: 8),
             _DetailRow(
               icon: Icons.videocam_outlined,
@@ -224,7 +233,9 @@ class AppleEtaTray extends StatelessWidget {
                   : 'Controllo velocità sul percorso',
             ),
           ],
-          if (nav.cameras.isNotEmpty && live?.nextCamera == null) ...[
+          if (nav.mode.isCar &&
+              nav.cameras.isNotEmpty &&
+              live?.nextCamera == null) ...[
             const SizedBox(height: 8),
             _DetailRow(
               icon: Icons.videocam_outlined,
@@ -297,6 +308,54 @@ class AppleEtaTray extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TransitLegsList extends StatelessWidget {
+  const _TransitLegsList({required this.nav});
+
+  final NavigationState nav;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    TransitItinerary? itinerary;
+    if (nav.selectedRoute >= 0 &&
+        nav.selectedRoute < nav.alternatives.length) {
+      itinerary = nav.alternatives[nav.selectedRoute].itinerary;
+    }
+    final legs = itinerary?.legs ?? const <TransitLeg>[];
+    if (legs.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          itinerary!.transfers == 0
+              ? 'Mezzi · senza cambi'
+              : 'Mezzi · ${itinerary.transfers} cambio/i',
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            color: isDark ? Colors.white70 : MapsColors.inkMuted,
+          ),
+        ),
+        const SizedBox(height: 6),
+        for (final leg in legs)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: _DetailRow(
+              icon: leg.isWalk
+                  ? Icons.directions_walk_rounded
+                  : Icons.directions_transit_rounded,
+              color: MapsColors.route,
+              title: leg.actionIt,
+              subtitle: leg.isWalk
+                  ? formatDistance(leg.distanceMeters)
+                  : '${leg.boardIt} · ${leg.alightIt}',
+            ),
+          ),
+      ],
     );
   }
 }

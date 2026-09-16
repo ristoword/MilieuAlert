@@ -64,5 +64,39 @@ describe('OSRM lane serialization', () => {
     });
     assert.equal(route.steps[0].lanes.length, 2);
     assert.equal(route.steps[0].lanes[0].valid, true);
+    assert.equal(route.mode, 'car');
+  });
+
+  it('omits lanes and speeds for the foot profile', () => {
+    const route = serializeOsrmRoute(
+      {
+        distance: 80,
+        duration: 60,
+        geometry: { coordinates: [[4.32, 52.0], [4.32, 52.01]] },
+        legs: [
+          {
+            annotation: { speed: [12] },
+            steps: [
+              {
+                name: 'Via Roma',
+                distance: 80,
+                duration: 60,
+                maneuver: { type: 'turn', modifier: 'left', location: [4.32, 52.0] },
+                intersections: [
+                  {
+                    location: [4.32, 52.0],
+                    lanes: [{ indications: ['left'], valid: true }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      { mode: 'foot', includeLanes: false, includeSpeeds: false }
+    );
+    assert.equal(route.mode, 'foot');
+    assert.deepEqual(route.steps[0].lanes, []);
+    assert.deepEqual(route.speeds, []);
   });
 });

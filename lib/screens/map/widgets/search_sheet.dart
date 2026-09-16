@@ -8,9 +8,11 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/navigation_models.dart';
 import '../../../models/poi_category.dart';
 import '../../../models/saved_places.dart';
+import '../../../models/emission_zone.dart';
 import '../../../models/zone_status.dart';
 import '../../../providers/favorites_provider.dart';
 import '../../../providers/navigation_provider.dart';
+import '../../../providers/settings_provider.dart';
 
 class SearchSheet extends ConsumerWidget {
   const SearchSheet({
@@ -75,6 +77,7 @@ class SearchSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fav = ref.watch(favoritesProvider);
+    final travelMode = ref.watch(travelModeProvider);
     final ink = isDark ? Colors.white : MapsColors.ink;
     final muted = isDark ? Colors.white70 : MapsColors.inkMuted;
 
@@ -227,12 +230,30 @@ class SearchSheet extends ConsumerWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 10),
+              _TravelModeChips(
+                selected: travelMode,
+                enabled: !nav.routing,
+                onSelect: (mode) async {
+                  await ref.read(travelModeProvider.notifier).setMode(mode);
+                  if (nav.destination != null) {
+                    await ref
+                        .read(navigationProvider.notifier)
+                        .planRoute(startFollowing: false);
+                  }
+                },
+              ),
+              if (nav.zonesOnRoute.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _LezOnRouteNotice(zones: nav.zonesOnRoute),
+              ],
               if (_shouldShowGo(nav, destCtrl.text)) ...[
                 const SizedBox(height: 12),
                 _GoCta(
                   routing: nav.routing,
                   pulseKey: nav.destination?.label ?? destCtrl.text,
                   showHint: nav.destination != null && !nav.hasRoute,
+                  lezOnRoute: nav.zonesOnRoute.isNotEmpty,
                   onGo: onGo,
                 ),
               ],
@@ -317,15 +338,16 @@ class SearchSheet extends ConsumerWidget {
                           ? MapsColors.accent
                           : MapsColors.lezOnRouteBorder,
                     ),
-                    _MiniChip(
-                      icon: Icons.videocam_outlined,
-                      label: nav.cameras.isEmpty
-                          ? 'Nessun autovelox'
-                          : '${nav.cameras.length} autovelox',
-                      color: nav.cameras.isEmpty
-                          ? MapsColors.accent
-                          : const Color(0xFFFF9F0A),
-                    ),
+                    if (nav.mode.isCar)
+                      _MiniChip(
+                        icon: Icons.videocam_outlined,
+                        label: nav.cameras.isEmpty
+                            ? 'Nessun autovelox'
+                            : '${nav.cameras.length} autovelox',
+                        color: nav.cameras.isEmpty
+                            ? MapsColors.accent
+                            : const Color(0xFFFF9F0A),
+                      ),
                   ],
                 ),
                 if (nav.alternatives.length > 1) ...[
@@ -368,18 +390,134 @@ class SearchSheet extends ConsumerWidget {
   }
 }
 
+class _TravelModeChips extends StatelessWidget {
+  const _TravelModeChips({
+    required this.selected,
+    required this.onSelect,
+    this.enabled = true,
+  });
+
+  final TravelMode selected;
+  final ValueChanged<TravelMode> onSelect;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? Colors.white : MapsColors.ink;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: [
+        for (final item in const [
+          (TravelMode.car, 'Auto', Icons.directions_car_rounded),
+          (TravelMode.foot, 'A piedi', Icons.directions_walk_rounded),
+          (TravelMode.transit, 'Mezzi', Icons.directions_transit_rounded),
+        ])
+          ChoiceChip(
+              selected: selected == item.$1,
+              label: Text(
+                item.$2,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: selected == item.$1 ? Colors.white : ink,
+                ),
+              ),
+              avatar: Icon(
+                item.$3,
+                size: 16,
+                color: selected == item.$1 ? Colors.white : MapsColors.route,
+              ),
+              selectedColor: MapsColors.route,
+              backgroundColor: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : const Color(0xFFF2F2F7),
+              showCheckmark: false,
+              visualDensity: VisualDensity.compact,
+              onSelected: !enabled
+                  ? null
+                  : (on) {
+                      if (on) onSelect(item.$1);
+                    },
+            ),
+      ],
+    );
+  }
+}
+
+class _LezOnRouteNotice extends StatelessWidget {
+  const _LezOnRouteNotice({required this.zones});
+
+  final List<EmissionZone> zones;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final names = zones.map((z) => z.name).where((n) => n.trim().isNotEmpty);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: MapsColors.lezOnRouteBorder.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: MapsColors.lezOnRouteBorder, width: 1.2),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.shield_rounded,
+            color: MapsColors.lezOnRouteBorder,
+            size: 22,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Milieuzone sul percorso',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    color: MapsColors.lezOnRouteBorder,
+                  ),
+                ),
+                Text(
+                  names.isEmpty
+                      ? 'Zona ambientale sul tragitto scelto'
+                      : names.take(3).join(' · '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : MapsColors.ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _GoCta extends StatefulWidget {
   const _GoCta({
     required this.routing,
     required this.pulseKey,
     required this.showHint,
     required this.onGo,
+    this.lezOnRoute = false,
   });
 
   final bool routing;
   final String pulseKey;
   final bool showHint;
   final VoidCallback onGo;
+  final bool lezOnRoute;
 
   @override
   State<_GoCta> createState() => _GoCtaState();
@@ -468,12 +606,16 @@ class _GoCtaState extends State<_GoCta> with SingleTickerProviderStateMixin {
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: Text(
-              'Tocca VAI per partire',
+              widget.lezOnRoute
+                  ? 'Milieuzone sul percorso — tocca VAI'
+                  : 'Tocca VAI per partire',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: _goGreen,
+                color: widget.lezOnRoute
+                    ? MapsColors.lezOnRouteBorder
+                    : _goGreen,
               ),
             ),
           ),
