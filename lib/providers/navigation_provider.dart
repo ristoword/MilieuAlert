@@ -10,10 +10,17 @@ import '../services/navigation_service.dart';
 import 'location_provider.dart';
 import 'zone_provider.dart';
 
+enum SearchField { origin, destination }
+
 class NavigationState {
   final List<PlaceHit> suggestions;
+  final PlaceHit? origin;
   final PlaceHit? destination;
+  final bool originIsMyLocation;
+  final SearchField activeField;
   final List<LatLng> route;
+  final List<List<LatLng>> alternativeRoutes;
+  final int selectedRoute;
   final List<NavStep> steps;
   final List<SpeedCamera> cameras;
   final List<SpeedLimitPoint> limits;
@@ -24,11 +31,17 @@ class NavigationState {
   final String? error;
   final double? routeDistanceMeters;
   final double? routeDurationSeconds;
+  final List<RoutePlan> alternatives;
 
   const NavigationState({
     this.suggestions = const [],
+    this.origin,
     this.destination,
+    this.originIsMyLocation = true,
+    this.activeField = SearchField.destination,
     this.route = const [],
+    this.alternativeRoutes = const [],
+    this.selectedRoute = 0,
     this.steps = const [],
     this.cameras = const [],
     this.limits = const [],
@@ -39,12 +52,20 @@ class NavigationState {
     this.error,
     this.routeDistanceMeters,
     this.routeDurationSeconds,
+    this.alternatives = const [],
   });
+
+  bool get hasRoute => route.length >= 2;
 
   NavigationState copyWith({
     List<PlaceHit>? suggestions,
+    PlaceHit? origin,
     PlaceHit? destination,
+    bool? originIsMyLocation,
+    SearchField? activeField,
     List<LatLng>? route,
+    List<List<LatLng>>? alternativeRoutes,
+    int? selectedRoute,
     List<NavStep>? steps,
     List<SpeedCamera>? cameras,
     List<SpeedLimitPoint>? limits,
@@ -55,13 +76,20 @@ class NavigationState {
     String? error,
     double? routeDistanceMeters,
     double? routeDurationSeconds,
+    List<RoutePlan>? alternatives,
+    bool clearOrigin = false,
     bool clearDestination = false,
     bool clearError = false,
   }) {
     return NavigationState(
       suggestions: suggestions ?? this.suggestions,
+      origin: clearOrigin ? null : (origin ?? this.origin),
       destination: clearDestination ? null : (destination ?? this.destination),
+      originIsMyLocation: originIsMyLocation ?? this.originIsMyLocation,
+      activeField: activeField ?? this.activeField,
       route: route ?? this.route,
+      alternativeRoutes: alternativeRoutes ?? this.alternativeRoutes,
+      selectedRoute: selectedRoute ?? this.selectedRoute,
       steps: steps ?? this.steps,
       cameras: cameras ?? this.cameras,
       limits: limits ?? this.limits,
@@ -72,6 +100,7 @@ class NavigationState {
       error: clearError ? null : (error ?? this.error),
       routeDistanceMeters: routeDistanceMeters ?? this.routeDistanceMeters,
       routeDurationSeconds: routeDurationSeconds ?? this.routeDurationSeconds,
+      alternatives: alternatives ?? this.alternatives,
     );
   }
 }
@@ -106,13 +135,27 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
   final NavigationService _service;
   Timer? _debounce;
 
-  void search(String query, {String lang = 'it'}) {
+  void setActiveField(SearchField field) {
+    if (state.activeField == field) return;
+    state = state.copyWith(activeField: field, suggestions: const []);
+  }
+
+  void search(String query, {String lang = 'it', SearchField? field}) {
+    final target = field ?? state.activeField;
     _debounce?.cancel();
     if (query.trim().length < 3) {
-      state = state.copyWith(suggestions: const [], searching: false);
+      state = state.copyWith(
+        suggestions: const [],
+        searching: false,
+        activeField: target,
+      );
       return;
     }
-    state = state.copyWith(searching: true, clearError: true);
+    state = state.copyWith(
+      searching: true,
+      activeField: target,
+      clearError: true,
+    );
     _debounce = Timer(const Duration(milliseconds: 450), () async {
       try {
         final hits = await _service.searchAddress(query.trim(), lang: lang);
@@ -129,53 +172,184 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     });
   }
 
-  Future<void> startNavigation(PlaceHit place) async {
+  void useMyLocationAsOrigin() {
+    final loc = _ref.read(locationProvider);
+    PlaceHit? origin;
+    if (loc.latitude != null && loc.longitude != null) {
+      origin = PlaceHit(
+        label: 'La mia posizione',
+        lat: loc.latitude!,
+        lon: loc.longitude!,
+      );
+    }
     state = state.copyWith(
-      destination: place,
+      origin: origin,
+      originIsMyLocation: true,
       suggestions: const [],
-      routing: true,
-      navigating: true,
+      clearOrigin: origin == null,
       clearError: true,
     );
-    _ref.read(locationProvider.notifier).setFollow(true);
-    await _ref.read(locationProvider.notifier).startTracking();
+  }
 
+  Future<void> selectPlace(PlaceHit place, {SearchField? field}) async {
+    final target = field ?? state.activeField;
+    if (target == SearchField.origin) {
+      state = state.copyWith(
+        origin: place,
+        originIsMyLocation: false,
+        suggestions: const [],
+        activeField: SearchField.origin,
+      );
+    } else {
+      state = state.copyWith(
+        destination: place,
+        suggestions: const [],
+        activeField: SearchField.destination,
+      );
+    }
+    await planRoute(startFollowing: state.originIsMyLocation);
+  }
+
+  Future<void> startNavigation(PlaceHit place) {
+    return selectPlace(place, field: SearchField.destination);
+  }
+
+  void swapEnds() {
     final loc = _ref.read(locationProvider);
-    final fromLat = loc.latitude;
-    final fromLon = loc.longitude;
+    var origin = state.origin;
+    if (state.originIsMyLocation &&
+        loc.latitude != null &&
+        loc.longitude != null) {
+      origin = PlaceHit(
+        label: 'La mia posizione',
+        lat: loc.latitude!,
+        lon: loc.longitude!,
+      );
+    }
+    final dest = state.destination;
+    state = state.copyWith(
+      origin: dest,
+      destination: origin,
+      originIsMyLocation: false,
+      suggestions: const [],
+      clearOrigin: dest == null,
+      clearDestination: origin == null,
+    );
+    if (state.origin != null && state.destination != null) {
+      planRoute(startFollowing: false);
+    }
+  }
 
-    var route = [LatLng(place.lat, place.lon)];
-    var steps = const <NavStep>[];
-    var distance = 0.0;
-    var duration = 0.0;
+  ({double lat, double lon})? _originCoords() {
+    if (!state.originIsMyLocation && state.origin != null) {
+      return (lat: state.origin!.lat, lon: state.origin!.lon);
+    }
+    final loc = _ref.read(locationProvider);
+    if (loc.latitude != null && loc.longitude != null) {
+      return (lat: loc.latitude!, lon: loc.longitude!);
+    }
+    if (state.origin != null) {
+      return (lat: state.origin!.lat, lon: state.origin!.lon);
+    }
+    return null;
+  }
 
-    if (fromLat != null && fromLon != null) {
-      try {
-        final plan = await _service.route(
-          fromLat: fromLat,
-          fromLon: fromLon,
-          toLat: place.lat,
-          toLon: place.lon,
-        );
-        if (plan.points.isNotEmpty) {
-          route = plan.points.map((p) => LatLng(p[1], p[0])).toList();
-          steps = plan.steps;
-          distance = plan.distanceMeters;
-          duration = plan.durationSeconds;
-        } else {
-          route = [LatLng(fromLat, fromLon), LatLng(place.lat, place.lon)];
-        }
-      } catch (_) {
-        route = [LatLng(fromLat, fromLon), LatLng(place.lat, place.lon)];
-      }
+  Future<void> planRoute({bool startFollowing = false}) async {
+    final dest = state.destination;
+    if (dest == null) {
+      state = state.copyWith(error: 'Inserisci un indirizzo di destinazione');
+      return;
+    }
+    if (state.originIsMyLocation) {
+      await _ref.read(locationProvider.notifier).startTracking();
+    }
+    final from = _originCoords();
+    if (from == null) {
+      state = state.copyWith(
+        error: 'Attiva il GPS o inserisci un indirizzo di partenza',
+        routing: false,
+      );
+      return;
     }
 
-    final lats = route.map((p) => p.latitude);
-    final lons = route.map((p) => p.longitude);
-    var minLat = lats.reduce((a, b) => a < b ? a : b) - 0.02;
-    var maxLat = lats.reduce((a, b) => a > b ? a : b) + 0.02;
-    var minLon = lons.reduce((a, b) => a < b ? a : b) - 0.02;
-    var maxLon = lons.reduce((a, b) => a > b ? a : b) + 0.02;
+    state = state.copyWith(
+      routing: true,
+      navigating: startFollowing && state.originIsMyLocation,
+      suggestions: const [],
+      clearError: true,
+    );
+    _ref.read(locationProvider.notifier).setFollow(false);
+
+    List<RoutePlan> plans = const [];
+    try {
+      final bundle = await _service.route(
+        fromLat: from.lat,
+        fromLon: from.lon,
+        toLat: dest.lat,
+        toLon: dest.lon,
+      );
+      plans = bundle.alternatives.where((p) => p.points.isNotEmpty).toList();
+    } catch (_) {
+      plans = const [];
+    }
+
+    if (plans.isEmpty) {
+      plans = [
+        RoutePlan(
+          points: [
+            [from.lon, from.lat],
+            [dest.lon, dest.lat],
+          ],
+          steps: const [],
+          speeds: const [],
+          distanceMeters: haversineMeters(from.lat, from.lon, dest.lat, dest.lon),
+          durationSeconds: 0,
+        ),
+      ];
+    }
+
+    final altPolylines = plans
+        .map((p) => p.points.map((c) => LatLng(c[1], c[0])).toList())
+        .toList();
+
+    if (!mounted) return;
+    state = state.copyWith(
+      alternatives: plans,
+      alternativeRoutes: altPolylines,
+      selectedRoute: 0,
+    );
+    await _applyPlan(plans.first, altPolylines.first, startFollowing: startFollowing);
+  }
+
+  Future<void> selectAlternative(int index) async {
+    if (index < 0 || index >= state.alternatives.length) return;
+    await _applyPlan(
+      state.alternatives[index],
+      state.alternativeRoutes[index],
+      startFollowing: state.navigating,
+      selected: index,
+    );
+  }
+
+  Future<void> _applyPlan(
+    RoutePlan plan,
+    List<LatLng> polyline, {
+    required bool startFollowing,
+    int selected = 0,
+  }) async {
+    final pathLatLon = polyline.map((p) => [p.latitude, p.longitude]).toList();
+    final sampled = _samplePath(polyline, 28);
+    final pathQuery = sampled
+        .map((p) =>
+            '${p.latitude.toStringAsFixed(5)},${p.longitude.toStringAsFixed(5)}')
+        .join(';');
+
+    final lats = polyline.map((p) => p.latitude);
+    final lons = polyline.map((p) => p.longitude);
+    var minLat = lats.reduce((a, b) => a < b ? a : b) - 0.01;
+    var maxLat = lats.reduce((a, b) => a > b ? a : b) + 0.01;
+    var minLon = lons.reduce((a, b) => a < b ? a : b) - 0.01;
+    var maxLon = lons.reduce((a, b) => a > b ? a : b) + 0.01;
 
     var cameras = const <SpeedCamera>[];
     var limits = const <SpeedLimitPoint>[];
@@ -185,17 +359,22 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
         minLon: minLon,
         maxLat: maxLat,
         maxLon: maxLon,
+        path: pathQuery,
       );
-      cameras = hazards.cameras;
-      limits = hazards.limits;
+      cameras = hazards.cameras
+          .where((c) => isNearPath(c.lat, c.lon, pathLatLon, maxMeters: 160))
+          .toList();
+      limits = hazards.limits
+          .where((p) => isNearPath(p.lat, p.lon, pathLatLon, maxMeters: 90))
+          .toList();
     } catch (_) {}
 
     final zones = _ref.read(zonesProvider).valueOrNull ?? const <EmissionZone>[];
     final onRoute = <EmissionZone>[];
     final seen = <String>{};
-    final step = route.length < 80 ? 1 : (route.length / 80).ceil();
-    for (var i = 0; i < route.length; i += step) {
-      final p = route[i];
+    final step = polyline.length < 80 ? 1 : (polyline.length / 80).ceil();
+    for (var i = 0; i < polyline.length; i += step) {
+      final p = polyline[i];
       for (final zone in zones) {
         if (seen.contains(zone.id)) continue;
         if (isInsideZone(p.latitude, p.longitude, zone)) {
@@ -207,19 +386,32 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
 
     if (!mounted) return;
     state = state.copyWith(
-      route: route,
-      steps: steps,
+      route: polyline,
+      steps: plan.steps,
       cameras: cameras,
       limits: limits,
       zonesOnRoute: onRoute,
       routing: false,
-      navigating: true,
-      routeDistanceMeters: distance,
-      routeDurationSeconds: duration,
+      navigating: startFollowing && state.originIsMyLocation,
+      selectedRoute: selected,
+      routeDistanceMeters: plan.distanceMeters,
+      routeDurationSeconds: plan.durationSeconds,
     );
   }
 
+  List<LatLng> _samplePath(List<LatLng> route, int maxPoints) {
+    if (route.length <= maxPoints) return route;
+    final step = (route.length / maxPoints).ceil();
+    final out = <LatLng>[];
+    for (var i = 0; i < route.length; i += step) {
+      out.add(route[i]);
+    }
+    if (out.last != route.last) out.add(route.last);
+    return out;
+  }
+
   void stopNavigation() {
+    _ref.read(locationProvider.notifier).setFollow(true);
     state = const NavigationState();
   }
 

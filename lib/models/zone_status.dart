@@ -39,3 +39,12 @@ String formatDistance(double? meters) {
   return '${(meters / 1000).toStringAsFixed(1)} km';
 }
 
+String formatDuration(double? seconds) {
+  if (seconds == null || seconds <= 0) return '—';
+  final minutes = (seconds / 60).round();
+  if (minutes < 60) return '$minutes min';
+  final hours = minutes ~/ 60;
+  final rest = minutes % 60;
+  return rest == 0 ? '$hours h' : '$hours h $rest min';
+}
+

@@ -25,21 +25,51 @@ class MapScreen extends ConsumerStatefulWidget {
 
 class _MapScreenState extends ConsumerState<MapScreen> {
   final MapController _mapController = MapController();
-  final TextEditingController _searchCtrl = TextEditingController();
+  final TextEditingController _originCtrl = TextEditingController();
+  final TextEditingController _destCtrl = TextEditingController();
+  final FocusNode _originFocus = FocusNode();
+  final FocusNode _destFocus = FocusNode();
   bool _movedToUser = false;
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
 
   @override
   void initState() {
     super.initState();
+    _originCtrl.text = 'La mia posizione';
+    _originFocus.addListener(() {
+      if (_originFocus.hasFocus) {
+        ref.read(navigationProvider.notifier).setActiveField(SearchField.origin);
+      }
+    });
+    _destFocus.addListener(() {
+      if (_destFocus.hasFocus) {
+        ref.read(navigationProvider.notifier).setActiveField(SearchField.destination);
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(locationProvider.notifier).startTracking();
     });
+  }
+
+  @override
+  void dispose() {
+    _originCtrl.dispose();
+    _destCtrl.dispose();
+    _originFocus.dispose();
+    _destFocus.dispose();
+    super.dispose();
+  }
+
+  void _fitRoute(List<LatLng> route) {
+    if (route.length < 2) return;
+    try {
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints(route),
+          padding: const EdgeInsets.fromLTRB(36, 210, 36, 240),
+          maxZoom: 15,
+        ),
+      );
+    } catch (_) {}
   }
 
   @override
@@ -51,14 +81,26 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final topPad = MediaQuery.of(context).padding.top;
 
     ref.listen(locationProvider, (prev, next) {
-      final shouldFollow = next.follow || nav.navigating;
+      final followLive = next.follow && nav.navigating && nav.originIsMyLocation;
       if (next.latitude == null || next.longitude == null) return;
-      if (!_movedToUser || shouldFollow) {
+      if (!_movedToUser || followLive) {
         _movedToUser = true;
         _mapController.move(
           LatLng(next.latitude!, next.longitude!),
           nav.navigating ? 16 : 14,
         );
+      }
+    });
+
+    ref.listen(navigationProvider, (prev, next) {
+      if (!next.hasRoute) return;
+      final routeChanged = prev?.selectedRoute != next.selectedRoute ||
+          prev?.routeDistanceMeters != next.routeDistanceMeters ||
+          prev?.destination?.label != next.destination?.label;
+      if (routeChanged && !(next.navigating && prev?.hasRoute == true)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _fitRoute(next.route);
+        });
       }
     });
 
@@ -73,6 +115,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           .read(navigationProvider.notifier)
           .liveInfo(location.latitude!, location.longitude!);
     }
+
+    final originPoint = !nav.originIsMyLocation && nav.origin != null
+        ? LatLng(nav.origin!.lat, nav.origin!.lon)
+        : null;
 
     return Scaffold(
       body: Stack(
@@ -95,17 +141,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 userAgentPackageName: 'com.milieualert.app',
               ),
               zonesAsync.when(
-                data: (zones) => PolygonLayer(polygons: _polygonsFor(zones)),
+                data: (zones) => PolygonLayer(
+                  polygons: _polygonsFor(zones, nav.zonesOnRoute),
+                ),
                 loading: () => const PolygonLayer(polygons: <Polygon>[]),
                 error: (_, __) => const PolygonLayer(polygons: <Polygon>[]),
               ),
+              if (nav.alternativeRoutes.length > 1)
+                PolylineLayer(
+                  polylines: [
+                    for (var i = 0; i < nav.alternativeRoutes.length; i++)
+                      if (i != nav.selectedRoute &&
+                          nav.alternativeRoutes[i].length >= 2)
+                        Polyline(
+                          points: nav.alternativeRoutes[i],
+                          color: Colors.white.withValues(alpha: 0.35),
+                          strokeWidth: 4,
+                        ),
+                  ],
+                ),
               if (nav.route.length >= 2)
                 PolylineLayer(
                   polylines: [
                     Polyline(
                       points: nav.route,
                       color: NeonColors.cyan,
-                      strokeWidth: 5,
+                      strokeWidth: 5.5,
                     ),
                   ],
                 ),
@@ -118,6 +179,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     child: const _CameraPin(),
                   ),
                 ),
+                if (originPoint != null)
+                  Marker(
+                    point: originPoint,
+                    width: 36,
+                    height: 36,
+                    child: const Icon(
+                      Icons.trip_origin,
+                      color: NeonColors.neonGreen,
+                      size: 30,
+                    ),
+                  ),
                 if (nav.destination != null)
                   Marker(
                     point: LatLng(nav.destination!.lat, nav.destination!.lon),
@@ -160,34 +232,76 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             top: topPad + 8,
             left: 12,
             right: 12,
-            child: _SearchPanel(
-              controller: _searchCtrl,
-              nav: nav,
-              onQuery: (q) {
-                final lang = ref.read(localeProvider).languageCode;
-                ref.read(navigationProvider.notifier).search(q, lang: lang);
-              },
-              onSelect: (hit) async {
-                _searchCtrl.text = hit.label;
-                await ref.read(navigationProvider.notifier).startNavigation(hit);
-                _mapController.move(LatLng(hit.lat, hit.lon), 14);
-              },
-              onSettings: () => context.push('/settings'),
+            child: Column(
+              children: [
+                _DirectionsPanel(
+                  originCtrl: _originCtrl,
+                  destCtrl: _destCtrl,
+                  originFocus: _originFocus,
+                  destFocus: _destFocus,
+                  nav: nav,
+                  onOriginQuery: (q) {
+                    if (q.trim().toLowerCase() == 'la mia posizione') return;
+                    final lang = ref.read(localeProvider).languageCode;
+                    ref.read(navigationProvider.notifier).search(
+                          q,
+                          lang: lang,
+                          field: SearchField.origin,
+                        );
+                  },
+                  onDestQuery: (q) {
+                    final lang = ref.read(localeProvider).languageCode;
+                    ref.read(navigationProvider.notifier).search(
+                          q,
+                          lang: lang,
+                          field: SearchField.destination,
+                        );
+                  },
+                  onSelect: (hit) async {
+                    final field = nav.activeField;
+                    if (field == SearchField.origin) {
+                      _originCtrl.text = hit.label;
+                    } else {
+                      _destCtrl.text = hit.label;
+                    }
+                    await ref.read(navigationProvider.notifier).selectPlace(hit);
+                    if (!context.mounted) return;
+                    FocusScope.of(context).unfocus();
+                  },
+                  onUseMyLocation: () {
+                    _originCtrl.text = 'La mia posizione';
+                    ref.read(navigationProvider.notifier).useMyLocationAsOrigin();
+                    if (nav.destination != null) {
+                      ref.read(navigationProvider.notifier).planRoute(
+                            startFollowing: true,
+                          );
+                    }
+                  },
+                  onSwap: () {
+                    final a = _originCtrl.text;
+                    _originCtrl.text = _destCtrl.text;
+                    _destCtrl.text = a;
+                    ref.read(navigationProvider.notifier).swapEnds();
+                  },
+                  onGo: () {
+                    ref.read(navigationProvider.notifier).planRoute(
+                          startFollowing: nav.originIsMyLocation,
+                        );
+                  },
+                  onSelectAlternative: (i) {
+                    ref.read(navigationProvider.notifier).selectAlternative(i);
+                  },
+                  onSettings: () => context.push('/settings'),
+                ),
+                const SizedBox(height: 8),
+                AlertBanner(proximity: location.nearestZone),
+                if (nav.zonesOnRoute.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  _RouteZoneBanner(zones: nav.zonesOnRoute),
+                ],
+              ],
             ),
           ),
-          Positioned(
-            top: topPad + 72,
-            left: 0,
-            right: 0,
-            child: AlertBanner(proximity: location.nearestZone),
-          ),
-          if (nav.zonesOnRoute.isNotEmpty)
-            Positioned(
-              top: topPad + 132,
-              left: 12,
-              right: 12,
-              child: _RouteZoneBanner(zones: nav.zonesOnRoute),
-            ),
           Positioned(
             left: 12,
             right: 12,
@@ -201,7 +315,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               },
               onStop: () {
                 ref.read(navigationProvider.notifier).stopNavigation();
-                _searchCtrl.clear();
+                _originCtrl.text = 'La mia posizione';
+                _destCtrl.clear();
               },
             ),
           ),
@@ -210,9 +325,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  List<Polygon> _polygonsFor(List<EmissionZone> zones) {
+  List<Polygon> _polygonsFor(
+    List<EmissionZone> zones,
+    List<EmissionZone> onRoute,
+  ) {
+    final onRouteIds = {for (final z in onRoute) z.id};
     final polygons = <Polygon>[];
     for (final zone in zones) {
+      final highlighted = onRouteIds.contains(zone.id);
       for (final ring in zone.polygonCoordinates) {
         if (ring.length < 3) continue;
         final points = <LatLng>[];
@@ -224,9 +344,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         polygons.add(
           Polygon(
             points: points,
-            color: NeonColors.neonGreen.withValues(alpha: 0.18),
-            borderColor: NeonColors.neonGreen,
-            borderStrokeWidth: 2,
+            color: highlighted
+                ? NeonColors.orange.withValues(alpha: 0.28)
+                : NeonColors.neonGreen.withValues(alpha: 0.16),
+            borderColor:
+                highlighted ? NeonColors.orange : NeonColors.neonGreen,
+            borderStrokeWidth: highlighted ? 3 : 2,
           ),
         );
       }
@@ -251,52 +374,181 @@ class _CameraPin extends StatelessWidget {
   }
 }
 
-class _SearchPanel extends StatelessWidget {
-  const _SearchPanel({
-    required this.controller,
+class _DirectionsPanel extends StatelessWidget {
+  const _DirectionsPanel({
+    required this.originCtrl,
+    required this.destCtrl,
+    required this.originFocus,
+    required this.destFocus,
     required this.nav,
-    required this.onQuery,
+    required this.onOriginQuery,
+    required this.onDestQuery,
     required this.onSelect,
+    required this.onUseMyLocation,
+    required this.onSwap,
+    required this.onGo,
+    required this.onSelectAlternative,
     required this.onSettings,
   });
 
-  final TextEditingController controller;
+  final TextEditingController originCtrl;
+  final TextEditingController destCtrl;
+  final FocusNode originFocus;
+  final FocusNode destFocus;
   final NavigationState nav;
-  final ValueChanged<String> onQuery;
+  final ValueChanged<String> onOriginQuery;
+  final ValueChanged<String> onDestQuery;
   final ValueChanged<PlaceHit> onSelect;
+  final VoidCallback onUseMyLocation;
+  final VoidCallback onSwap;
+  final VoidCallback onGo;
+  final ValueChanged<int> onSelectAlternative;
   final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Material(
-                color: NeonColors.darkCard.withValues(alpha: 0.94),
-                borderRadius: BorderRadius.circular(16),
-                child: TextField(
-                  controller: controller,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Naviga verso un indirizzo…',
-                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-                    prefixIcon: Icon(
-                      nav.routing ? Icons.hourglass_top : Icons.search,
-                      color: NeonColors.cyan,
+        Material(
+          color: NeonColors.darkCard.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _AddressField(
+                        controller: originCtrl,
+                        focusNode: originFocus,
+                        hint: 'Da: indirizzo di partenza',
+                        icon: Icons.trip_origin,
+                        iconColor: NeonColors.neonGreen,
+                        onChanged: onOriginQuery,
+                      ),
                     ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onChanged: onQuery,
-                  textInputAction: TextInputAction.search,
+                    IconButton(
+                      tooltip: 'Usa la mia posizione',
+                      onPressed: onUseMyLocation,
+                      icon: Icon(
+                        Icons.my_location,
+                        color: nav.originIsMyLocation
+                            ? NeonColors.cyan
+                            : Colors.white54,
+                      ),
+                    ),
+                    _IconChip(icon: Icons.settings, onTap: onSettings),
+                  ],
                 ),
-              ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _AddressField(
+                        controller: destCtrl,
+                        focusNode: destFocus,
+                        hint: 'A: dove vuoi andare',
+                        icon: Icons.flag,
+                        iconColor: NeonColors.pink,
+                        onChanged: onDestQuery,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Inverti A e B',
+                      onPressed: onSwap,
+                      icon: const Icon(Icons.swap_vert, color: Colors.white70),
+                    ),
+                    IconButton(
+                      tooltip: 'Calcola percorso',
+                      onPressed: nav.routing ? null : onGo,
+                      icon: Icon(
+                        nav.routing ? Icons.hourglass_top : Icons.directions,
+                        color: NeonColors.cyan,
+                      ),
+                    ),
+                  ],
+                ),
+                if (nav.error != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        nav.error!,
+                        style: const TextStyle(
+                          color: NeonColors.pink,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (nav.hasRoute)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(6, 4, 6, 0),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _InfoChip(
+                          icon: Icons.route,
+                          label:
+                              '${formatDistance(nav.routeDistanceMeters)} · ${formatDuration(nav.routeDurationSeconds)}',
+                        ),
+                        _InfoChip(
+                          icon: Icons.shield,
+                          label: nav.zonesOnRoute.isEmpty
+                              ? 'Nessuna zona'
+                              : '${nav.zonesOnRoute.length} zone',
+                          color: nav.zonesOnRoute.isEmpty
+                              ? NeonColors.neonGreen
+                              : NeonColors.orange,
+                        ),
+                        _InfoChip(
+                          icon: Icons.videocam,
+                          label: nav.cameras.isEmpty
+                              ? 'Nessun autovelox'
+                              : '${nav.cameras.length} autovelox',
+                          color: nav.cameras.isEmpty
+                              ? NeonColors.neonGreen
+                              : NeonColors.orange,
+                        ),
+                      ],
+                    ),
+                  ),
+                if (nav.alternatives.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: SizedBox(
+                      height: 34,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: nav.alternatives.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (context, i) {
+                          final plan = nav.alternatives[i];
+                          final selected = i == nav.selectedRoute;
+                          return ChoiceChip(
+                            selected: selected,
+                            label: Text(
+                              'Percorso ${i + 1} · ${formatDuration(plan.durationSeconds)}',
+                              style: TextStyle(
+                                color: selected
+                                    ? NeonColors.deepSpace
+                                    : Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                            selectedColor: NeonColors.cyan,
+                            backgroundColor: NeonColors.darkSurface,
+                            onSelected: (_) => onSelectAlternative(i),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            const SizedBox(width: 8),
-            _IconChip(icon: Icons.settings, onTap: onSettings),
-          ],
+          ),
         ),
         if (nav.suggestions.isNotEmpty)
           Container(
@@ -312,7 +564,14 @@ class _SearchPanel extends StatelessWidget {
                 for (final hit in nav.suggestions)
                   ListTile(
                     dense: true,
-                    leading: const Icon(Icons.place, color: NeonColors.cyan),
+                    leading: Icon(
+                      nav.activeField == SearchField.origin
+                          ? Icons.trip_origin
+                          : Icons.place,
+                      color: nav.activeField == SearchField.origin
+                          ? NeonColors.neonGreen
+                          : NeonColors.cyan,
+                    ),
                     title: Text(
                       hit.label,
                       maxLines: 2,
@@ -329,6 +588,82 @@ class _SearchPanel extends StatelessWidget {
   }
 }
 
+class _AddressField extends StatelessWidget {
+  const _AddressField({
+    required this.controller,
+    required this.focusNode,
+    required this.hint,
+    required this.icon,
+    required this.iconColor,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final String hint;
+  final IconData icon;
+  final Color iconColor;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      style: const TextStyle(color: Colors.white, fontSize: 14),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.45)),
+        prefixIcon: Icon(icon, color: iconColor, size: 20),
+        border: InputBorder.none,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+      ),
+      onChanged: onChanged,
+      textInputAction: TextInputAction.search,
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+    this.color = NeonColors.cyan,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _IconChip extends StatelessWidget {
   const _IconChip({required this.icon, required this.onTap});
   final IconData icon;
@@ -337,14 +672,14 @@ class _IconChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: NeonColors.darkCard.withValues(alpha: 0.94),
+      color: NeonColors.darkSurface,
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Icon(icon, color: NeonColors.cyan),
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, color: NeonColors.cyan, size: 20),
         ),
       ),
     );
@@ -406,14 +741,17 @@ class _NavigatorHud extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (nav.navigating && live?.currentStep != null) ...[
+            if (nav.hasRoute && nav.destination != null) ...[
               Row(
                 children: [
                   const Icon(Icons.navigation, color: NeonColors.cyan),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      live!.currentStep!.instructionIt,
+                      live?.currentStep?.instructionIt ??
+                          'Verso ${nav.destination!.label}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.exo2(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
@@ -422,7 +760,7 @@ class _NavigatorHud extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    formatDistance(live!.remainingMeters),
+                    formatDistance(live?.remainingMeters ?? nav.routeDistanceMeters),
                     style: GoogleFonts.exo2(
                       color: NeonColors.cyan,
                       fontWeight: FontWeight.w700,
@@ -481,13 +819,15 @@ class _NavigatorHud extends StatelessWidget {
                 children: [
                   const Icon(Icons.videocam, color: NeonColors.orange, size: 18),
                   const SizedBox(width: 6),
-                  Text(
-                    'Autovelox tra ${formatDistance(live!.nextCameraMeters)}'
-                    '${live!.nextCamera!.maxspeed != null ? ' · ${live!.nextCamera!.maxspeed} km/h' : ''}',
-                    style: const TextStyle(
-                      color: NeonColors.orange,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
+                  Expanded(
+                    child: Text(
+                      'Autovelox tra ${formatDistance(live!.nextCameraMeters)}'
+                      '${live!.nextCamera!.maxspeed != null ? ' · ${live!.nextCamera!.maxspeed} km/h' : ''}',
+                      style: const TextStyle(
+                        color: NeonColors.orange,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -509,7 +849,7 @@ class _NavigatorHud extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (nav.navigating) ...[
+                if (nav.hasRoute) ...[
                   const SizedBox(width: 8),
                   OutlinedButton(
                     onPressed: onStop,

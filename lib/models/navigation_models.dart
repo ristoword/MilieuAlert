@@ -141,6 +141,39 @@ class RoutePlan {
     required this.distanceMeters,
     required this.durationSeconds,
   });
+
+  factory RoutePlan.fromJson(Map<String, dynamic> data) {
+    final points = ((data['points'] as List?) ?? const [])
+        .map((p) {
+          final m = Map<String, dynamic>.from(p as Map);
+          return <double>[
+            (m['lon'] as num).toDouble(),
+            (m['lat'] as num).toDouble(),
+          ];
+        })
+        .toList();
+    final steps = ((data['steps'] as List?) ?? const [])
+        .map((s) => NavStep.fromJson(Map<String, dynamic>.from(s as Map)))
+        .toList();
+    final speeds = ((data['speeds'] as List?) ?? const [])
+        .map((n) => (n as num).toDouble())
+        .toList();
+    return RoutePlan(
+      points: points,
+      steps: steps,
+      speeds: speeds,
+      distanceMeters: (data['distanceMeters'] as num?)?.toDouble() ?? 0,
+      durationSeconds: (data['durationSeconds'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+class RouteBundle {
+  final List<RoutePlan> alternatives;
+
+  const RouteBundle({required this.alternatives});
+
+  RoutePlan? get primary => alternatives.isEmpty ? null : alternatives.first;
 }
 
 class HazardSet {

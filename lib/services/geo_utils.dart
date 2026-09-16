@@ -15,6 +15,29 @@ double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
 
 double _toRad(double deg) => deg * pi / 180;
 
+/// True if [lat],[lon] is within [maxMeters] of any sampled path point.
+bool isNearPath(
+  double lat,
+  double lon,
+  List<List<double>> pathLatLon, {
+  double maxMeters = 140,
+}) {
+  if (pathLatLon.isEmpty) return false;
+  final step = pathLatLon.length < 120 ? 1 : (pathLatLon.length / 120).ceil();
+  for (var i = 0; i < pathLatLon.length; i += step) {
+    final p = pathLatLon[i];
+    if (p.length < 2) continue;
+    if (haversineMeters(lat, lon, p[0], p[1]) <= maxMeters) return true;
+  }
+  return haversineMeters(
+        lat,
+        lon,
+        pathLatLon.last[0],
+        pathLatLon.last[1],
+      ) <=
+      maxMeters;
+}
+
 /// GeoJSON rings are [lon, lat].
 bool isInsideZone(double lat, double lon, EmissionZone zone) {
   if (zone.polygonCoordinates.isEmpty) return false;

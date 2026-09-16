@@ -25,7 +25,7 @@ class NavigationService {
         .toList();
   }
 
-  Future<RoutePlan> route({
+  Future<RouteBundle> route({
     required double fromLat,
     required double fromLon,
     required double toLat,
@@ -41,28 +41,13 @@ class NavigationService {
       },
     );
     final data = Map<String, dynamic>.from(response.data as Map);
-    final points = ((data['points'] as List?) ?? const [])
-        .map((p) {
-          final m = Map<String, dynamic>.from(p as Map);
-          return <double>[
-            (m['lon'] as num).toDouble(),
-            (m['lat'] as num).toDouble(),
-          ];
-        })
-        .toList();
-    final steps = ((data['steps'] as List?) ?? const [])
-        .map((s) => NavStep.fromJson(Map<String, dynamic>.from(s as Map)))
-        .toList();
-    final speeds = ((data['speeds'] as List?) ?? const [])
-        .map((n) => (n as num).toDouble())
-        .toList();
-    return RoutePlan(
-      points: points,
-      steps: steps,
-      speeds: speeds,
-      distanceMeters: (data['distanceMeters'] as num?)?.toDouble() ?? 0,
-      durationSeconds: (data['durationSeconds'] as num?)?.toDouble() ?? 0,
-    );
+    final rawAlts = (data['alternatives'] as List?) ?? const [];
+    final alternatives = rawAlts.isNotEmpty
+        ? rawAlts
+            .map((e) => RoutePlan.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList()
+        : [RoutePlan.fromJson(data)];
+    return RouteBundle(alternatives: alternatives);
   }
 
   Future<HazardSet> hazards({
@@ -70,6 +55,7 @@ class NavigationService {
     required double minLon,
     required double maxLat,
     required double maxLon,
+    String? path,
   }) async {
     final response = await _dio.get(
       '/api/geo/cameras',
@@ -78,6 +64,7 @@ class NavigationService {
         'minLon': minLon,
         'maxLat': maxLat,
         'maxLon': maxLon,
+        if (path != null && path.isNotEmpty) 'path': path,
       },
     );
     final data = Map<String, dynamic>.from(response.data as Map);

@@ -26,7 +26,7 @@ router.get('/search', async (req, res) => {
     if (q.length < 3) return res.json({ results: [] });
     const lang = String(req.query.lang || 'it');
     const url =
-      'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&addressdetails=0&q=' +
+      'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&addressdetails=0&q=' +
       encodeURIComponent(q);
     const data = await fetchJson(url, {
       headers: { 'Accept-Language': lang },
@@ -43,6 +43,40 @@ router.get('/search', async (req, res) => {
   }
 });
 
+function serializeOsrmRoute(route) {
+  const points = (route.geometry.coordinates || []).map((c) => ({
+    lon: c[0],
+    lat: c[1],
+  }));
+  const steps = [];
+  for (const leg of route.legs || []) {
+    for (const step of leg.steps || []) {
+      const loc = (step.maneuver && step.maneuver.location) || [];
+      steps.push({
+        instruction: step.maneuver
+          ? `${step.maneuver.type || ''} ${step.maneuver.modifier || ''}`.trim()
+          : 'continue',
+        type: (step.maneuver && step.maneuver.type) || 'continue',
+        modifier: (step.maneuver && step.maneuver.modifier) || '',
+        name: step.name || '',
+        distanceMeters: step.distance || 0,
+        durationSeconds: step.duration || 0,
+        lat: loc[1],
+        lon: loc[0],
+      });
+    }
+  }
+  const speeds = (route.legs || [])
+    .flatMap((leg) => (leg.annotation && leg.annotation.speed) || []);
+  return {
+    points,
+    steps,
+    speeds,
+    distanceMeters: route.distance,
+    durationSeconds: route.duration,
+  };
+}
+
 router.get('/route', async (req, res) => {
   try {
     const fromLon = Number(req.query.fromLon);
@@ -55,71 +89,67 @@ router.get('/route', async (req, res) => {
     const url =
       `https://router.project-osrm.org/route/v1/driving/` +
       `${fromLon},${fromLat};${toLon},${toLat}` +
-      `?overview=full&geometries=geojson&alternatives=false&steps=true&annotations=speed`;
+      `?overview=full&geometries=geojson&alternatives=true&steps=true&annotations=speed`;
     const data = await fetchJson(url);
-    const route = data.routes && data.routes[0];
-    if (!route) {
-      return res.json({
-        points: [],
-        steps: [],
-        speeds: [],
-        distanceMeters: 0,
-        durationSeconds: 0,
-      });
-    }
-    const points = (route.geometry.coordinates || []).map((c) => ({
-      lon: c[0],
-      lat: c[1],
-    }));
-    const steps = [];
-    for (const leg of route.legs || []) {
-      for (const step of leg.steps || []) {
-        const loc = (step.maneuver && step.maneuver.location) || [];
-        steps.push({
-          instruction: step.maneuver
-            ? `${step.maneuver.type || ''} ${step.maneuver.modifier || ''}`.trim()
-            : 'continue',
-          type: (step.maneuver && step.maneuver.type) || 'continue',
-          modifier: (step.maneuver && step.maneuver.modifier) || '',
-          name: step.name || '',
-          distanceMeters: step.distance || 0,
-          durationSeconds: step.duration || 0,
-          lat: loc[1],
-          lon: loc[0],
-        });
-      }
-    }
-    const speeds = (route.legs || [])
-      .flatMap((leg) => (leg.annotation && leg.annotation.speed) || []);
+    const routes = (data.routes || []).slice(0, 3).map(serializeOsrmRoute);
+    const main = routes[0] || {
+      points: [],
+      steps: [],
+      speeds: [],
+      distanceMeters: 0,
+      durationSeconds: 0,
+    };
     res.json({
-      points,
-      steps,
-      speeds,
-      distanceMeters: route.distance,
-      durationSeconds: route.duration,
+      ...main,
+      alternatives: routes,
     });
   } catch (err) {
     console.error('geo route failed:', err.message);
-    res.status(502).json({ error: 'Route failed', points: [], steps: [] });
+    res.status(502).json({ error: 'Route failed', points: [], steps: [], alternatives: [] });
   }
 });
 
+function parsePathPoints(raw) {
+  return String(raw || '')
+    .split(';')
+    .map((part) => {
+      const [lat, lon] = String(part).split(',').map(Number);
+      return { lat, lon };
+    })
+    .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon))
+    .slice(0, 36);
+}
+
 router.get('/cameras', async (req, res) => {
   try {
-    const minLat = Number(req.query.minLat);
-    const minLon = Number(req.query.minLon);
-    const maxLat = Number(req.query.maxLat);
-    const maxLon = Number(req.query.maxLon);
-    if (![minLat, minLon, maxLat, maxLon].every(Number.isFinite)) {
-      return res.status(400).json({ error: 'Invalid bbox' });
-    }
-    const query = `[out:json][timeout:22];
+    const pathPts = parsePathPoints(req.query.path);
+    let query;
+    if (pathPts.length >= 2) {
+      const around = pathPts
+        .map(
+          (p) => `
+  node["highway"="speed_camera"](around:180,${p.lat},${p.lon});
+  node["enforcement"="maxspeed"](around:180,${p.lat},${p.lon});
+  way["highway"]["maxspeed"](around:120,${p.lat},${p.lon});`
+        )
+        .join('\n');
+      query = `[out:json][timeout:22];\n(\n${around}\n);\nout body center;`;
+    } else {
+      const minLat = Number(req.query.minLat);
+      const minLon = Number(req.query.minLon);
+      const maxLat = Number(req.query.maxLat);
+      const maxLon = Number(req.query.maxLon);
+      if (![minLat, minLon, maxLat, maxLon].every(Number.isFinite)) {
+        return res.status(400).json({ error: 'Invalid bbox' });
+      }
+      query = `[out:json][timeout:22];
 (
   node["highway"="speed_camera"](${minLat},${minLon},${maxLat},${maxLon});
   node["enforcement"="maxspeed"](${minLat},${minLon},${maxLat},${maxLon});
   way["maxspeed"](${minLat},${minLon},${maxLat},${maxLon});
 );
 out body center;`;
+    }
     const data = await fetchJson('https://overpass-api.de/api/interpreter', {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
@@ -127,6 +157,7 @@ out body center;`;
     });
 
     const cameras = [];
+    const cameraIds = new Set();
     const limits = [];
     for (const el of data.elements || []) {
       const tags = el.tags || {};
@@ -135,7 +166,8 @@ out body center;`;
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
       const isCamera =
         tags.highway === 'speed_camera' || tags.enforcement === 'maxspeed';
-      if (isCamera && el.type === 'node') {
+      if (isCamera && el.type === 'node' && !cameraIds.has(el.id)) {
+        cameraIds.add(el.id);
         cameras.push({
           id: String(el.id),
           lat,
