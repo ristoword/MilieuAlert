@@ -74,13 +74,63 @@ class _PuckConePainter extends CustomPainter {
 }
 
 class CameraPin extends StatelessWidget {
-  const CameraPin({super.key});
+  const CameraPin({super.key, this.community = false});
+
+  final bool community;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: community ? const Color(0xFFFF3B30) : const Color(0xFFFF9F0A),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 6,
+              ),
+            ],
+          ),
+          child: Icon(
+            community ? Icons.videocam_outlined : Icons.videocam,
+            color: Colors.white,
+            size: 16,
+          ),
+        ),
+        if (community)
+          const Positioned(
+            right: -3,
+            bottom: -3,
+            child: CircleAvatar(
+              radius: 7,
+              backgroundColor: Colors.white,
+              child: Icon(Icons.person, size: 10, color: Color(0xFFFF3B30)),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class HazardPin extends StatelessWidget {
+  const HazardPin({
+    super.key,
+    required this.icon,
+    required this.color,
+  });
+
+  final IconData icon;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFFF9F0A),
+        color: color,
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: [
@@ -90,7 +140,7 @@ class CameraPin extends StatelessWidget {
           ),
         ],
       ),
-      child: const Icon(Icons.videocam, color: Colors.white, size: 16),
+      child: Icon(icon, color: Colors.white, size: 16),
     );
   }
 }

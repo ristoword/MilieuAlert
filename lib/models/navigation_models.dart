@@ -55,13 +55,21 @@ class SpeedCamera {
   final double lat;
   final double lon;
   final String? maxspeed;
+  final String source;
+  final String? type;
+  final String? reportId;
 
   const SpeedCamera({
     required this.id,
     required this.lat,
     required this.lon,
     this.maxspeed,
+    this.source = 'osm',
+    this.type,
+    this.reportId,
   });
+
+  bool get isCommunity => source == 'community';
 
   factory SpeedCamera.fromJson(Map<String, dynamic> json) {
     return SpeedCamera(
@@ -69,6 +77,9 @@ class SpeedCamera {
       lat: (json['lat'] as num).toDouble(),
       lon: (json['lon'] as num).toDouble(),
       maxspeed: json['maxspeed']?.toString(),
+      source: json['source']?.toString() ?? 'osm',
+      type: json['type']?.toString(),
+      reportId: json['reportId']?.toString(),
     );
   }
 }

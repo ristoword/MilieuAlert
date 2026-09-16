@@ -81,3 +81,41 @@ CREATE INDEX IF NOT EXISTS idx_trip_logs_user_id ON trip_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_trip_logs_timestamp ON trip_logs(timestamp);
 CREATE INDEX IF NOT EXISTS idx_ai_conversations_user_id ON ai_conversations(user_id);
 CREATE INDEX IF NOT EXISTS idx_ai_conversations_session ON ai_conversations(session_id);
+
+-- Crowdsourced driving alerts (Flitsmeister-style cameras / incidents).
+CREATE TABLE IF NOT EXISTS hazard_reports (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    device_id VARCHAR(64),
+    type VARCHAR(50) NOT NULL,
+    lat DOUBLE PRECISION NOT NULL,
+    lon DOUBLE PRECISION NOT NULL,
+    heading DOUBLE PRECISION,
+    note VARCHAR(280),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    confirm_count INTEGER DEFAULT 0,
+    deny_count INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS hazard_votes (
+    report_id UUID NOT NULL REFERENCES hazard_reports(id) ON DELETE CASCADE,
+    voter_key VARCHAR(80) NOT NULL,
+    vote VARCHAR(10) NOT NULL CHECK (vote IN ('confirm', 'deny')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (report_id, voter_key)
+);
+
+CREATE TABLE IF NOT EXISTS hazard_comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    report_id UUID NOT NULL REFERENCES hazard_reports(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    device_id VARCHAR(64),
+    body VARCHAR(280) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_hazard_reports_expires ON hazard_reports(expires_at);
+CREATE INDEX IF NOT EXISTS idx_hazard_reports_type ON hazard_reports(type);
+CREATE INDEX IF NOT EXISTS idx_hazard_reports_geo ON hazard_reports(lat, lon);
+CREATE INDEX IF NOT EXISTS idx_hazard_comments_report ON hazard_comments(report_id, created_at);

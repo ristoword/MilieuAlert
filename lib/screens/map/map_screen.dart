@@ -12,8 +12,11 @@ import '../../models/navigation_models.dart';
 import '../../models/poi_category.dart';
 import '../../models/zone_status.dart';
 import '../../models/saved_places.dart';
+import '../../models/hazard_report.dart';
+import '../../l10n/hazard_strings.dart';
 import '../../providers/ai_assist_provider.dart';
 import '../../providers/favorites_provider.dart';
+import '../../providers/hazard_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -23,9 +26,12 @@ import 'widgets/ai_hint_banner.dart';
 import 'widgets/alert_banner.dart';
 import 'widgets/apple_eta_tray.dart';
 import 'widgets/apple_guidance_card.dart';
+import 'widgets/driver_map_frame.dart';
 import 'widgets/favorites_panel.dart';
+import 'widgets/hazard_detail_sheet.dart';
 import 'widgets/incident_banners.dart';
 import 'widgets/map_pins.dart';
+import 'widgets/report_sheet.dart';
 import 'widgets/search_sheet.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -51,6 +57,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _sheetExpanded = false;
   bool _trayExpanded = false;
   bool _wasGuiding = false;
+  bool _tilt3d = false;
+  bool _userSetMapMode = false;
   String? _seenTopAlertKey;
   String? _seenCameraAlertId;
 
@@ -74,9 +82,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final loc = ref.read(locationProvider.notifier);
-      loc.startTracking();
-      loc.setFollow(true);
+      final locN = ref.read(locationProvider.notifier);
+      locN.startTracking();
+      locN.setFollow(true);
+      final loc = ref.read(locationProvider);
+      ref.read(hazardProvider.notifier).start(
+            lat: loc.latitude,
+            lon: loc.longitude,
+          );
       if (widget.openNavigation) _enterNavMode();
     });
   }
@@ -150,6 +163,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _destCtrl.dispose();
     _originFocus.dispose();
     _destFocus.dispose();
+    ref.read(hazardProvider.notifier).stop();
     super.dispose();
   }
 
@@ -174,8 +188,39 @@ class _MapScreenState extends ConsumerState<MapScreen>
   void _moveToUser(double lat, double lon, {double? zoom}) {
     try {
       final z = zoom ?? _mapController.camera.zoom;
-      _mapController.move(LatLng(lat, lon), z);
+      final loc = ref.read(locationProvider);
+      final heading = loc.heading;
+      if (_tilt3d && heading != null && heading >= 0) {
+        _mapController.moveAndRotate(LatLng(lat, lon), z, heading);
+        _mapController.move(
+          LatLng(lat, lon),
+          z,
+          offset: const Offset(0, 120),
+        );
+      } else {
+        if (!_tilt3d && _mapController.camera.rotation.abs() > 0.4) {
+          _mapController.rotate(0);
+        }
+        _mapController.move(LatLng(lat, lon), z);
+      }
     } catch (_) {}
+  }
+
+  void _toggle3d() {
+    setState(() {
+      _userSetMapMode = true;
+      _tilt3d = !_tilt3d;
+    });
+    if (!_tilt3d) {
+      try {
+        _mapController.rotate(0);
+      } catch (_) {}
+    } else {
+      final loc = ref.read(locationProvider);
+      if (loc.latitude != null && loc.longitude != null) {
+        _moveToUser(loc.latitude!, loc.longitude!);
+      }
+    }
   }
 
   void _pauseFollowIfUserPanned(MapCamera camera) {
@@ -198,6 +243,84 @@ class _MapScreenState extends ConsumerState<MapScreen>
       emphasized: !location.follow,
       onTap: _recenter,
     );
+  }
+
+  Widget _sideMapButtons(LocationState location) {
+    final l10n = HazardStrings.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _RoundMapButton(
+          icon: _tilt3d ? Icons.threed_rotation : Icons.map_outlined,
+          tooltip: _tilt3d ? l10n.toggle3d : l10n.toggle2d,
+          emphasized: _tilt3d,
+          label: _tilt3d ? '3D' : '2D',
+          onTap: _toggle3d,
+        ),
+        const SizedBox(height: 8),
+        _RoundMapButton(
+          icon: Icons.campaign_outlined,
+          tooltip: l10n.nearbyFeed,
+          onTap: () => showHazardFeedSheet(context),
+        ),
+        const SizedBox(height: 8),
+        _recenterButton(location),
+        const SizedBox(height: 10),
+        Material(
+          color: const Color(0xFFFF9F0A),
+          shape: const CircleBorder(),
+          elevation: 3,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () => showHazardReportSheet(context, ref),
+            child: const SizedBox(
+              width: 56,
+              height: 56,
+              child: Icon(Icons.add, color: Colors.white, size: 32),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Marker> _cameraAndHazardMarkers(
+    NavigationState nav,
+    HazardState hazards,
+  ) {
+    final markers = <Marker>[];
+    final osmIds = <String>{};
+    for (final c in [...nav.cameras, ...hazards.cameras]) {
+      if (c.isCommunity) continue;
+      if (!osmIds.add(c.id)) continue;
+      markers.add(
+        Marker(
+          point: LatLng(c.lat, c.lon),
+          width: 34,
+          height: 34,
+          child: const CameraPin(),
+        ),
+      );
+    }
+    for (final r in hazards.reports) {
+      markers.add(
+        Marker(
+          point: LatLng(r.lat, r.lon),
+          width: 38,
+          height: 38,
+          child: GestureDetector(
+            onTap: () => showHazardDetailSheet(context, r),
+            child: r.type.isCamera
+                ? const CameraPin(community: true)
+                : HazardPin(
+                    icon: hazardIcon(r.type),
+                    color: hazardColor(r.type),
+                  ),
+          ),
+        ),
+      );
+    }
+    return markers;
   }
 
   void _fitPois(List<PlaceHit> hits, LocationState location) {
@@ -239,12 +362,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final location = ref.watch(locationProvider);
     final zonesAsync = ref.watch(zonesProvider);
     final nav = ref.watch(navigationProvider);
+    final hazards = ref.watch(hazardProvider);
     final ai = ref.watch(aiAssistProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final topPad = MediaQuery.of(context).padding.top;
 
     ref.listen(locationProvider, (prev, next) {
       if (next.latitude == null || next.longitude == null) return;
+      ref.read(hazardProvider.notifier).updateAnchor(
+            next.latitude!,
+            next.longitude!,
+          );
       // Follow the puck whenever follow is on — including walking with no
       // destination. During A→B, only follow when origin is "my location".
       final followLive =
@@ -335,10 +463,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
               _sheetExpanded = false;
               _trayExpanded = topAlertKey.isNotEmpty;
               FocusManager.instance.primaryFocus?.unfocus();
+              if (!_userSetMapMode) _tilt3d = true;
             } else {
               _sheetExpanded = true;
               _trayExpanded = false;
               _seenCameraAlertId = null;
+              if (!_userSetMapMode) _tilt3d = false;
             }
           }
           if (topAlertKey != (_seenTopAlertKey ?? '')) {
@@ -365,19 +495,32 @@ class _MapScreenState extends ConsumerState<MapScreen>
         : null;
 
     final showCameraBanner =
-        guiding && nextCamera != null && (live?.nextCameraMeters ?? 9999) <= 1000;
+        nextCamera != null && (live?.nextCameraMeters ?? 9999) <= 1000;
+    final crowdL10n = HazardStrings.of(context);
+    final crowdUpcoming = (location.latitude != null && location.longitude != null)
+        ? ref.read(hazardProvider.notifier).upcoming(
+              lat: location.latitude!,
+              lon: location.longitude!,
+              heading: location.heading,
+            )
+        : null;
 
     return Scaffold(
       bottomNavigationBar: const MainBottomNav(),
       body: Stack(
         children: [
-          FlutterMap(
+          DriverMapFrame(
+            tilted: _tilt3d,
+            child: FlutterMap(
             mapController: _mapController,
             options: MapOptions(
               initialCenter: center,
               initialZoom: location.latitude != null
                   ? 13
                   : AppConstants.initialZoom,
+              interactionOptions: InteractionOptions(
+                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              ),
               onTap: (_, __) => FocusScope.of(context).unfocus(),
               onPositionChanged: (pos, hasGesture) {
                 if (hasGesture) _pauseFollowIfUserPanned(pos);
@@ -435,14 +578,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       height: 32,
                       child: PoiPin(hit: poi),
                     ),
-                ...nav.cameras.map(
-                  (c) => Marker(
-                    point: LatLng(c.lat, c.lon),
-                    width: 34,
-                    height: 34,
-                    child: const CameraPin(),
-                  ),
-                ),
+                ..._cameraAndHazardMarkers(nav, hazards),
                 if (originPoint != null)
                   Marker(
                     point: originPoint,
@@ -470,7 +606,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     point: LatLng(location.latitude!, location.longitude!),
                     width: 40,
                     height: 40,
-                    child: LocationPuck(heading: location.heading),
+                    child: LocationPuck(
+                      heading: _tilt3d ? 0 : location.heading,
+                    ),
                   ),
               ]),
               const RichAttributionWidget(
@@ -479,6 +617,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 ],
               ),
             ],
+          ),
           ),
           Positioned(
             top: topPad + 8,
@@ -545,7 +684,43 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   CameraIncidentBanner(
                     meters: live?.nextCameraMeters,
                     maxspeed: nextCamera.maxspeed,
+                    community: nextCamera.isCommunity,
                   ),
+                ],
+                if (crowdUpcoming != null &&
+                    (!showCameraBanner || !crowdUpcoming.type.isCamera)) ...[
+                  const SizedBox(height: 6),
+                  CrowdHazardBanner(
+                    title: crowdL10n.bannerTitle(
+                      crowdUpcoming.type,
+                      formatDistance(crowdUpcoming.distanceMeters),
+                    ),
+                    subtitle:
+                        '${crowdL10n.aDriver} · ${crowdL10n.timeAgo(crowdUpcoming.createdAt)}',
+                    icon: hazardIcon(crowdUpcoming.type),
+                    color: hazardColor(crowdUpcoming.type),
+                    onTap: () =>
+                        showHazardDetailSheet(context, crowdUpcoming),
+                  ),
+                ],
+                for (final incoming in hazards.incoming) ...[
+                  if (incoming.id != crowdUpcoming?.id) ...[
+                    const SizedBox(height: 6),
+                    CrowdHazardBanner(
+                      title: crowdL10n.bannerTitle(
+                        incoming.type,
+                        formatDistance(incoming.distanceMeters),
+                      ),
+                      subtitle:
+                          '${crowdL10n.aDriver} · ${crowdL10n.timeAgo(incoming.createdAt)}',
+                      icon: hazardIcon(incoming.type),
+                      color: hazardColor(incoming.type),
+                      onTap: () => showHazardDetailSheet(context, incoming),
+                      onDismiss: () => ref
+                          .read(hazardProvider.notifier)
+                          .dismissIncoming(incoming.id),
+                    ),
+                  ],
                 ],
                 if (guiding && nav.zonesOnRoute.isNotEmpty && _trayExpanded) ...[
                   const SizedBox(height: 6),
@@ -566,7 +741,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     alignment: Alignment.centerRight,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: _recenterButton(location),
+                      child: _sideMapButtons(location),
                     ),
                   ),
                   ConstrainedBox(
@@ -609,6 +784,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   }
                   await ref.read(navigationProvider.notifier).selectPlace(hit);
                   if (!context.mounted) return;
+                  setState(() => _sheetExpanded = true);
                   FocusScope.of(context).unfocus();
                 },
                 onUseMyLocation: () {
@@ -631,9 +807,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         startFollowing: false,
                       );
                 },
-                onGo: () {
-                  if (!nav.hasRoute) {
-                    ref.read(navigationProvider.notifier).planRoute(
+                onGo: () async {
+                  var n = ref.read(navigationProvider);
+                  if (n.destination == null && n.suggestions.isNotEmpty) {
+                    _destCtrl.text = n.suggestions.first.label;
+                    await ref
+                        .read(navigationProvider.notifier)
+                        .selectPlace(n.suggestions.first);
+                    n = ref.read(navigationProvider);
+                  }
+                  if (!n.hasRoute) {
+                    await ref.read(navigationProvider.notifier).planRoute(
                           startFollowing: true,
                         );
                   } else {
@@ -674,7 +858,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     alignment: Alignment.centerRight,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: _recenterButton(location),
+                      child: _sideMapButtons(location),
                     ),
                   ),
                   AppleEtaTray(
@@ -855,12 +1039,14 @@ class _RoundMapButton extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     this.emphasized = false,
+    this.label,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
   final bool emphasized;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -869,11 +1055,30 @@ class _RoundMapButton extends StatelessWidget {
       child: IconButton(
         tooltip: tooltip,
         onPressed: onTap,
-        icon: Icon(
-          icon,
-          color: emphasized ? MapsColors.route : MapsColors.accent,
-          size: 20,
-        ),
+        icon: label == null
+            ? Icon(
+                icon,
+                color: emphasized ? MapsColors.route : MapsColors.accent,
+                size: 20,
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    color: emphasized ? MapsColors.route : MapsColors.accent,
+                    size: 16,
+                  ),
+                  Text(
+                    label!,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: emphasized ? MapsColors.route : MapsColors.accent,
+                    ),
+                  ),
+                ],
+              ),
         visualDensity: VisualDensity.compact,
       ),
     );

@@ -12,6 +12,7 @@ const aiRoutes = require('./routes/ai');
 const tripRoutes = require('./routes/trips');
 const zoneRoutes = require('./routes/zones');
 const geoRoutes = require('./routes/geo');
+const hazardRoutes = require('./routes/hazards');
 const seo = require('./seo');
 
 const app = express();
@@ -70,6 +71,13 @@ app.get('/api/status', (req, res) => {
       'POST /api/trips/log',
       'GET /api/trips/history',
       'GET /api/zones/sync',
+      'GET /api/geo/cameras',
+      'POST /api/hazards/report',
+      'GET /api/hazards/nearby',
+      'POST /api/hazards/:id/vote',
+      'GET /api/hazards/:id/comments',
+      'POST /api/hazards/:id/comments',
+      'GET /api/hazards/stream',
     ],
   });
 });
@@ -84,6 +92,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/zones', zoneRoutes);
 app.use('/api/geo', geoRoutes);
+app.use('/api/hazards', hazardRoutes);
 
 // SPA fallback - Flutter app at / and client routes. Locale landings stay on Express.
 app.get('*', (req, res, next) => {

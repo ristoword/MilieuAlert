@@ -164,20 +164,59 @@ class CameraIncidentBanner extends StatelessWidget {
     super.key,
     required this.meters,
     this.maxspeed,
+    this.community = false,
   });
 
   final double? meters;
   final String? maxspeed;
+  final bool community;
 
   @override
   Widget build(BuildContext context) {
     return IncidentBanner(
-      icon: Icons.videocam_outlined,
-      color: const Color(0xFFFF9F0A),
+      icon: community ? Icons.videocam_outlined : Icons.videocam_outlined,
+      color: community ? const Color(0xFFFF3B30) : const Color(0xFFFF9F0A),
       title: 'Autovelox tra ${formatDistance(meters)}',
-      subtitle: maxspeed != null
-          ? 'Limite $maxspeed km/h'
-          : 'Controllo velocità in avvicinamento',
+      subtitle: community
+          ? (maxspeed != null
+              ? 'Limite $maxspeed km/h · segnalato da un conducente'
+              : 'Non in mappa ufficiale · segnalato da un conducente')
+          : (maxspeed != null
+              ? 'Limite $maxspeed km/h'
+              : 'Controllo velocità in avvicinamento'),
+    );
+  }
+}
+
+class CrowdHazardBanner extends StatelessWidget {
+  const CrowdHazardBanner({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    this.onTap,
+    this.onDismiss,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+  final VoidCallback? onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: IncidentBanner(
+        icon: icon,
+        title: title,
+        subtitle: subtitle,
+        color: color,
+        onDismiss: onDismiss,
+      ),
     );
   }
 }

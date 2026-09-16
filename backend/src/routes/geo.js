@@ -5,6 +5,11 @@ const {
   isValidTile,
   loadTileBuffer,
 } = require('../services/tiles');
+const pool = require('../db/pool');
+const {
+  CAMERA_TYPES,
+  mergeCameras,
+} = require('../services/hazards');
 const router = express.Router();
 
 const USER_AGENT =
@@ -330,9 +335,56 @@ function parsePathPoints(raw) {
     .slice(0, 36);
 }
 
-router.get('/cameras', async (req, res) => {
+function cameraBbox(req, pathPts) {
+  if (pathPts.length >= 2) {
+    const lats = pathPts.map((p) => p.lat);
+    const lons = pathPts.map((p) => p.lon);
+    return {
+      minLat: Math.min(...lats) - 0.02,
+      maxLat: Math.max(...lats) + 0.02,
+      minLon: Math.min(...lons) - 0.02,
+      maxLon: Math.max(...lons) + 0.02,
+    };
+  }
+  const minLat = Number(req.query.minLat);
+  const minLon = Number(req.query.minLon);
+  const maxLat = Number(req.query.maxLat);
+  const maxLon = Number(req.query.maxLon);
+  if (![minLat, minLon, maxLat, maxLon].every(Number.isFinite)) return null;
+  return { minLat, minLon, maxLat, maxLon };
+}
+
+async function loadCommunityCameras(bbox) {
+  if (!bbox) return [];
   try {
-    const pathPts = parsePathPoints(req.query.path);
+    const crowd = await pool.query(
+      `SELECT id, type, lat, lon, confirm_count
+       FROM hazard_reports
+       WHERE expires_at > NOW()
+         AND type = ANY($1)
+         AND lat BETWEEN $2 AND $3
+         AND lon BETWEEN $4 AND $5
+       ORDER BY confirm_count DESC
+       LIMIT 200`,
+      [CAMERA_TYPES, bbox.minLat, bbox.maxLat, bbox.minLon, bbox.maxLon]
+    );
+    return crowd.rows;
+  } catch (err) {
+    console.error('geo cameras community merge failed:', err.message);
+    return [];
+  }
+}
+
+router.get('/cameras', async (req, res) => {
+  const pathPts = parsePathPoints(req.query.path);
+  const bbox = cameraBbox(req, pathPts);
+  if (!bbox) {
+    return res.status(400).json({ error: 'Invalid bbox', cameras: [], limits: [] });
+  }
+
+  const cameras = [];
+  const limits = [];
+  try {
     let query;
     if (pathPts.length >= 2) {
       const around = pathPts
@@ -345,18 +397,11 @@ router.get('/cameras', async (req, res) => {
         .join('\n');
       query = `[out:json][timeout:22];\n(\n${around}\n);\nout body center;`;
     } else {
-      const minLat = Number(req.query.minLat);
-      const minLon = Number(req.query.minLon);
-      const maxLat = Number(req.query.maxLat);
-      const maxLon = Number(req.query.maxLon);
-      if (![minLat, minLon, maxLat, maxLon].every(Number.isFinite)) {
-        return res.status(400).json({ error: 'Invalid bbox' });
-      }
       query = `[out:json][timeout:22];
 (
-  node["highway"="speed_camera"](${minLat},${minLon},${maxLat},${maxLon});
-  node["enforcement"="maxspeed"](${minLat},${minLon},${maxLat},${maxLon});
-  way["maxspeed"](${minLat},${minLon},${maxLat},${maxLon});
+  node["highway"="speed_camera"](${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon});
+  node["enforcement"="maxspeed"](${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon});
+  way["maxspeed"](${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon});
 );
 out body center;`;
     }
@@ -366,9 +411,7 @@ out body center;`;
       body: query,
     });
 
-    const cameras = [];
     const cameraIds = new Set();
-    const limits = [];
     for (const el of data.elements || []) {
       const tags = el.tags || {};
       const lat = el.lat || (el.center && el.center.lat);
@@ -383,6 +426,7 @@ out body center;`;
           lat,
           lon,
           maxspeed: tags.maxspeed || tags['maxspeed:forward'] || null,
+          source: 'osm',
         });
       }
       if (tags.maxspeed) {
@@ -392,14 +436,15 @@ out body center;`;
         }
       }
     }
-    res.json({
-      cameras: cameras.slice(0, 200),
-      limits: limits.slice(0, 400),
-    });
   } catch (err) {
-    console.error('geo cameras failed:', err.message);
-    res.status(502).json({ error: 'Camera lookup failed', cameras: [], limits: [] });
+    console.error('geo cameras overpass failed:', err.message);
   }
+
+  const community = await loadCommunityCameras(bbox);
+  res.json({
+    cameras: mergeCameras(cameras, community, 200),
+    limits: limits.slice(0, 400),
+  });
 });
 
 module.exports = router;

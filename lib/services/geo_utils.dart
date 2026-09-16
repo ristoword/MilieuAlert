@@ -15,6 +15,28 @@ double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
 
 double _toRad(double deg) => deg * pi / 180;
 
+double bearingDegrees(double lat1, double lon1, double lat2, double lon2) {
+  final dLon = _toRad(lon2 - lon1);
+  final y = sin(dLon) * cos(_toRad(lat2));
+  final x = cos(_toRad(lat1)) * sin(_toRad(lat2)) -
+      sin(_toRad(lat1)) * cos(_toRad(lat2)) * cos(dLon);
+  return (atan2(y, x) * 180 / pi + 360) % 360;
+}
+
+bool isAheadOfHeading({
+  required double lat,
+  required double lon,
+  required double heading,
+  required double targetLat,
+  required double targetLon,
+  double coneDegrees = 80,
+}) {
+  final bearing = bearingDegrees(lat, lon, targetLat, targetLon);
+  var diff = (bearing - heading).abs() % 360;
+  if (diff > 180) diff = 360 - diff;
+  return diff <= coneDegrees;
+}
+
 /// True if [lat],[lon] is within [maxMeters] of any sampled path point.
 bool isNearPath(
   double lat,

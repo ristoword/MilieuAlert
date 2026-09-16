@@ -64,6 +64,13 @@ class SearchSheet extends ConsumerWidget {
   final ValueChanged<PoiCategory> onSelectCategory;
   final ValueChanged<FavoriteItinerary> onApplyItinerary;
 
+  bool _shouldShowGo(NavigationState nav, String destText) {
+    if (nav.navigating) return false;
+    return nav.destination != null ||
+        nav.hasRoute ||
+        destText.trim().length >= 3;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -178,6 +185,15 @@ class SearchSheet extends ConsumerWidget {
                     ],
                   ),
                 ),
+              if (_shouldShowGo(nav, destCtrl.text)) ...[
+                const SizedBox(height: 12),
+                _GoCta(
+                  routing: nav.routing,
+                  pulseKey: nav.destination?.label ?? destCtrl.text,
+                  showHint: nav.destination != null && !nav.hasRoute,
+                  onGo: onGo,
+                ),
+              ],
               const SizedBox(height: 12),
               _HomeWorkRow(
                 fav: fav,
@@ -303,52 +319,125 @@ class SearchSheet extends ConsumerWidget {
                     ),
                   ),
                 ],
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: nav.routing ? null : onGo,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: MapsColors.route,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Text(
-                      nav.routing ? 'Calcolo…' : 'Vai',
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 17,
-                      ),
-                    ),
-                  ),
-                ),
-              ] else if (!nav.hasRoute && destCtrl.text.trim().length >= 3)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: nav.routing ? null : onPlan,
-                    icon: Icon(
-                      nav.routing
-                          ? Icons.hourglass_top
-                          : Icons.directions_rounded,
-                      color: MapsColors.route,
-                    ),
-                    label: Text(
-                      'Calcola percorso',
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w600,
-                        color: MapsColors.route,
-                      ),
-                    ),
-                  ),
-                ),
+              ],
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _GoCta extends StatefulWidget {
+  const _GoCta({
+    required this.routing,
+    required this.pulseKey,
+    required this.showHint,
+    required this.onGo,
+  });
+
+  final bool routing;
+  final String pulseKey;
+  final bool showHint;
+  final VoidCallback onGo;
+
+  @override
+  State<_GoCta> createState() => _GoCtaState();
+}
+
+class _GoCtaState extends State<_GoCta> with SingleTickerProviderStateMixin {
+  static const _goGreen = Color(0xFF34C759);
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    if (widget.pulseKey.isNotEmpty) {
+      _pulse.repeat(reverse: true);
+      Future<void>.delayed(const Duration(seconds: 3), () {
+        if (!mounted) return;
+        _pulse.stop();
+        _pulse.value = 0;
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(_GoCta oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pulseKey != widget.pulseKey && widget.pulseKey.isNotEmpty) {
+      _pulse.repeat(reverse: true);
+      Future<void>.delayed(const Duration(seconds: 3), () {
+        if (!mounted) return;
+        _pulse.stop();
+        _pulse.value = 0;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ScaleTransition(
+          scale: Tween<double>(begin: 1, end: 1.035).animate(
+            CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: FilledButton.icon(
+              onPressed: widget.routing ? null : widget.onGo,
+              icon: Icon(
+                widget.routing
+                    ? Icons.hourglass_top_rounded
+                    : Icons.navigation_rounded,
+                size: 26,
+              ),
+              label: Text(widget.routing ? 'Calcolo…' : 'VAI'),
+              style: FilledButton.styleFrom(
+                backgroundColor: _goGreen,
+                disabledBackgroundColor: _goGreen.withValues(alpha: 0.55),
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(56),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                textStyle: GoogleFonts.inter(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 22,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (widget.showHint && !widget.routing)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              'Tocca VAI per partire',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _goGreen,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
