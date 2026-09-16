@@ -1,4 +1,4 @@
-const CACHE_NAME = 'milieualert-pwa-v6';
+const CACHE_NAME = 'milieualert-pwa-v8';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
