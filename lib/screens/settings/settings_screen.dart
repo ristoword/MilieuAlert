@@ -218,6 +218,16 @@ class SettingsScreen extends ConsumerWidget {
           Center(
             child: Column(
               children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    'assets/icon/logo.png',
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Text(
                   'MilieuAlert v1.0.0',
                   style: theme.textTheme.bodySmall?.copyWith(

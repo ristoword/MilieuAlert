@@ -180,49 +180,27 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
         final glow = 8.0 + _pulseAnimCtrl.value * 12.0;
         return Column(
           children: [
-            // Shield icon with neon glow
             Container(
-              width: 80,
-              height: 80,
+              width: 168,
+              height: 168,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [NeonColors.cyan, NeonColors.electricBlue],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: NeonColors.cyan.withValues(alpha: 0.5),
+                    color: NeonColors.cyan.withValues(alpha: 0.45),
                     blurRadius: glow,
-                    spreadRadius: 2,
+                    spreadRadius: 1,
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.shield_outlined,
-                color: Colors.white,
-                size: 40,
+              clipBehavior: Clip.antiAlias,
+              child: const Image(
+                image: AssetImage('assets/icon/logo.png'),
+                fit: BoxFit.cover,
               ),
             ),
-            const SizedBox(height: 20),
-
-            // App title with neon gradient
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [NeonColors.cyan, NeonColors.electricBlue, NeonColors.purple],
-              ).createShader(bounds),
-              child: Text(
-                'MILIEUALERT',
-                style: GoogleFonts.exo2(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  letterSpacing: 6,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             Text(
               'LOW EMISSION ZONE GUARDIAN',
               style: GoogleFonts.exo2(
