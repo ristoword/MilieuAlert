@@ -38,7 +38,10 @@ class MapScreen extends ConsumerStatefulWidget {
   ConsumerState<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends ConsumerState<MapScreen> {
+class _MapScreenState extends ConsumerState<MapScreen>
+    with WidgetsBindingObserver {
+  static const _distance = Distance();
+
   final MapController _mapController = MapController();
   final TextEditingController _originCtrl = TextEditingController();
   final TextEditingController _destCtrl = TextEditingController();
@@ -54,6 +57,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _originCtrl.text = 'La mia posizione';
     _originFocus.addListener(() {
       if (_originFocus.hasFocus) {
@@ -70,9 +74,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(locationProvider.notifier).startTracking();
+      final loc = ref.read(locationProvider.notifier);
+      loc.startTracking();
+      loc.setFollow(true);
       if (widget.openNavigation) _enterNavMode();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(locationProvider.notifier).startTracking(restart: true);
+    }
   }
 
   @override
@@ -132,6 +145,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _originCtrl.dispose();
     _destCtrl.dispose();
     _originFocus.dispose();
@@ -157,8 +171,38 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     } catch (_) {}
   }
 
+  void _moveToUser(double lat, double lon, {double? zoom}) {
+    try {
+      final z = zoom ?? _mapController.camera.zoom;
+      _mapController.move(LatLng(lat, lon), z);
+    } catch (_) {}
+  }
+
+  void _pauseFollowIfUserPanned(MapCamera camera) {
+    final loc = ref.read(locationProvider);
+    if (!loc.follow || loc.latitude == null || loc.longitude == null) return;
+    final meters = _distance.as(
+      LengthUnit.Meter,
+      LatLng(loc.latitude!, loc.longitude!),
+      camera.center,
+    );
+    if (meters > 50) {
+      ref.read(locationProvider.notifier).setFollow(false);
+    }
+  }
+
+  Widget _recenterButton(LocationState location) {
+    return _RoundMapButton(
+      icon: location.follow ? Icons.gps_fixed : Icons.gps_not_fixed,
+      tooltip: location.follow ? 'Centrato' : 'Ricentra',
+      emphasized: !location.follow,
+      onTap: _recenter,
+    );
+  }
+
   void _fitPois(List<PlaceHit> hits, LocationState location) {
     if (hits.isEmpty) return;
+    ref.read(locationProvider.notifier).setFollow(false);
     final pts = hits.map((h) => LatLng(h.lat, h.lon)).toList();
     if (location.latitude != null && location.longitude != null) {
       pts.add(LatLng(location.latitude!, location.longitude!));
@@ -184,8 +228,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   void _recenter() {
     final loc = ref.read(locationProvider);
     ref.read(locationProvider.notifier).setFollow(true);
+    ref.read(locationProvider.notifier).startTracking();
     if (loc.latitude != null && loc.longitude != null) {
-      _mapController.move(LatLng(loc.latitude!, loc.longitude!), 16);
+      _moveToUser(loc.latitude!, loc.longitude!, zoom: 16);
     }
   }
 
@@ -199,14 +244,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final topPad = MediaQuery.of(context).padding.top;
 
     ref.listen(locationProvider, (prev, next) {
-      final followLive = next.follow && nav.navigating && nav.originIsMyLocation;
       if (next.latitude == null || next.longitude == null) return;
+      // Follow the puck whenever follow is on — including walking with no
+      // destination. During A→B, only follow when origin is "my location".
+      final followLive =
+          next.follow && (!nav.navigating || nav.originIsMyLocation);
       if (!_movedToUser || followLive) {
+        final zoom = _movedToUser ? null : 16.0;
         _movedToUser = true;
-        _mapController.move(
-          LatLng(next.latitude!, next.longitude!),
-          nav.navigating ? 16 : 14,
-        );
+        _moveToUser(next.latitude!, next.longitude!, zoom: zoom);
       }
     });
 
@@ -334,9 +380,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   : AppConstants.initialZoom,
               onTap: (_, __) => FocusScope.of(context).unfocus(),
               onPositionChanged: (pos, hasGesture) {
-                if (hasGesture && nav.navigating) {
-                  ref.read(locationProvider.notifier).setFollow(false);
-                }
+                if (hasGesture) _pauseFollowIfUserPanned(pos);
               },
             ),
             children: [
@@ -515,7 +559,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               left: 12,
               right: 12,
               bottom: 12,
-              child: ConstrainedBox(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _recenterButton(location),
+                    ),
+                  ),
+                  ConstrainedBox(
                 constraints: BoxConstraints(
                   maxHeight: MediaQuery.sizeOf(context).height * 0.62,
                 ),
@@ -605,13 +659,25 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
                 ),
               ),
+                ],
+              ),
             ),
           if (guiding)
             Positioned(
               left: 12,
               right: 12,
               bottom: 12,
-              child: AppleEtaTray(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _recenterButton(location),
+                    ),
+                  ),
+                  AppleEtaTray(
                 location: location,
                 nav: nav,
                 live: live,
@@ -628,6 +694,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ref.read(navigationProvider.notifier).selectAlternative(i);
                 },
                 onOpenAi: _openAi,
+              ),
+                ],
               ),
             ),
         ],
@@ -786,11 +854,13 @@ class _RoundMapButton extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onTap,
+    this.emphasized = false,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
+  final bool emphasized;
 
   @override
   Widget build(BuildContext context) {
@@ -799,7 +869,11 @@ class _RoundMapButton extends StatelessWidget {
       child: IconButton(
         tooltip: tooltip,
         onPressed: onTap,
-        icon: Icon(icon, color: MapsColors.accent, size: 20),
+        icon: Icon(
+          icon,
+          color: emphasized ? MapsColors.route : MapsColors.accent,
+          size: 20,
+        ),
         visualDensity: VisualDensity.compact,
       ),
     );

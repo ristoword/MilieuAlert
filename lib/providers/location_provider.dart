@@ -67,9 +67,39 @@ class LocationNotifier extends StateNotifier<LocationState> {
 
   final Ref _ref;
   StreamSubscription<Position>? _sub;
+  Timer? _webKeepAlive;
+  Timer? _restartTimer;
+  DateTime? _lastFixAt;
+  Future<void>? _startInFlight;
 
-  Future<void> startTracking() async {
-    if (state.tracking) return;
+  LocationSettings get _streamSettings {
+    if (kIsWeb) {
+      return WebSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 0,
+        maximumAge: Duration.zero,
+      );
+    }
+    return const LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 8,
+    );
+  }
+
+  /// Keep GPS watch alive while the map is open (walking or A→B).
+  /// Does not change [LocationState.follow] so a user pan stays paused.
+  Future<void> startTracking({bool restart = false}) {
+    final inFlight = _startInFlight;
+    if (inFlight != null) return inFlight;
+    final future = _startTracking(restart: restart);
+    _startInFlight = future;
+    return future.whenComplete(() {
+      if (identical(_startInFlight, future)) _startInFlight = null;
+    });
+  }
+
+  Future<void> _startTracking({required bool restart}) async {
+    if (!restart && state.tracking && _sub != null) return;
     try {
       final enabled = await Geolocator.isLocationServiceEnabled();
       if (!enabled) {
@@ -88,25 +118,17 @@ class LocationNotifier extends StateNotifier<LocationState> {
       }
 
       final current = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
+        locationSettings: _streamSettings,
       );
       _applyPosition(current);
 
-      _sub?.cancel();
-      _sub = Geolocator.getPositionStream(
-        locationSettings: LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: kIsWeb ? 15 : 8,
-        ),
-      ).listen(_applyPosition, onError: (e) {
-        state = state.copyWith(error: e.toString());
-      });
+      _listenToStream();
+      _startWebKeepAlive();
 
-      state = state.copyWith(tracking: true, follow: true, clearError: true);
+      state = state.copyWith(tracking: true, clearError: true);
     } catch (e) {
       state = state.copyWith(error: e.toString());
+      _scheduleRestart();
     }
   }
 
@@ -121,7 +143,54 @@ class LocationNotifier extends StateNotifier<LocationState> {
     setFollow(!state.follow);
   }
 
+  void _listenToStream() {
+    _restartTimer?.cancel();
+    _restartTimer = null;
+    _sub?.cancel();
+    _sub = Geolocator.getPositionStream(locationSettings: _streamSettings).listen(
+      _applyPosition,
+      onError: (Object e) {
+        state = state.copyWith(error: e.toString());
+        _scheduleRestart();
+      },
+      onDone: _scheduleRestart,
+    );
+  }
+
+  void _scheduleRestart() {
+    if (!mounted) return;
+    _restartTimer?.cancel();
+    _restartTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      startTracking(restart: true);
+    });
+  }
+
+  /// Browsers may pause `watchPosition` on a hidden tab; poll if the last
+  /// fix is stale so walking-mode follow keeps receiving coordinates.
+  void _startWebKeepAlive() {
+    _webKeepAlive?.cancel();
+    if (!kIsWeb) return;
+    _webKeepAlive = Timer.periodic(const Duration(seconds: 12), (_) async {
+      if (!mounted || !state.tracking) return;
+      final last = _lastFixAt;
+      final stale = last == null ||
+          DateTime.now().difference(last) > const Duration(seconds: 8);
+      if (!stale) return;
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: _streamSettings,
+        );
+        if (!mounted) return;
+        _applyPosition(pos);
+      } catch (_) {
+        if (mounted) _scheduleRestart();
+      }
+    });
+  }
+
   void _applyPosition(Position pos) {
+    _lastFixAt = DateTime.now();
     final zones = _ref.read(zonesProvider).valueOrNull ?? const <EmissionZone>[];
     final vehicle = _ref.read(vehicleProvider).valueOrNull;
     final alertDistance = _ref.read(alertDistanceProvider);
@@ -147,6 +216,8 @@ class LocationNotifier extends StateNotifier<LocationState> {
 
   @override
   void dispose() {
+    _restartTimer?.cancel();
+    _webKeepAlive?.cancel();
     _sub?.cancel();
     super.dispose();
   }

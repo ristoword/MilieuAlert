@@ -129,7 +129,7 @@ class AppleEtaTray extends StatelessWidget {
     final zone = location.nearestZone;
     final ink = isDark ? Colors.white : MapsColors.ink;
     final muted = isDark ? Colors.white70 : MapsColors.inkMuted;
-    final tracking = location.follow || nav.navigating;
+    final tracking = location.follow;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
