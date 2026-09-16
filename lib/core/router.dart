@@ -61,7 +61,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/map',
-        builder: (context, state) => const MapScreen(),
+        builder: (context, state) => MapScreen(
+          openNavigation: state.uri.queryParameters['nav'] == '1',
+        ),
       ),
       GoRoute(
         path: '/settings',

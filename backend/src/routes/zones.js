@@ -50,6 +50,9 @@ function fromFeature(feature, defaults) {
     ),
     restrictions: props.restrictions || props.OMSCHRIJVING || null,
     officialSource: defaults.source,
+    activeFrom: props.startTime || props.startDate || props.validFrom || null,
+    activeTo: props.endTime || props.endDate || props.validTo || null,
+    activeDays: props.daysOfWeek || props.activeDays || null,
   };
 }
 

@@ -182,3 +182,31 @@ class HazardSet {
 
   const HazardSet({required this.cameras, required this.limits});
 }
+
+enum RouteAlertKind {
+  delay,
+  faster,
+  detour,
+  newCamera,
+  newZone,
+  zoneActivating,
+  zoneExpiring,
+}
+
+class RouteChangeAlert {
+  final String id;
+  final RouteAlertKind kind;
+  final String title;
+  final String message;
+  final DateTime at;
+  final bool critical;
+
+  const RouteChangeAlert({
+    required this.id,
+    required this.kind,
+    required this.title,
+    required this.message,
+    required this.at,
+    this.critical = false,
+  });
+}

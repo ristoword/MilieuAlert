@@ -67,6 +67,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settings => 'Einstellungen';
 
   @override
+  String get navMap => 'Karte';
+
+  @override
+  String get navNavigation => 'Navigation';
+
+  @override
   String get alertDistance => 'Warnabstand';
 
   @override

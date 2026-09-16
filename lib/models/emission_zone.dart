@@ -50,16 +50,68 @@ class EmissionZone {
       name: json['name']?.toString() ?? '',
       zoneType: json['zoneType']?.toString() ?? 'ENVIRONMENTAL_ZONE',
       polygonCoordinates: polygon,
+      activeFrom: _parseDate(json['activeFrom'] ?? json['startTime'] ?? json['validFrom']),
+      activeTo: _parseDate(json['activeTo'] ?? json['endTime'] ?? json['validTo']),
+      activeDays: json['activeDays']?.toString() ?? json['daysOfWeek']?.toString(),
       minimumEuroLevel: json['minimumEuroLevel'] as int?,
       restrictions: json['restrictions']?.toString(),
       officialSource: json['officialSource']?.toString(),
     );
   }
 
-  bool get isCurrentlyActive {
-    final now = DateTime.now();
-    if (activeFrom != null && now.isBefore(activeFrom!)) return false;
-    if (activeTo != null && now.isAfter(activeTo!)) return false;
+  static DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    return DateTime.tryParse(value.toString());
+  }
+
+  bool get isCurrentlyActive => isActiveAt(DateTime.now());
+
+  bool isActiveAt(DateTime when) {
+    final local = when.toLocal();
+    if (activeFrom != null && local.isBefore(activeFrom!.toLocal())) {
+      return false;
+    }
+    if (activeTo != null && local.isAfter(activeTo!.toLocal())) {
+      return false;
+    }
+    if (!_matchesActiveDays(local)) return false;
+    final hours = _hoursFromRestrictions();
+    if (hours != null) {
+      final minutes = local.hour * 60 + local.minute;
+      if (hours.start <= hours.end) {
+        if (minutes < hours.start || minutes > hours.end) return false;
+      } else if (minutes < hours.start && minutes > hours.end) {
+        return false;
+      }
+    }
     return true;
+  }
+
+  bool _matchesActiveDays(DateTime when) {
+    final raw = activeDays?.toLowerCase().trim();
+    if (raw == null || raw.isEmpty) return true;
+    const names = {
+      1: ['mon', 'lun', 'ma'],
+      2: ['tue', 'mar', 'di'],
+      3: ['wed', 'mer', 'wo'],
+      4: ['thu', 'gio', 'do'],
+      5: ['fri', 'ven', 'vr'],
+      6: ['sat', 'sab', 'za'],
+      7: ['sun', 'dom', 'zo'],
+    };
+    final tokens = names[when.weekday] ?? const <String>[];
+    return tokens.any(raw.contains) || raw.contains(when.weekday.toString());
+  }
+
+  ({int start, int end})? _hoursFromRestrictions() {
+    final raw = restrictions;
+    if (raw == null || raw.isEmpty) return null;
+    final match = RegExp(
+      r'(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})',
+    ).firstMatch(raw);
+    if (match == null) return null;
+    final start = int.parse(match.group(1)!) * 60 + int.parse(match.group(2)!);
+    final end = int.parse(match.group(3)!) * 60 + int.parse(match.group(4)!);
+    return (start: start, end: end);
   }
 }

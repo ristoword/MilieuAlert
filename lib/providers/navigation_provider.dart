@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../models/emission_zone.dart';
 import '../models/navigation_models.dart';
+import '../models/zone_status.dart';
 import '../services/geo_utils.dart';
 import '../services/navigation_service.dart';
 import 'location_provider.dart';
@@ -32,6 +33,8 @@ class NavigationState {
   final double? routeDistanceMeters;
   final double? routeDurationSeconds;
   final List<RoutePlan> alternatives;
+  final List<RouteChangeAlert> alerts;
+  final DateTime? lastMonitoredAt;
 
   const NavigationState({
     this.suggestions = const [],
@@ -53,6 +56,8 @@ class NavigationState {
     this.routeDistanceMeters,
     this.routeDurationSeconds,
     this.alternatives = const [],
+    this.alerts = const [],
+    this.lastMonitoredAt,
   });
 
   bool get hasRoute => route.length >= 2;
@@ -77,9 +82,12 @@ class NavigationState {
     double? routeDistanceMeters,
     double? routeDurationSeconds,
     List<RoutePlan>? alternatives,
+    List<RouteChangeAlert>? alerts,
+    DateTime? lastMonitoredAt,
     bool clearOrigin = false,
     bool clearDestination = false,
     bool clearError = false,
+    bool clearAlerts = false,
   }) {
     return NavigationState(
       suggestions: suggestions ?? this.suggestions,
@@ -101,6 +109,8 @@ class NavigationState {
       routeDistanceMeters: routeDistanceMeters ?? this.routeDistanceMeters,
       routeDurationSeconds: routeDurationSeconds ?? this.routeDurationSeconds,
       alternatives: alternatives ?? this.alternatives,
+      alerts: clearAlerts ? const [] : (alerts ?? this.alerts),
+      lastMonitoredAt: lastMonitoredAt ?? this.lastMonitoredAt,
     );
   }
 }
@@ -134,6 +144,13 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
   final Ref _ref;
   final NavigationService _service;
   Timer? _debounce;
+  Timer? _monitor;
+  bool _checking = false;
+  DateTime? _watchedAt;
+  double? _watchedDuration;
+  double? _watchedDistance;
+  Set<String> _watchedCameras = {};
+  Set<String> _watchedZones = {};
 
   void setActiveField(SearchField field) {
     if (state.activeField == field) return;
@@ -317,8 +334,10 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       alternatives: plans,
       alternativeRoutes: altPolylines,
       selectedRoute: 0,
+      clearAlerts: true,
     );
     await _applyPlan(plans.first, altPolylines.first, startFollowing: startFollowing);
+    _armMonitor();
   }
 
   Future<void> selectAlternative(int index) async {
@@ -385,6 +404,17 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     }
 
     if (!mounted) return;
+    final forecast = _forecastAlerts(
+      polyline,
+      plan.durationSeconds,
+      onRoute,
+    );
+    _rememberSnapshot(
+      duration: plan.durationSeconds,
+      distance: plan.distanceMeters,
+      cameras: cameras,
+      zones: onRoute,
+    );
     state = state.copyWith(
       route: polyline,
       steps: plan.steps,
@@ -396,6 +426,8 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       selectedRoute: selected,
       routeDistanceMeters: plan.distanceMeters,
       routeDurationSeconds: plan.durationSeconds,
+      alerts: _mergeAlerts(forecast, replaceForecast: true),
+      lastMonitoredAt: DateTime.now(),
     );
   }
 
@@ -411,8 +443,327 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
   }
 
   void stopNavigation() {
+    _monitor?.cancel();
+    _monitor = null;
+    _watchedAt = null;
+    _watchedDuration = null;
+    _watchedDistance = null;
+    _watchedCameras = {};
+    _watchedZones = {};
     _ref.read(locationProvider.notifier).setFollow(true);
     state = const NavigationState();
+  }
+
+  void dismissAlert(String id) {
+    state = state.copyWith(
+      alerts: state.alerts.where((a) => a.id != id).toList(),
+    );
+  }
+
+  void setEndpoint(PlaceHit place, SearchField field) {
+    if (field == SearchField.origin) {
+      state = state.copyWith(
+        origin: place,
+        originIsMyLocation: false,
+        suggestions: const [],
+        activeField: SearchField.origin,
+        clearError: true,
+      );
+    } else {
+      state = state.copyWith(
+        destination: place,
+        suggestions: const [],
+        activeField: SearchField.destination,
+        clearError: true,
+      );
+    }
+  }
+
+  void _armMonitor() {
+    _monitor?.cancel();
+    if (!state.hasRoute || state.destination == null) return;
+    _monitor = Timer.periodic(const Duration(seconds: 45), (_) {
+      unawaited(_refreshRouteConditions());
+    });
+  }
+
+  void _rememberSnapshot({
+    required double duration,
+    required double distance,
+    required List<SpeedCamera> cameras,
+    required List<EmissionZone> zones,
+  }) {
+    _watchedAt = DateTime.now();
+    _watchedDuration = duration;
+    _watchedDistance = distance;
+    _watchedCameras = {for (final c in cameras) c.id};
+    _watchedZones = {for (final z in zones) z.id};
+  }
+
+  Future<void> _refreshRouteConditions() async {
+    if (_checking || !mounted || state.routing || !state.hasRoute) return;
+    final dest = state.destination;
+    if (dest == null) return;
+    final from = _originCoords();
+    if (from == null) return;
+
+    _checking = true;
+    try {
+      final bundle = await _service.route(
+        fromLat: from.lat,
+        fromLon: from.lon,
+        toLat: dest.lat,
+        toLon: dest.lon,
+      );
+      final plans = bundle.alternatives.where((p) => p.points.isNotEmpty).toList();
+      if (plans.isEmpty || !mounted) return;
+      final plan = plans.first;
+      final polyline = plan.points.map((c) => LatLng(c[1], c[0])).toList();
+      final sampled = _samplePath(polyline, 28);
+      final pathQuery = sampled
+          .map((p) =>
+              '${p.latitude.toStringAsFixed(5)},${p.longitude.toStringAsFixed(5)}')
+          .join(';');
+      final pathLatLon = polyline.map((p) => [p.latitude, p.longitude]).toList();
+
+      var cameras = const <SpeedCamera>[];
+      var limits = const <SpeedLimitPoint>[];
+      try {
+        final lats = polyline.map((p) => p.latitude);
+        final lons = polyline.map((p) => p.longitude);
+        final hazards = await _service.hazards(
+          minLat: lats.reduce((a, b) => a < b ? a : b) - 0.01,
+          minLon: lons.reduce((a, b) => a < b ? a : b) - 0.01,
+          maxLat: lats.reduce((a, b) => a > b ? a : b) + 0.01,
+          maxLon: lons.reduce((a, b) => a > b ? a : b) + 0.01,
+          path: pathQuery,
+        );
+        cameras = hazards.cameras
+            .where((c) => isNearPath(c.lat, c.lon, pathLatLon, maxMeters: 160))
+            .toList();
+        limits = hazards.limits
+            .where((p) => isNearPath(p.lat, p.lon, pathLatLon, maxMeters: 90))
+            .toList();
+      } catch (_) {}
+
+      final zones = _ref.read(zonesProvider).valueOrNull ?? const <EmissionZone>[];
+      final onRoute = <EmissionZone>[];
+      final seen = <String>{};
+      final step = polyline.length < 80 ? 1 : (polyline.length / 80).ceil();
+      for (var i = 0; i < polyline.length; i += step) {
+        final p = polyline[i];
+        for (final zone in zones) {
+          if (seen.contains(zone.id)) continue;
+          if (isInsideZone(p.latitude, p.longitude, zone)) {
+            seen.add(zone.id);
+            onRoute.add(zone);
+          }
+        }
+      }
+
+      if (!mounted) return;
+      final incoming = [
+        ..._diffAlerts(
+          duration: plan.durationSeconds,
+          distance: plan.distanceMeters,
+          cameras: cameras,
+          zones: onRoute,
+        ),
+        ..._forecastAlerts(polyline, plan.durationSeconds, onRoute),
+      ];
+      final changed = incoming.any((a) =>
+          a.kind == RouteAlertKind.delay ||
+          a.kind == RouteAlertKind.detour ||
+          a.kind == RouteAlertKind.faster);
+      _rememberSnapshot(
+        duration: plan.durationSeconds,
+        distance: plan.distanceMeters,
+        cameras: cameras,
+        zones: onRoute,
+      );
+
+      final applyLive = state.navigating || changed;
+      if (applyLive) {
+        final altPolylines = plans
+            .map((p) => p.points.map((c) => LatLng(c[1], c[0])).toList())
+            .toList();
+        state = state.copyWith(
+          alternatives: plans,
+          alternativeRoutes: altPolylines,
+          selectedRoute: 0,
+          route: polyline,
+          steps: plan.steps,
+          cameras: cameras,
+          limits: limits,
+          zonesOnRoute: onRoute,
+          routeDistanceMeters: plan.distanceMeters,
+          routeDurationSeconds: plan.durationSeconds,
+          alerts: _mergeAlerts(incoming),
+          lastMonitoredAt: DateTime.now(),
+        );
+      } else {
+        state = state.copyWith(
+          cameras: cameras,
+          limits: limits,
+          zonesOnRoute: onRoute,
+          alerts: _mergeAlerts(incoming),
+          lastMonitoredAt: DateTime.now(),
+        );
+      }
+    } catch (_) {
+    } finally {
+      _checking = false;
+    }
+  }
+
+  List<RouteChangeAlert> _diffAlerts({
+    required double duration,
+    required double distance,
+    required List<SpeedCamera> cameras,
+    required List<EmissionZone> zones,
+  }) {
+    final now = DateTime.now();
+    final alerts = <RouteChangeAlert>[];
+    final elapsed = _watchedAt == null ? 0 : now.difference(_watchedAt!).inSeconds;
+    final expectedDuration =
+        (_watchedDuration ?? duration) - elapsed;
+    final safeExpected = expectedDuration < 0 ? 0.0 : expectedDuration;
+
+    if (duration > safeExpected + 120) {
+      final extra = duration - safeExpected;
+      alerts.add(RouteChangeAlert(
+        id: 'delay-${now.millisecondsSinceEpoch}',
+        kind: RouteAlertKind.delay,
+        title: 'Ritardo sul percorso',
+        message:
+            'Il tragitto è più lento di ${formatDuration(extra)}. Ricalcolo in corso.',
+        at: now,
+        critical: extra >= 300,
+      ));
+    } else if (_watchedDuration != null &&
+        duration + 180 < safeExpected &&
+        _watchedDuration! > 240) {
+      alerts.add(RouteChangeAlert(
+        id: 'faster-${now.millisecondsSinceEpoch}',
+        kind: RouteAlertKind.faster,
+        title: 'Percorso più veloce',
+        message:
+            'Trovato un tragitto più rapido (${formatDuration(duration)}).',
+        at: now,
+      ));
+    }
+
+    if (_watchedDistance != null &&
+        distance > _watchedDistance! * 1.12 + 400) {
+      alerts.add(RouteChangeAlert(
+        id: 'detour-${now.millisecondsSinceEpoch}',
+        kind: RouteAlertKind.detour,
+        title: 'Deviazione sul tragitto',
+        message:
+            'Il percorso è cambiato: ora ${formatDistance(distance)} invece di ${formatDistance(_watchedDistance)}.',
+        at: now,
+        critical: true,
+      ));
+    }
+
+    final newCameras =
+        cameras.where((c) => !_watchedCameras.contains(c.id)).toList();
+    if (newCameras.isNotEmpty && _watchedCameras.isNotEmpty) {
+      alerts.add(RouteChangeAlert(
+        id: 'cam-${newCameras.first.id}',
+        kind: RouteAlertKind.newCamera,
+        title: 'Nuovo autovelox',
+        message: newCameras.length == 1
+            ? 'È comparso un autovelox sul percorso restante.'
+            : 'Sono comparsi ${newCameras.length} autovelox sul percorso restante.',
+        at: now,
+      ));
+    }
+
+    final newZones = zones.where((z) => !_watchedZones.contains(z.id)).toList();
+    if (newZones.isNotEmpty && _watchedZones.isNotEmpty) {
+      alerts.add(RouteChangeAlert(
+        id: 'zone-${newZones.first.id}',
+        kind: RouteAlertKind.newZone,
+        title: 'Nuova zona sul percorso',
+        message:
+            'Attenzione: ${newZones.map((z) => z.name).take(2).join(' · ')} ora rientra nel tragitto.',
+        at: now,
+        critical: true,
+      ));
+    }
+    return alerts;
+  }
+
+  List<RouteChangeAlert> _forecastAlerts(
+    List<LatLng> polyline,
+    double durationSeconds,
+    List<EmissionZone> onRoute,
+  ) {
+    if (onRoute.isEmpty || polyline.length < 2) return const [];
+    final now = DateTime.now();
+    final path = polyline.map((p) => [p.latitude, p.longitude]).toList();
+    final alerts = <RouteChangeAlert>[];
+    for (final zone in onRoute) {
+      final eta = secondsToZoneEntry(
+        pathLatLon: path,
+        totalDurationSeconds: durationSeconds,
+        zone: zone,
+      );
+      final arriveAt = now.add(
+        Duration(seconds: (eta ?? durationSeconds).round()),
+      );
+      final activeNow = zone.isActiveAt(now);
+      final activeThen = zone.isActiveAt(arriveAt);
+      if (!activeNow && activeThen) {
+        alerts.add(RouteChangeAlert(
+          id: 'activate-${zone.id}',
+          kind: RouteAlertKind.zoneActivating,
+          title: 'Zona in attivazione',
+          message:
+              '${zone.name} si attiva mentre sei in viaggio (ingresso tra ${formatDuration(eta ?? durationSeconds)}).',
+          at: now,
+          critical: true,
+        ));
+      } else if (activeNow && !activeThen) {
+        alerts.add(RouteChangeAlert(
+          id: 'expire-${zone.id}',
+          kind: RouteAlertKind.zoneExpiring,
+          title: 'Zona in scadenza',
+          message:
+              '${zone.name} potrebbe non essere più attiva all’ingresso (tra ${formatDuration(eta ?? durationSeconds)}).',
+          at: now,
+        ));
+      }
+    }
+    return alerts;
+  }
+
+  List<RouteChangeAlert> _mergeAlerts(
+    List<RouteChangeAlert> incoming, {
+    bool replaceForecast = false,
+  }) {
+    final now = DateTime.now();
+    var existing = state.alerts
+        .where((a) => now.difference(a.at) < const Duration(minutes: 12))
+        .toList();
+    if (replaceForecast) {
+      existing = existing
+          .where((a) =>
+              a.kind != RouteAlertKind.zoneActivating &&
+              a.kind != RouteAlertKind.zoneExpiring)
+          .toList();
+    }
+    final keys = {for (final a in existing) '${a.kind}:${a.message}'};
+    final merged = [...existing];
+    for (final alert in incoming) {
+      final key = '${alert.kind}:${alert.message}';
+      if (keys.contains(key)) continue;
+      keys.add(key);
+      merged.insert(0, alert);
+    }
+    if (merged.length <= 5) return merged;
+    return merged.take(5).toList();
   }
 
   LiveNavInfo liveInfo(double lat, double lon) {
@@ -489,6 +840,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _monitor?.cancel();
     super.dispose();
   }
 }

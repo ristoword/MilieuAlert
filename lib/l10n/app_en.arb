@@ -34,6 +34,8 @@
   "save": "Save",
   "saveAndContinue": "Save & Continue",
   "settings": "Settings",
+  "navMap": "Map",
+  "navNavigation": "Navigation",
   "alertDistance": "Alert Distance",
   "language": "Language",
   "vehicleInfo": "Vehicle Information",

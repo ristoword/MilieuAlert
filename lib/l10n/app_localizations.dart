@@ -206,6 +206,18 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get settings;
 
+  /// No description provided for @navMap.
+  ///
+  /// In en, this message translates to:
+  /// **'Map'**
+  String get navMap;
+
+  /// No description provided for @navNavigation.
+  ///
+  /// In en, this message translates to:
+  /// **'Navigation'**
+  String get navNavigation;
+
   /// No description provided for @alertDistance.
   ///
   /// In en, this message translates to:

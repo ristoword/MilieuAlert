@@ -76,6 +76,38 @@ double minDistanceToZone(double lat, double lon, EmissionZone zone) {
   return min;
 }
 
+/// Seconds from the start of [pathLatLon] until the first point inside [zone].
+double? secondsToZoneEntry({
+  required List<List<double>> pathLatLon,
+  required double totalDurationSeconds,
+  required EmissionZone zone,
+}) {
+  if (pathLatLon.length < 2 || totalDurationSeconds <= 0) return null;
+  var total = 0.0;
+  final segs = <double>[];
+  for (var i = 1; i < pathLatLon.length; i++) {
+    final a = pathLatLon[i - 1];
+    final b = pathLatLon[i];
+    if (a.length < 2 || b.length < 2) {
+      segs.add(0);
+      continue;
+    }
+    final d = haversineMeters(a[0], a[1], b[0], b[1]);
+    segs.add(d);
+    total += d;
+  }
+  if (total <= 0) return null;
+  var acc = 0.0;
+  for (var i = 0; i < pathLatLon.length; i++) {
+    final p = pathLatLon[i];
+    if (p.length >= 2 && isInsideZone(p[0], p[1], zone)) {
+      return totalDurationSeconds * (acc / total);
+    }
+    if (i < segs.length) acc += segs[i];
+  }
+  return null;
+}
+
 ZoneProximity? nearestProximity({
   required double lat,
   required double lon,

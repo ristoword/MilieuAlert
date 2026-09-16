@@ -67,6 +67,12 @@ class AppLocalizationsNl extends AppLocalizations {
   String get settings => 'Instellingen';
 
   @override
+  String get navMap => 'Kaart';
+
+  @override
+  String get navNavigation => 'Navigatie';
+
+  @override
   String get alertDistance => 'Waarschuwingsafstand';
 
   @override

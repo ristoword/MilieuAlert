@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants.dart';
+import '../../core/widgets/main_bottom_nav.dart';
 import '../../models/vehicle.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -19,6 +20,7 @@ class SettingsScreen extends ConsumerWidget {
     final vehicleAsync = ref.watch(vehicleProvider);
 
     return Scaffold(
+      bottomNavigationBar: const MainBottomNav(),
       appBar: AppBar(
         title: const Text('Settings'),
         leading: IconButton(

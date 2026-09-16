@@ -8,17 +8,25 @@ import 'package:latlong2/latlong.dart';
 
 import '../../core/constants.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/main_bottom_nav.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/emission_zone.dart';
 import '../../models/navigation_models.dart';
 import '../../models/zone_status.dart';
+import '../../models/saved_places.dart';
+import '../../providers/favorites_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/zone_provider.dart';
 import 'widgets/alert_banner.dart';
+import 'widgets/favorites_panel.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
-  const MapScreen({super.key});
+  const MapScreen({super.key, this.openNavigation = false});
+
+  /// When true (`/map?nav=1`), focus the A→B destination field.
+  final bool openNavigation;
 
   @override
   ConsumerState<MapScreen> createState() => _MapScreenState();
@@ -48,7 +56,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(locationProvider.notifier).startTracking();
+      if (widget.openNavigation) _enterNavMode();
     });
+  }
+
+  @override
+  void didUpdateWidget(MapScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.openNavigation && !oldWidget.openNavigation) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _enterNavMode();
+      });
+    }
+  }
+
+  void _enterNavMode() {
+    ref.read(navigationProvider.notifier).setActiveField(SearchField.destination);
+    _destFocus.requestFocus();
   }
 
   @override
@@ -103,6 +127,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           if (mounted) _fitRoute(next.route);
         });
       }
+      final justPlanned = prev?.routing == true && !next.routing;
+      if (justPlanned && next.destination != null) {
+        ref.read(favoritesProvider.notifier).rememberSuccessfulTrip(
+              origin: next.origin,
+              originIsMyLocation: next.originIsMyLocation,
+              destination: next.destination!,
+              location: ref.read(locationProvider),
+            );
+      }
     });
 
     final center = LatLng(
@@ -122,6 +155,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         : null;
 
     return Scaffold(
+      bottomNavigationBar: const MainBottomNav(),
       body: Stack(
         children: [
           FlutterMap(
@@ -241,6 +275,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   originFocus: _originFocus,
                   destFocus: _destFocus,
                   nav: nav,
+                  highlighted: widget.openNavigation,
                   onOriginQuery: (q) {
                     if (q.trim().toLowerCase() == 'la mia posizione') return;
                     final lang = ref.read(localeProvider).languageCode;
@@ -293,9 +328,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ref.read(navigationProvider.notifier).selectAlternative(i);
                   },
                   onSettings: () => context.push('/settings'),
+                  onSavedPlaceTap: _onSavedPlaceTap,
+                  onAddSuggested: (label) =>
+                      _openFavoritesHub(tab: 0, prefillLabel: label),
+                  onManagePlaces: () => _openFavoritesHub(tab: 0),
+                  onOpenItineraries: () => _openFavoritesHub(tab: 1),
                 ),
                 const SizedBox(height: 8),
                 AlertBanner(proximity: location.nearestZone),
+                if (nav.alerts.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  _RouteChangeBanners(
+                    alerts: nav.alerts,
+                    onDismiss: (id) =>
+                        ref.read(navigationProvider.notifier).dismissAlert(id),
+                  ),
+                ],
                 if (nav.zonesOnRoute.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   _RouteZoneBanner(zones: nav.zonesOnRoute),
@@ -357,6 +405,99 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
     return polygons;
   }
+
+  PlaceHit? _originHitForSave(NavigationState nav) {
+    if (nav.origin != null) return nav.origin;
+    final loc = ref.read(locationProvider);
+    if (nav.originIsMyLocation &&
+        loc.latitude != null &&
+        loc.longitude != null) {
+      return PlaceHit(
+        label: 'La mia posizione',
+        lat: loc.latitude!,
+        lon: loc.longitude!,
+      );
+    }
+    return null;
+  }
+
+  void _openFavoritesHub({int tab = 0, String? prefillLabel}) {
+    final nav = ref.read(navigationProvider);
+    showFavoritesHub(
+      context: context,
+      initialTab: tab,
+      currentOrigin: _originHitForSave(nav),
+      currentDestination: nav.destination,
+      prefillLabel: prefillLabel,
+      onApplyPlace: _onSavedPlaceTap,
+      onApplyItinerary: _applyItinerary,
+    );
+  }
+
+  Future<void> _onSavedPlaceTap(SavedPlace place) async {
+    SearchField? field;
+    if (_originFocus.hasFocus) {
+      field = SearchField.origin;
+    } else if (_destFocus.hasFocus) {
+      field = SearchField.destination;
+    } else {
+      field = await pickAddressField(context);
+    }
+    if (field == null || !mounted) return;
+    await _applySavedPlace(place, field);
+  }
+
+  Future<void> _applySavedPlace(SavedPlace place, SearchField field) async {
+    final display =
+        place.address.trim().isEmpty ? place.label : place.address;
+    if (field == SearchField.origin) {
+      _originCtrl.text = display;
+    } else {
+      _destCtrl.text = display;
+    }
+    final notifier = ref.read(navigationProvider.notifier);
+    notifier.setEndpoint(
+      PlaceHit(label: display, lat: place.lat, lon: place.lon),
+      field,
+    );
+    final next = ref.read(navigationProvider);
+    final hasOrigin = next.origin != null || next.originIsMyLocation;
+    if (hasOrigin && next.destination != null) {
+      await notifier.planRoute(startFollowing: next.originIsMyLocation);
+    }
+    if (!mounted) return;
+    FocusScope.of(context).unfocus();
+  }
+
+  Future<void> _applyItinerary(FavoriteItinerary trip) async {
+    _originCtrl.text = trip.originLabel;
+    _destCtrl.text = trip.destLabel;
+    final notifier = ref.read(navigationProvider.notifier);
+    if (trip.originIsMyLocation) {
+      notifier.useMyLocationAsOrigin();
+    } else {
+      notifier.setEndpoint(
+        PlaceHit(
+          label: trip.originLabel,
+          lat: trip.originLat,
+          lon: trip.originLon,
+        ),
+        SearchField.origin,
+      );
+    }
+    notifier.setEndpoint(
+      PlaceHit(
+        label: trip.destLabel,
+        lat: trip.destLat,
+        lon: trip.destLon,
+      ),
+      SearchField.destination,
+    );
+    await notifier.planRoute(startFollowing: trip.originIsMyLocation);
+    await ref.read(favoritesProvider.notifier).touchItinerary(trip.id);
+    if (!mounted) return;
+    FocusScope.of(context).unfocus();
+  }
 }
 
 class _CameraPin extends StatelessWidget {
@@ -390,6 +531,11 @@ class _DirectionsPanel extends StatelessWidget {
     required this.onGo,
     required this.onSelectAlternative,
     required this.onSettings,
+    required this.onSavedPlaceTap,
+    required this.onAddSuggested,
+    required this.onManagePlaces,
+    required this.onOpenItineraries,
+    this.highlighted = false,
   });
 
   final TextEditingController originCtrl;
@@ -405,18 +551,63 @@ class _DirectionsPanel extends StatelessWidget {
   final VoidCallback onGo;
   final ValueChanged<int> onSelectAlternative;
   final VoidCallback onSettings;
+  final ValueChanged<SavedPlace> onSavedPlaceTap;
+  final ValueChanged<String> onAddSuggested;
+  final VoidCallback onManagePlaces;
+  final VoidCallback onOpenItineraries;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Material(
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: highlighted
+                ? Border.all(color: NeonColors.magenta, width: 1.8)
+                : Border.all(color: Colors.transparent, width: 1.8),
+            boxShadow: highlighted
+                ? [
+                    BoxShadow(
+                      color: NeonColors.magenta.withValues(alpha: 0.35),
+                      blurRadius: 16,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Material(
           color: NeonColors.darkCard.withValues(alpha: 0.96),
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
             child: Column(
               children: [
+                if (highlighted)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 2, 8, 6),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.navigation,
+                          color: NeonColors.magenta,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          AppLocalizations.of(context)?.navNavigation ??
+                              'Navigazione',
+                          style: GoogleFonts.exo2(
+                            color: NeonColors.magenta,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 Row(
                   children: [
                     Expanded(
@@ -470,6 +661,12 @@ class _DirectionsPanel extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+                SavedPlacesQuickBar(
+                  onPlaceTap: onSavedPlaceTap,
+                  onAddSuggested: onAddSuggested,
+                  onManagePlaces: onManagePlaces,
+                  onOpenItineraries: onOpenItineraries,
                 ),
                 if (nav.error != null)
                   Padding(
@@ -551,6 +748,7 @@ class _DirectionsPanel extends StatelessWidget {
                   ),
               ],
             ),
+          ),
           ),
         ),
         if (nav.suggestions.isNotEmpty)
@@ -732,6 +930,93 @@ class _IconChip extends StatelessWidget {
   }
 }
 
+class _RouteChangeBanners extends StatelessWidget {
+  const _RouteChangeBanners({
+    required this.alerts,
+    required this.onDismiss,
+  });
+
+  final List<RouteChangeAlert> alerts;
+  final ValueChanged<String> onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (final alert in alerts.take(3)) ...[
+          Material(
+            color: (alert.critical ? NeonColors.pink : NeonColors.orange)
+                .withValues(alpha: 0.94),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+              child: Row(
+                children: [
+                  Icon(
+                    _iconFor(alert.kind),
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          alert.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          alert.message,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Chiudi avviso',
+                    onPressed: () => onDismiss(alert.id),
+                    icon: const Icon(Icons.close, color: Colors.white, size: 18),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+        ],
+      ],
+    );
+  }
+
+  IconData _iconFor(RouteAlertKind kind) {
+    switch (kind) {
+      case RouteAlertKind.delay:
+        return Icons.schedule;
+      case RouteAlertKind.faster:
+        return Icons.speed;
+      case RouteAlertKind.detour:
+        return Icons.alt_route;
+      case RouteAlertKind.newCamera:
+        return Icons.videocam;
+      case RouteAlertKind.newZone:
+        return Icons.shield;
+      case RouteAlertKind.zoneActivating:
+        return Icons.warning_amber_rounded;
+      case RouteAlertKind.zoneExpiring:
+        return Icons.timer_off;
+    }
+  }
+}
+
 class _RouteZoneBanner extends StatelessWidget {
   const _RouteZoneBanner({required this.zones});
   final List<EmissionZone> zones;
@@ -877,6 +1162,21 @@ class _NavigatorHud extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ],
+            if (nav.hasRoute) ...[
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  nav.lastMonitoredAt == null
+                      ? 'Avvisi attivi: controllo del tragitto ogni 45 secondi'
+                      : 'Tragitto controllato · avvisi se cambia zona, autovelox o tempi',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontSize: 10,
+                  ),
+                ),
               ),
             ],
             const SizedBox(height: 12),
