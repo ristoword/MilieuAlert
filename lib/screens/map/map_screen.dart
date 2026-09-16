@@ -42,6 +42,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final FocusNode _originFocus = FocusNode();
   final FocusNode _destFocus = FocusNode();
   bool _movedToUser = false;
+  bool _topExpanded = true;
+  bool _bottomExpanded = false;
+  bool _wasGuiding = false;
+  String? _seenTopAlertKey;
+  String? _seenCameraAlertId;
+
+  static const _overlayAnim = Duration(milliseconds: 250);
 
   @override
   void initState() {
@@ -50,11 +57,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _originFocus.addListener(() {
       if (_originFocus.hasFocus) {
         ref.read(navigationProvider.notifier).setActiveField(SearchField.origin);
+        _expandTopForInput();
       }
     });
     _destFocus.addListener(() {
       if (_destFocus.hasFocus) {
         ref.read(navigationProvider.notifier).setActiveField(SearchField.destination);
+        _expandTopForInput();
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -75,7 +84,50 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _enterNavMode() {
     ref.read(navigationProvider.notifier).setActiveField(SearchField.destination);
+    setState(() => _topExpanded = true);
     _destFocus.requestFocus();
+  }
+
+  void _expandTopForInput() {
+    if (_topExpanded) return;
+    setState(() => _topExpanded = true);
+  }
+
+  bool _isGuiding(NavigationState nav, LocationState location) =>
+      nav.navigating || (nav.hasRoute && location.follow);
+
+  bool _zoneAlertActive(ZoneProximity? zone) =>
+      zone != null && zone.status != ZoneStatus.safe;
+
+  String _topAlertKey({
+    required ZoneProximity? zone,
+    required List<RouteChangeAlert> alerts,
+    required String? hintText,
+  }) {
+    final parts = <String>[];
+    if (_zoneAlertActive(zone)) {
+      parts.add('z:${zone!.zoneId}:${zone.status}:${zone.isVehicleAllowed}');
+    }
+    if (alerts.isNotEmpty) {
+      parts.add('a:${alerts.map((a) => a.id).join(',')}');
+    }
+    if (hintText != null && hintText.isNotEmpty) {
+      parts.add('h:$hintText');
+    }
+    return parts.join('|');
+  }
+
+  void _toggleTopPanel() {
+    setState(() {
+      _topExpanded = !_topExpanded;
+      if (!_topExpanded) FocusManager.instance.primaryFocus?.unfocus();
+    });
+  }
+
+  void _toggleBottomHud([bool? expanded]) {
+    setState(() {
+      _bottomExpanded = expanded ?? !_bottomExpanded;
+    });
   }
 
   @override
@@ -93,7 +145,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       _mapController.fitCamera(
         CameraFit.bounds(
           bounds: LatLngBounds.fromPoints(route),
-          padding: const EdgeInsets.fromLTRB(36, 210, 36, 240),
+          padding: EdgeInsets.fromLTRB(
+            36,
+            _topExpanded ? 210 : 78,
+            36,
+            _bottomExpanded ? 240 : 118,
+          ),
           maxZoom: 15,
         ),
       );
@@ -167,6 +224,56 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       live = ref
           .read(navigationProvider.notifier)
           .liveInfo(location.latitude!, location.longitude!);
+    }
+
+    final guiding = _isGuiding(nav, location);
+    final topAlertKey = _topAlertKey(
+      zone: location.nearestZone,
+      alerts: nav.alerts,
+      hintText: ai.hint?.text,
+    );
+    final nextCamera = live?.nextCamera;
+    final cameraId =
+        nextCamera != null && (live?.nextCameraMeters ?? 9999) <= 1000
+            ? nextCamera.id
+            : null;
+    final needsChromeSync = guiding != _wasGuiding ||
+        topAlertKey != (_seenTopAlertKey ?? '') ||
+        cameraId != _seenCameraAlertId ||
+        (nav.suggestions.isNotEmpty && !_topExpanded);
+    if (needsChromeSync) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          if (guiding != _wasGuiding) {
+            _wasGuiding = guiding;
+            if (guiding) {
+              _topExpanded = topAlertKey.isNotEmpty;
+              _bottomExpanded = false;
+              FocusManager.instance.primaryFocus?.unfocus();
+            } else {
+              _topExpanded = true;
+              _bottomExpanded = false;
+              _seenCameraAlertId = null;
+            }
+          }
+          if (topAlertKey != (_seenTopAlertKey ?? '')) {
+            _seenTopAlertKey = topAlertKey.isEmpty ? null : topAlertKey;
+            if (guiding && topAlertKey.isNotEmpty) {
+              _topExpanded = true;
+            }
+          }
+          if (cameraId != _seenCameraAlertId) {
+            _seenCameraAlertId = cameraId;
+            if (guiding && cameraId != null) {
+              _bottomExpanded = true;
+            }
+          }
+          if (nav.suggestions.isNotEmpty) {
+            _topExpanded = true;
+          }
+        });
+      });
     }
 
     final originPoint = !nav.originIsMyLocation && nav.origin != null
@@ -294,7 +401,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   originFocus: _originFocus,
                   destFocus: _destFocus,
                   nav: nav,
-                  highlighted: widget.openNavigation,
+                  expanded: _topExpanded,
+                  highlighted: widget.openNavigation && !guiding,
+                  onToggleExpanded: _toggleTopPanel,
                   onOriginQuery: (q) {
                     if (q.trim().toLowerCase() == 'la mia posizione') return;
                     final lang = ref.read(localeProvider).languageCode;
@@ -386,7 +495,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     onOpen: _openAi,
                   ),
                 ],
-                if (nav.zonesOnRoute.isNotEmpty) ...[
+                if (_topExpanded && nav.zonesOnRoute.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   _RouteZoneBanner(zones: nav.zonesOnRoute),
                 ],
@@ -401,6 +510,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               location: location,
               nav: nav,
               live: live,
+              expanded: _bottomExpanded,
+              guiding: guiding,
+              onToggleExpanded: (value) => _toggleBottomHud(value),
               onToggleTrack: () {
                 ref.read(locationProvider.notifier).toggleFollow();
               },
@@ -570,6 +682,8 @@ class _DirectionsPanel extends StatelessWidget {
     required this.originFocus,
     required this.destFocus,
     required this.nav,
+    required this.expanded,
+    required this.onToggleExpanded,
     required this.onOriginQuery,
     required this.onDestQuery,
     required this.onSelect,
@@ -591,6 +705,8 @@ class _DirectionsPanel extends StatelessWidget {
   final FocusNode originFocus;
   final FocusNode destFocus;
   final NavigationState nav;
+  final bool expanded;
+  final VoidCallback onToggleExpanded;
   final ValueChanged<String> onOriginQuery;
   final ValueChanged<String> onDestQuery;
   final ValueChanged<PlaceHit> onSelect;
@@ -606,17 +722,31 @@ class _DirectionsPanel extends StatelessWidget {
   final VoidCallback? onOpenAi;
   final bool highlighted;
 
+  String get _originLabel {
+    final text = originCtrl.text.trim();
+    return text.isEmpty ? 'Partenza' : text;
+  }
+
+  String get _destLabel {
+    final text = destCtrl.text.trim();
+    return text.isEmpty ? 'Destinazione' : text;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: _MapScreenState._overlayAnim,
+          curve: Curves.easeInOut,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: highlighted
                 ? Border.all(color: NeonColors.magenta, width: 1.8)
-                : Border.all(color: Colors.transparent, width: 1.8),
+                : Border.all(
+                    color: NeonColors.cyan.withValues(alpha: 0.28),
+                    width: 1,
+                  ),
             boxShadow: highlighted
                 ? [
                     BoxShadow(
@@ -624,185 +754,26 @@ class _DirectionsPanel extends StatelessWidget {
                       blurRadius: 16,
                     ),
                   ]
-                : null,
+                : [
+                    BoxShadow(
+                      color: NeonColors.cyan.withValues(alpha: 0.12),
+                      blurRadius: 12,
+                    ),
+                  ],
           ),
           child: Material(
-          color: NeonColors.darkCard.withValues(alpha: 0.96),
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
-            child: Column(
-              children: [
-                if (highlighted)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 2, 8, 6),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.navigation,
-                          color: NeonColors.magenta,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          AppLocalizations.of(context)?.navNavigation ??
-                              'Navigazione',
-                          style: GoogleFonts.exo2(
-                            color: NeonColors.magenta,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                            letterSpacing: 0.6,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _AddressField(
-                        fieldId: 'origin',
-                        controller: originCtrl,
-                        focusNode: originFocus,
-                        hint: 'Da: indirizzo di partenza',
-                        icon: Icons.trip_origin,
-                        iconColor: NeonColors.neonGreen,
-                        onChanged: onOriginQuery,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Usa la mia posizione',
-                      onPressed: onUseMyLocation,
-                      icon: Icon(
-                        Icons.my_location,
-                        color: nav.originIsMyLocation
-                            ? NeonColors.cyan
-                            : Colors.white54,
-                      ),
-                    ),
-                    _IconChip(icon: Icons.settings, onTap: onSettings),
-                    if (onOpenAi != null)
-                      _IconChip(icon: Icons.auto_awesome, onTap: onOpenAi!),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _AddressField(
-                        fieldId: 'destination',
-                        controller: destCtrl,
-                        focusNode: destFocus,
-                        hint: 'A: dove vuoi andare',
-                        icon: Icons.flag,
-                        iconColor: NeonColors.pink,
-                        onChanged: onDestQuery,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Inverti A e B',
-                      onPressed: onSwap,
-                      icon: const Icon(Icons.swap_vert, color: Colors.white70),
-                    ),
-                    IconButton(
-                      tooltip: 'Calcola percorso',
-                      onPressed: nav.routing ? null : onGo,
-                      icon: Icon(
-                        nav.routing ? Icons.hourglass_top : Icons.directions,
-                        color: NeonColors.cyan,
-                      ),
-                    ),
-                  ],
-                ),
-                SavedPlacesQuickBar(
-                  onPlaceTap: onSavedPlaceTap,
-                  onAddSuggested: onAddSuggested,
-                  onManagePlaces: onManagePlaces,
-                  onOpenItineraries: onOpenItineraries,
-                ),
-                if (nav.error != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        nav.error!,
-                        style: const TextStyle(
-                          color: NeonColors.pink,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                if (nav.hasRoute)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(6, 4, 6, 0),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        _InfoChip(
-                          icon: Icons.route,
-                          label:
-                              '${formatDistance(nav.routeDistanceMeters)} · ${formatDuration(nav.routeDurationSeconds)}',
-                        ),
-                        _InfoChip(
-                          icon: Icons.shield,
-                          label: nav.zonesOnRoute.isEmpty
-                              ? 'Nessuna zona'
-                              : '${nav.zonesOnRoute.length} zone',
-                          color: nav.zonesOnRoute.isEmpty
-                              ? NeonColors.neonGreen
-                              : NeonColors.orange,
-                        ),
-                        _InfoChip(
-                          icon: Icons.videocam,
-                          label: nav.cameras.isEmpty
-                              ? 'Nessun autovelox'
-                              : '${nav.cameras.length} autovelox',
-                          color: nav.cameras.isEmpty
-                              ? NeonColors.neonGreen
-                              : NeonColors.orange,
-                        ),
-                      ],
-                    ),
-                  ),
-                if (nav.alternatives.length > 1)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: SizedBox(
-                      height: 34,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: nav.alternatives.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (context, i) {
-                          final plan = nav.alternatives[i];
-                          final selected = i == nav.selectedRoute;
-                          return ChoiceChip(
-                            selected: selected,
-                            label: Text(
-                              'Percorso ${i + 1} · ${formatDuration(plan.durationSeconds)}',
-                              style: TextStyle(
-                                color: selected
-                                    ? NeonColors.deepSpace
-                                    : Colors.white,
-                                fontSize: 12,
-                              ),
-                            ),
-                            selectedColor: NeonColors.cyan,
-                            backgroundColor: NeonColors.darkSurface,
-                            onSelected: (_) => onSelectAlternative(i),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-              ],
+            color: NeonColors.darkCard.withValues(alpha: 0.96),
+            borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
+            child: AnimatedSize(
+              duration: _MapScreenState._overlayAnim,
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              child: expanded ? _buildExpanded(context) : _buildCollapsed(context),
             ),
           ),
-          ),
         ),
-        if (nav.suggestions.isNotEmpty)
+        if (expanded && nav.suggestions.isNotEmpty)
           Container(
             margin: const EdgeInsets.only(top: 6),
             decoration: BoxDecoration(
@@ -836,6 +807,259 @@ class _DirectionsPanel extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildCollapsed(BuildContext context) {
+    return InkWell(
+      onTap: onToggleExpanded,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+        child: Row(
+          children: [
+            const Icon(Icons.trip_origin, color: NeonColors.neonGreen, size: 16),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                '$_originLabel  →  $_destLabel',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.exo2(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            if (onOpenAi != null)
+              IconButton(
+                tooltip: 'Assistente AI',
+                onPressed: onOpenAi,
+                icon: const Icon(Icons.auto_awesome, color: NeonColors.cyan, size: 18),
+                visualDensity: VisualDensity.compact,
+              ),
+            IconButton(
+              tooltip: 'Apri pannello percorso',
+              onPressed: onToggleExpanded,
+              icon: const Icon(Icons.expand_more, color: NeonColors.cyan),
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExpanded(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: onToggleExpanded,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2, bottom: 4),
+              child: Column(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: NeonColors.cyan.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.expand_less,
+                        color: NeonColors.cyan.withValues(alpha: 0.85),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Riduci pannello',
+                        style: GoogleFonts.exo2(
+                          color: NeonColors.cyan.withValues(alpha: 0.85),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (highlighted)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 2, 8, 6),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.navigation,
+                    color: NeonColors.magenta,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    AppLocalizations.of(context)?.navNavigation ??
+                        'Navigazione',
+                    style: GoogleFonts.exo2(
+                      color: NeonColors.magenta,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Row(
+            children: [
+              Expanded(
+                child: _AddressField(
+                  fieldId: 'origin',
+                  controller: originCtrl,
+                  focusNode: originFocus,
+                  hint: 'Da: indirizzo di partenza',
+                  icon: Icons.trip_origin,
+                  iconColor: NeonColors.neonGreen,
+                  onChanged: onOriginQuery,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Usa la mia posizione',
+                onPressed: onUseMyLocation,
+                icon: Icon(
+                  Icons.my_location,
+                  color: nav.originIsMyLocation
+                      ? NeonColors.cyan
+                      : Colors.white54,
+                ),
+              ),
+              _IconChip(icon: Icons.settings, onTap: onSettings),
+              if (onOpenAi != null)
+                _IconChip(icon: Icons.auto_awesome, onTap: onOpenAi!),
+            ],
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: _AddressField(
+                  fieldId: 'destination',
+                  controller: destCtrl,
+                  focusNode: destFocus,
+                  hint: 'A: dove vuoi andare',
+                  icon: Icons.flag,
+                  iconColor: NeonColors.pink,
+                  onChanged: onDestQuery,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Inverti A e B',
+                onPressed: onSwap,
+                icon: const Icon(Icons.swap_vert, color: Colors.white70),
+              ),
+              IconButton(
+                tooltip: 'Calcola percorso',
+                onPressed: nav.routing ? null : onGo,
+                icon: Icon(
+                  nav.routing ? Icons.hourglass_top : Icons.directions,
+                  color: NeonColors.cyan,
+                ),
+              ),
+            ],
+          ),
+          SavedPlacesQuickBar(
+            onPlaceTap: onSavedPlaceTap,
+            onAddSuggested: onAddSuggested,
+            onManagePlaces: onManagePlaces,
+            onOpenItineraries: onOpenItineraries,
+          ),
+          if (nav.error != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  nav.error!,
+                  style: const TextStyle(
+                    color: NeonColors.pink,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+          if (nav.hasRoute)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(6, 4, 6, 0),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  _InfoChip(
+                    icon: Icons.route,
+                    label:
+                        '${formatDistance(nav.routeDistanceMeters)} · ${formatDuration(nav.routeDurationSeconds)}',
+                  ),
+                  _InfoChip(
+                    icon: Icons.shield,
+                    label: nav.zonesOnRoute.isEmpty
+                        ? 'Nessuna zona'
+                        : '${nav.zonesOnRoute.length} zone',
+                    color: nav.zonesOnRoute.isEmpty
+                        ? NeonColors.neonGreen
+                        : NeonColors.orange,
+                  ),
+                  _InfoChip(
+                    icon: Icons.videocam,
+                    label: nav.cameras.isEmpty
+                        ? 'Nessun autovelox'
+                        : '${nav.cameras.length} autovelox',
+                    color: nav.cameras.isEmpty
+                        ? NeonColors.neonGreen
+                        : NeonColors.orange,
+                  ),
+                ],
+              ),
+            ),
+          if (nav.alternatives.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: SizedBox(
+                height: 34,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: nav.alternatives.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, i) {
+                    final plan = nav.alternatives[i];
+                    final selected = i == nav.selectedRoute;
+                    return ChoiceChip(
+                      selected: selected,
+                      label: Text(
+                        'Percorso ${i + 1} · ${formatDuration(plan.durationSeconds)}',
+                        style: TextStyle(
+                          color: selected
+                              ? NeonColors.deepSpace
+                              : Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                      selectedColor: NeonColors.cyan,
+                      backgroundColor: NeonColors.darkSurface,
+                      onSelected: (_) => onSelectAlternative(i),
+                    );
+                  },
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -1105,6 +1329,9 @@ class _NavigatorHud extends StatelessWidget {
     required this.location,
     required this.nav,
     required this.live,
+    required this.expanded,
+    required this.guiding,
+    required this.onToggleExpanded,
     required this.onToggleTrack,
     required this.onStop,
     this.onOpenAi,
@@ -1113,179 +1340,374 @@ class _NavigatorHud extends StatelessWidget {
   final LocationState location;
   final NavigationState nav;
   final LiveNavInfo? live;
+  final bool expanded;
+  final bool guiding;
+  final ValueChanged<bool?> onToggleExpanded;
   final VoidCallback onToggleTrack;
   final VoidCallback onStop;
   final VoidCallback? onOpenAi;
 
   @override
   Widget build(BuildContext context) {
+    return GestureDetector(
+      onVerticalDragEnd: (details) {
+        final v = details.velocity.pixelsPerSecond.dy;
+        if (v < -180) {
+          onToggleExpanded(true);
+        } else if (v > 180) {
+          onToggleExpanded(false);
+        }
+      },
+      child: Material(
+        color: NeonColors.deepSpace.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(18),
+        child: AnimatedSize(
+          duration: _MapScreenState._overlayAnim,
+          curve: Curves.easeInOut,
+          alignment: Alignment.bottomCenter,
+          child: expanded ? _buildExpanded(context) : _buildCollapsed(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollapsed(BuildContext context) {
     final speedKmh = ((location.speed ?? 0) * 3.6).round();
-    final zone = location.nearestZone;
     final limit = live?.speedLimitKmh;
     final overLimit = limit != null && speedKmh > limit + 2;
-    final tracking = location.follow || nav.navigating;
+    final instruction = _compactInstruction(live, nav);
+    final remaining = live?.remainingMeters ?? nav.routeDistanceMeters;
+    final showGuidance = nav.hasRoute || guiding;
 
-    return Material(
-      color: NeonColors.deepSpace.withValues(alpha: 0.94),
+    return InkWell(
+      onTap: () => onToggleExpanded(true),
       borderRadius: BorderRadius.circular(18),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (nav.hasRoute && nav.destination != null) ...[
-              Row(
-                children: [
-                  const Icon(Icons.navigation, color: NeonColors.cyan),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      live?.currentStep?.instructionIt ??
-                          'Verso ${nav.destination!.label}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.exo2(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    formatDistance(live?.remainingMeters ?? nav.routeDistanceMeters),
-                    style: GoogleFonts.exo2(
-                      color: NeonColors.cyan,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: NeonColors.cyan.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(99),
               ),
-              const SizedBox(height: 10),
-            ],
-            Row(
-              children: [
-                _HudTile(
-                  label: 'Velocità',
-                  value: '$speedKmh',
-                  unit: 'km/h',
-                  color: overLimit ? NeonColors.pink : NeonColors.cyan,
-                ),
-                _HudTile(
-                  label: 'Limite',
-                  value: limit?.toString() ?? '—',
-                  unit: 'km/h',
-                  color: overLimit ? NeonColors.pink : NeonColors.neonGreen,
-                ),
-                _HudTile(
-                  label: 'Zona',
-                  value: zone == null
-                      ? 'Fuori'
-                      : (zone.status == ZoneStatus.inside ? 'Dentro' : 'Vicino'),
-                  unit: zone == null
-                      ? ''
-                      : formatDistance(zone.distanceMeters),
-                  color: zone == null
-                      ? NeonColors.neonGreen
-                      : zone.status == ZoneStatus.inside
-                          ? NeonColors.pink
-                          : NeonColors.orange,
-                ),
-              ],
             ),
             const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                zone == null
-                    ? 'Nessuna milieuzone nelle vicinanze'
-                    : '${formatZoneType(zone.zoneType)} · ${zone.zoneName}',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            if (live?.nextCamera != null) ...[
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  const Icon(Icons.videocam, color: NeonColors.orange, size: 18),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Autovelox tra ${formatDistance(live!.nextCameraMeters)}'
-                      '${live!.nextCamera!.maxspeed != null ? ' · ${live!.nextCamera!.maxspeed} km/h' : ''}',
-                      style: const TextStyle(
-                        color: NeonColors.orange,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            if (nav.hasRoute) ...[
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  nav.lastMonitoredAt == null
-                      ? 'Avvisi attivi: controllo del tragitto ogni 45 secondi'
-                      : 'Tragitto controllato · avvisi se cambia zona, autovelox o tempi',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.55),
-                    fontSize: 10,
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
             Row(
               children: [
+                Icon(
+                  _turnIcon(live?.currentStep),
+                  color: NeonColors.cyan,
+                  size: 22,
+                ),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: FilledButton.icon(
-                    onPressed: onToggleTrack,
-                    icon: Icon(tracking ? Icons.gps_fixed : Icons.gps_not_fixed),
-                    label: Text(tracking ? 'Traccia ON' : 'Traccia'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor:
-                          tracking ? NeonColors.cyan : NeonColors.darkCard,
-                      foregroundColor:
-                          tracking ? NeonColors.deepSpace : Colors.white,
+                  child: Text(
+                    instruction,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.exo2(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
                     ),
                   ),
                 ),
-                if (onOpenAi != null) ...[
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: onOpenAi,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: NeonColors.cyan,
-                      foregroundColor: NeonColors.deepSpace,
-                      minimumSize: const Size(48, 48),
-                      padding: EdgeInsets.zero,
-                    ),
-                    child: const Icon(Icons.auto_awesome),
-                  ),
+                if (live?.nextCamera != null) ...[
+                  const Icon(Icons.videocam, color: NeonColors.orange, size: 16),
+                  const SizedBox(width: 6),
                 ],
-                if (nav.hasRoute) ...[
-                  const SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: onStop,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: NeonColors.pink,
-                      side: const BorderSide(color: NeonColors.pink),
+                if (showGuidance) ...[
+                  Text(
+                    formatDistance(remaining),
+                    style: GoogleFonts.exo2(
+                      color: NeonColors.cyan,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
                     ),
-                    child: const Text('Stop'),
                   ),
+                  const SizedBox(width: 8),
                 ],
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: (overLimit ? NeonColors.pink : NeonColors.neonGreen)
+                          .withValues(alpha: 0.7),
+                    ),
+                  ),
+                  child: Text(
+                    limit == null ? '$speedKmh' : '$speedKmh/$limit',
+                    style: GoogleFonts.exo2(
+                      color: overLimit ? NeonColors.pink : NeonColors.neonGreen,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Apri guida',
+                  onPressed: () => onToggleExpanded(true),
+                  icon: const Icon(Icons.expand_less, color: NeonColors.cyan),
+                  visualDensity: VisualDensity.compact,
+                ),
               ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildExpanded(BuildContext context) {
+    final speedKmh = ((location.speed ?? 0) * 3.6).round();
+    final zone = location.nearestZone;
+    final limit = live?.speedLimitKmh;
+    final overLimit = limit != null && speedKmh > limit + 2;
+    final tracking = location.follow || nav.navigating;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: () => onToggleExpanded(false),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Column(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: NeonColors.cyan.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.expand_more,
+                        color: NeonColors.cyan.withValues(alpha: 0.85),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Riduci guida',
+                        style: GoogleFonts.exo2(
+                          color: NeonColors.cyan.withValues(alpha: 0.85),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (nav.hasRoute && nav.destination != null) ...[
+            Row(
+              children: [
+                Icon(_turnIcon(live?.currentStep), color: NeonColors.cyan),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _compactInstruction(live, nav),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.exo2(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+                Text(
+                  formatDistance(live?.remainingMeters ?? nav.routeDistanceMeters),
+                  style: GoogleFonts.exo2(
+                    color: NeonColors.cyan,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
+          Row(
+            children: [
+              _HudTile(
+                label: 'Velocità',
+                value: '$speedKmh',
+                unit: 'km/h',
+                color: overLimit ? NeonColors.pink : NeonColors.cyan,
+              ),
+              _HudTile(
+                label: 'Limite',
+                value: limit?.toString() ?? '—',
+                unit: 'km/h',
+                color: overLimit ? NeonColors.pink : NeonColors.neonGreen,
+              ),
+              _HudTile(
+                label: 'Zona',
+                value: zone == null
+                    ? 'Fuori'
+                    : (zone.status == ZoneStatus.inside ? 'Dentro' : 'Vicino'),
+                unit: zone == null ? '' : formatDistance(zone.distanceMeters),
+                color: zone == null
+                    ? NeonColors.neonGreen
+                    : zone.status == ZoneStatus.inside
+                        ? NeonColors.pink
+                        : NeonColors.orange,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              zone == null
+                  ? 'Nessuna milieuzone nelle vicinanze'
+                  : '${formatZoneType(zone.zoneType)} · ${zone.zoneName}',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: 12,
+              ),
+            ),
+          ),
+          if (live?.nextCamera != null) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.videocam, color: NeonColors.orange, size: 18),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Autovelox tra ${formatDistance(live!.nextCameraMeters)}'
+                    '${live!.nextCamera!.maxspeed != null ? ' · ${live!.nextCamera!.maxspeed} km/h' : ''}',
+                    style: const TextStyle(
+                      color: NeonColors.orange,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (nav.hasRoute) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                nav.lastMonitoredAt == null
+                    ? 'Avvisi attivi: controllo del tragitto ogni 45 secondi'
+                    : 'Tragitto controllato · avvisi se cambia zona, autovelox o tempi',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.55),
+                  fontSize: 10,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: onToggleTrack,
+                  icon: Icon(tracking ? Icons.gps_fixed : Icons.gps_not_fixed),
+                  label: Text(tracking ? 'Traccia ON' : 'Traccia'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor:
+                        tracking ? NeonColors.cyan : NeonColors.darkCard,
+                    foregroundColor:
+                        tracking ? NeonColors.deepSpace : Colors.white,
+                  ),
+                ),
+              ),
+              if (onOpenAi != null) ...[
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: onOpenAi,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: NeonColors.cyan,
+                    foregroundColor: NeonColors.deepSpace,
+                    minimumSize: const Size(48, 48),
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: const Icon(Icons.auto_awesome),
+                ),
+              ],
+              if (nav.hasRoute) ...[
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  onPressed: onStop,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: NeonColors.pink,
+                    side: const BorderSide(color: NeonColors.pink),
+                  ),
+                  child: const Text('Stop'),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _compactInstruction(LiveNavInfo? live, NavigationState nav) {
+  final step = live?.currentStep;
+  if (step != null) {
+    final text = step.instructionIt;
+    if (step.type == 'arrive') return text;
+    final dist = formatDistance(step.distanceMeters);
+    if (dist == '—' || step.distanceMeters <= 0) return text;
+    return '$text tra $dist';
+  }
+  if (nav.destination != null) {
+    return 'Verso ${nav.destination!.label}';
+  }
+  if (nav.hasRoute) return 'Percorso pronto';
+  return 'Nessun percorso';
+}
+
+IconData _turnIcon(NavStep? step) {
+  if (step == null) return Icons.navigation;
+  switch (step.type) {
+    case 'arrive':
+      return Icons.flag;
+    case 'roundabout':
+    case 'rotary':
+      return Icons.roundabout_left;
+    case 'on ramp':
+      return Icons.merge_type;
+    case 'off ramp':
+    case 'exit':
+      return Icons.logout;
+    case 'merge':
+      return Icons.merge;
+    case 'fork':
+    case 'turn':
+      if (step.modifier.contains('uturn')) return Icons.u_turn_left;
+      if (step.modifier.contains('left')) return Icons.turn_left;
+      if (step.modifier.contains('right')) return Icons.turn_right;
+      return Icons.arrow_upward;
+    case 'depart':
+    case 'continue':
+    case 'new name':
+    default:
+      return Icons.arrow_upward;
   }
 }
 
