@@ -190,6 +190,47 @@ void main() {
     );
   });
 
+  test('course-up bearing follows the polyline segment ahead of the puck', () {
+    expect(
+      courseUpBearing(lat: startLat, lon: lon, route: route),
+      closeTo(0, 6),
+    );
+
+    final northEnd = startLat + 200 / mPerDeg;
+    final eastLon = lon + 200 / (mPerDeg * 0.615);
+    final bent = [
+      LatLng(startLat, lon),
+      LatLng(northEnd, lon),
+      LatLng(northEnd, eastLon),
+    ];
+    expect(
+      courseUpBearing(lat: startLat + 40 / mPerDeg, lon: lon, route: bent),
+      closeTo(0, 8),
+    );
+    expect(
+      courseUpBearing(lat: northEnd, lon: lon + 0.0004, route: bent),
+      closeTo(90, 15),
+    );
+    expect(
+      courseUpBearing(
+        lat: startLat,
+        lon: lon + 0.02,
+        gpsHeading: 180,
+        route: bent,
+      ),
+      closeTo(180, 1),
+    );
+    expect(
+      courseUpBearing(
+        lat: startLat,
+        lon: lon,
+        gpsHeading: 270,
+        route: const [],
+      ),
+      270,
+    );
+  });
+
   test('OSRM annotation speed is only a legal-limit fallback', () {
     final cum = cumulativeDistances(route);
     final fromOsrm = currentSpeedLimitKmh(

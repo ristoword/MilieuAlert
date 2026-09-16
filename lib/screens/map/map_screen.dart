@@ -24,6 +24,8 @@ import '../../providers/settings_provider.dart';
 import '../../providers/voice_guidance_provider.dart';
 import '../../providers/wake_lock_provider.dart';
 import '../../providers/zone_provider.dart';
+import '../../services/geo_utils.dart';
+import '../../services/navigation_guidance.dart';
 import 'widgets/ai_assist_sheet.dart';
 import 'widgets/ai_hint_banner.dart';
 import 'widgets/alert_banner.dart';
@@ -33,6 +35,7 @@ import 'widgets/driver_map_frame.dart';
 import 'widgets/favorites_panel.dart';
 import 'widgets/hazard_detail_sheet.dart';
 import 'widgets/incident_banners.dart';
+import 'widgets/map_compass.dart';
 import 'widgets/map_pins.dart';
 import 'widgets/report_sheet.dart';
 import 'widgets/search_sheet.dart';
@@ -63,6 +66,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _wasGuiding = false;
   bool _tilt3d = false;
   bool _userSetMapMode = false;
+  bool _headingUp = false;
+  double _lastAutoRotation = 0;
+  LatLng? _lastAutoCenter;
+  static const _puckScreenOffset = Offset(0, 118);
 
   @override
   void initState() {
@@ -135,7 +142,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     if (!_movedToUser || follow) {
       final zoom = _movedToUser ? null : 16.0;
       _movedToUser = true;
-      _moveToUser(fix.lat, fix.lon, zoom: zoom);
+      _moveToUser(fix.lat, fix.lon, zoom: zoom, headingHint: fix.heading);
     }
   }
 
@@ -170,8 +177,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
     if (route.length < 2) return;
     try {
       _mapController.fitCamera(
-        CameraFit.bounds(
-          bounds: LatLngBounds.fromPoints(route),
+        CameraFit.coordinates(
+          coordinates: route,
           padding: EdgeInsets.fromLTRB(
             36,
             120,
@@ -184,24 +191,47 @@ class _MapScreenState extends ConsumerState<MapScreen>
     } catch (_) {}
   }
 
-  void _moveToUser(double lat, double lon, {double? zoom}) {
+  double? _courseForFix(double lat, double lon, {double? headingHint}) {
+    final nav = ref.read(navigationProvider);
+    return courseUpBearing(
+      lat: lat,
+      lon: lon,
+      gpsHeading: headingHint ?? ref.read(locationProvider).heading,
+      route: nav.hasRoute ? nav.route : const [],
+    );
+  }
+
+  void _moveToUser(double lat, double lon, {double? zoom, double? headingHint}) {
     try {
       final z = zoom ?? _mapController.camera.zoom;
-      final loc = ref.read(locationProvider);
-      final heading = loc.heading;
-      if (_tilt3d && heading != null && heading >= 0) {
-        _mapController.moveAndRotate(LatLng(lat, lon), z, heading);
+      final follow = ref.read(locationProvider).follow;
+      final headingUp = _headingUp && follow;
+      final target = LatLng(lat, lon);
+      if (headingUp) {
+        var bearing =
+            _courseForFix(lat, lon, headingHint: headingHint);
+        bearing ??= _lastAutoRotation;
+        bearing = (bearing % 360 + 360) % 360;
+        _lastAutoRotation = bearing;
+        _mapController.moveAndRotate(target, z, bearing);
         _mapController.move(
-          LatLng(lat, lon),
+          target,
           z,
-          offset: const Offset(0, 120),
+          offset: _puckScreenOffset,
         );
-      } else {
-        if (!_tilt3d && _mapController.camera.rotation.abs() > 0.4) {
-          _mapController.rotate(0);
-        }
-        _mapController.move(LatLng(lat, lon), z);
+        _lastAutoCenter = _mapController.camera.center;
+        return;
       }
+      if (!_headingUp && _mapController.camera.rotation.abs() > 0.4) {
+        _mapController.rotate(0);
+        _lastAutoRotation = 0;
+      }
+      if (_tilt3d) {
+        _mapController.move(target, z, offset: _puckScreenOffset);
+      } else {
+        _mapController.move(target, z);
+      }
+      _lastAutoCenter = _mapController.camera.center;
     } catch (_) {}
   }
 
@@ -210,27 +240,52 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _userSetMapMode = true;
       _tilt3d = !_tilt3d;
     });
-    if (!_tilt3d) {
+    final loc = ref.read(locationProvider);
+    if (loc.latitude != null && loc.longitude != null) {
+      _moveToUser(loc.latitude!, loc.longitude!);
+    }
+  }
+
+  void _onCompassTap() {
+    final follow = ref.read(locationProvider).follow;
+    if (!follow) {
+      setState(() => _headingUp = true);
+      _recenter();
+      return;
+    }
+    setState(() => _headingUp = !_headingUp);
+    final loc = ref.read(locationProvider);
+    if (!_headingUp) {
       try {
         _mapController.rotate(0);
+        _lastAutoRotation = 0;
       } catch (_) {}
-    } else {
-      final loc = ref.read(locationProvider);
-      if (loc.latitude != null && loc.longitude != null) {
-        _moveToUser(loc.latitude!, loc.longitude!);
-      }
+    }
+    if (loc.latitude != null && loc.longitude != null) {
+      _moveToUser(loc.latitude!, loc.longitude!);
     }
   }
 
   void _pauseFollowIfUserPanned(MapCamera camera) {
     final loc = ref.read(locationProvider);
-    if (!loc.follow || loc.latitude == null || loc.longitude == null) return;
-    final meters = _distance.as(
-      LengthUnit.Meter,
-      LatLng(loc.latitude!, loc.longitude!),
-      camera.center,
-    );
-    if (meters > 50) {
+    if (!loc.follow) return;
+    var paused = false;
+    final expected = _lastAutoCenter ??
+        (loc.latitude != null && loc.longitude != null
+            ? LatLng(loc.latitude!, loc.longitude!)
+            : null);
+    if (expected != null) {
+      final meters = _distance.as(
+        LengthUnit.Meter,
+        expected,
+        camera.center,
+      );
+      if (meters > 28) paused = true;
+    }
+    if (headingDeltaDeg(camera.rotation, _lastAutoRotation) > 7) {
+      paused = true;
+    }
+    if (paused) {
       ref.read(locationProvider.notifier).setFollow(false);
     }
   }
@@ -249,6 +304,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        MapCompassButton(
+          controller: _mapController,
+          headingUp: _headingUp,
+          northUpTooltip: l10n.compassNorthUp,
+          headingUpTooltip: l10n.compassHeadingUp,
+          onTap: _onCompassTap,
+        ),
+        const SizedBox(height: 8),
         _RoundMapButton(
           icon: _tilt3d ? Icons.threed_rotation : Icons.map_outlined,
           tooltip: _tilt3d ? l10n.toggle3d : l10n.toggle2d,
@@ -292,8 +355,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
     try {
       _mapController.fitCamera(
-        CameraFit.bounds(
-          bounds: LatLngBounds.fromPoints(pts),
+        CameraFit.coordinates(
+          coordinates: pts,
           padding: const EdgeInsets.fromLTRB(40, 80, 40, 280),
           maxZoom: 15,
         ),
@@ -312,6 +375,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final loc = ref.read(locationProvider);
     ref.read(locationProvider.notifier).setFollow(true);
     ref.read(locationProvider.notifier).startTracking();
+    final nav = ref.read(navigationProvider);
+    final driving = nav.navigating &&
+        nav.hasRoute &&
+        nav.mode != TravelMode.transit;
+    if (driving) {
+      setState(() => _headingUp = true);
+    }
     if (loc.latitude != null && loc.longitude != null) {
       _moveToUser(loc.latitude!, loc.longitude!, zoom: 16);
     }
@@ -390,17 +460,31 @@ class _MapScreenState extends ConsumerState<MapScreen>
               _trayExpanded = false;
               FocusManager.instance.primaryFocus?.unfocus();
               if (!_userSetMapMode) _tilt3d = true;
+              _headingUp = nav.mode != TravelMode.transit && nav.hasRoute;
             } else {
               // Full map when driving without a destination.
               _sheetExpanded = nav.destination != null;
               _trayExpanded = false;
               if (!_userSetMapMode) _tilt3d = false;
+              _headingUp = false;
+              try {
+                _mapController.rotate(0);
+                _lastAutoRotation = 0;
+              } catch (_) {}
             }
           }
           if (nav.suggestions.isNotEmpty) {
             _sheetExpanded = true;
           }
         });
+        final loc = ref.read(locationProvider);
+        if (guiding &&
+            _headingUp &&
+            loc.latitude != null &&
+            loc.longitude != null) {
+          ref.read(locationProvider.notifier).setFollow(true);
+          _moveToUser(loc.latitude!, loc.longitude!);
+        }
       });
     }
 
@@ -421,8 +505,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
               initialZoom: locOnce.latitude != null
                   ? 13
                   : AppConstants.initialZoom,
-              interactionOptions: InteractionOptions(
-                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all,
               ),
               onTap: (_, __) => FocusScope.of(context).unfocus(),
               onPositionChanged: (pos, hasGesture) {
@@ -472,13 +556,16 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     ),
                   ],
                 ),
-              MarkerLayer(markers: [
+              MarkerLayer(
+                rotate: true,
+                markers: [
                 if (!guiding)
                   for (final poi in nav.nearbyResults)
                     Marker(
                       point: LatLng(poi.lat, poi.lon),
                       width: 32,
                       height: 32,
+                      rotate: true,
                       child: PoiPin(hit: poi),
                     ),
                 if (originPoint != null)
@@ -486,6 +573,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     point: originPoint,
                     width: 36,
                     height: 36,
+                    rotate: true,
                     child: const Icon(
                       Icons.trip_origin,
                       color: Color(0xFF34C759),
@@ -497,6 +585,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     point: LatLng(nav.destination!.lat, nav.destination!.lon),
                     width: 36,
                     height: 36,
+                    rotate: true,
                     child: const Icon(
                       Icons.location_on,
                       color: MapsColors.endRed,
@@ -505,7 +594,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   ),
               ]),
               _HazardPinsLayer(onOpenHazard: showHazardDetailSheet),
-              _LivePuckLayer(tilt3d: _tilt3d),
+              _LivePuckLayer(headingUp: _headingUp),
               const RichAttributionWidget(
                 attributions: [
                   TextSourceAttribution('© OpenStreetMap contributors'),
@@ -842,9 +931,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
 }
 
 class _LivePuckLayer extends ConsumerWidget {
-  const _LivePuckLayer({required this.tilt3d});
+  const _LivePuckLayer({required this.headingUp});
 
-  final bool tilt3d;
+  final bool headingUp;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -853,12 +942,14 @@ class _LivePuckLayer extends ConsumerWidget {
       builder: (context, fix, _) {
         if (fix == null) return const MarkerLayer(markers: []);
         return MarkerLayer(
+          rotate: true,
           markers: [
             Marker(
               point: LatLng(fix.lat, fix.lon),
               width: 40,
               height: 40,
-              child: LocationPuck(heading: tilt3d ? 0 : fix.heading),
+              rotate: true,
+              child: LocationPuck(heading: headingUp ? 0 : fix.heading),
             ),
           ],
         );
@@ -886,6 +977,7 @@ class _HazardPinsLayer extends ConsumerWidget {
           point: LatLng(c.lat, c.lon),
           width: 34,
           height: 34,
+          rotate: true,
           child: const CameraPin(),
         ),
       );
@@ -896,6 +988,7 @@ class _HazardPinsLayer extends ConsumerWidget {
           point: LatLng(r.lat, r.lon),
           width: 38,
           height: 38,
+          rotate: true,
           child: GestureDetector(
             onTap: () => onOpenHazard(context, r),
             child: r.type.isCamera
@@ -908,7 +1001,7 @@ class _HazardPinsLayer extends ConsumerWidget {
         ),
       );
     }
-    return MarkerLayer(markers: markers);
+    return MarkerLayer(rotate: true, markers: markers);
   }
 }
 

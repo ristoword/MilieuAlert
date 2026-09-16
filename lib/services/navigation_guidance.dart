@@ -235,6 +235,38 @@ double bearingAlongRoute(
   );
 }
 
+double? _usableCourseHeading(double? heading) {
+  if (heading == null || !heading.isFinite) return null;
+  if (heading < 0 || heading > 360) return null;
+  return heading;
+}
+
+/// Bearing that should sit at the top of the screen in course-up / heading-up.
+/// Prefers the polyline tangent ahead of the puck; falls back to GPS heading
+/// when off-route or when there is no line to follow.
+double? courseUpBearing({
+  required double lat,
+  required double lon,
+  double? gpsHeading,
+  required List<LatLng> route,
+  List<double>? cum,
+  double offRouteMeters = kOffRouteMeters,
+  double lookAheadMeters = 16,
+}) {
+  final fallback = _usableCourseHeading(gpsHeading);
+  if (route.length < 2) return fallback;
+  final distances = cum ?? cumulativeDistances(route);
+  if (distances.length != route.length) return fallback;
+  final snap = projectOntoPolyline(lat, lon, route, distances);
+  if (snap == null || snap.offsetMeters > offRouteMeters) return fallback;
+  return bearingAlongRoute(
+    route,
+    distances,
+    snap.alongMeters,
+    lookAheadMeters: lookAheadMeters,
+  );
+}
+
 double headingDelta(double a, double b) {
   var diff = (a - b).abs() % 360;
   if (diff > 180) diff = 360 - diff;

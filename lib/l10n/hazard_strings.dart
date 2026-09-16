@@ -118,6 +118,26 @@ class HazardStrings {
   String get toggle3d => '3D';
   String get toggle2d => '2D';
 
+  String get compassNorthUp => _it
+      ? 'Nord in alto'
+      : _nl
+          ? 'Noorden boven'
+          : _de
+              ? 'Norden oben'
+              : _fr
+                  ? 'Nord en haut'
+                  : 'North up';
+
+  String get compassHeadingUp => _it
+      ? 'Direzione di marcia'
+      : _nl
+          ? 'Richting omhoog'
+          : _de
+              ? 'Fahrtrichtung oben'
+              : _fr
+                  ? 'Cap en haut'
+                  : 'Heading up';
+
   String label(HazardType type) {
     switch (type) {
       case HazardType.cameraFixed:
