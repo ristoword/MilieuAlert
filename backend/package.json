@@ -5,7 +5,9 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "test": "node --test src/seo/__tests__/seo.test.js",
+    "restore-seo": "node scripts/restore-seo.js"
   },
   "engines": {
     "node": ">=18"

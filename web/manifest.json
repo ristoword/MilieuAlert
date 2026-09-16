@@ -2,7 +2,7 @@
     "id": "/",
     "name": "MilieuAlert",
     "short_name": "MilieuAlert",
-    "description": "Low Emission Zone warnings for drivers",
+    "description": "GPS navigator for milieuzone, LEZ and EcoEntry (Euro 2–5). Your car, your zone, your access.",
     "start_url": "/",
     "scope": "/",
     "display": "standalone",

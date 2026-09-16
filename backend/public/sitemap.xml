@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://milieualert-production.up.railway.app/</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://milieualert-production.up.railway.app/en"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://milieualert-production.up.railway.app/nl"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://milieualert-production.up.railway.app/it"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://milieualert-production.up.railway.app/en"/>
+  </url>
+  <url>
+    <loc>https://milieualert-production.up.railway.app/en</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://milieualert-production.up.railway.app/en"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://milieualert-production.up.railway.app/nl"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://milieualert-production.up.railway.app/it"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://milieualert-production.up.railway.app/en"/>
+  </url>
+  <url>
+    <loc>https://milieualert-production.up.railway.app/nl</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://milieualert-production.up.railway.app/en"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://milieualert-production.up.railway.app/nl"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://milieualert-production.up.railway.app/it"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://milieualert-production.up.railway.app/en"/>
+  </url>
+  <url>
+    <loc>https://milieualert-production.up.railway.app/it</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://milieualert-production.up.railway.app/en"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://milieualert-production.up.railway.app/nl"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://milieualert-production.up.railway.app/it"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://milieualert-production.up.railway.app/en"/>
+  </url>
+</urlset>

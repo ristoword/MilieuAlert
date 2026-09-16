@@ -12,6 +12,7 @@ const aiRoutes = require('./routes/ai');
 const tripRoutes = require('./routes/trips');
 const zoneRoutes = require('./routes/zones');
 const geoRoutes = require('./routes/geo');
+const seo = require('./seo');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,6 +31,9 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 app.use('/api/', limiter);
+
+// Crawlable locale landings, robots.txt and sitemap.xml (before static / SPA).
+seo.mount(app);
 
 // Serve Flutter web app static files
 const webBuildPath = path.join(__dirname, '..', 'public');
@@ -78,9 +82,10 @@ app.use('/api/trips', tripRoutes);
 app.use('/api/zones', zoneRoutes);
 app.use('/api/geo', geoRoutes);
 
-// SPA fallback - serve index.html for non-API routes
+// SPA fallback - Flutter app at / and client routes. Locale landings stay on Express.
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
+  if (['/en', '/nl', '/it', '/robots.txt', '/sitemap.xml'].includes(req.path)) return next();
   res.sendFile(path.join(webBuildPath, 'index.html'));
 });
 

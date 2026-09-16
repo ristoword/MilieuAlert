@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Allow: /en
+Allow: /nl
+Allow: /it
+Disallow: /api/
+
+Sitemap: https://milieualert-production.up.railway.app/sitemap.xml
