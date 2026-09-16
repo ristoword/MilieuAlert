@@ -48,3 +48,11 @@ String formatDuration(double? seconds) {
   return rest == 0 ? '$hours h' : '$hours h $rest min';
 }
 
+String formatEtaClock(double? remainingSeconds) {
+  if (remainingSeconds == null || remainingSeconds <= 0) return '—';
+  final eta = DateTime.now().add(Duration(seconds: remainingSeconds.round()));
+  final h = eta.hour.toString().padLeft(2, '0');
+  final m = eta.minute.toString().padLeft(2, '0');
+  return '$h:$m';
+}
+

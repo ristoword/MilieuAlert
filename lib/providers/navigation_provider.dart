@@ -35,6 +35,9 @@ class NavigationState {
   final List<RoutePlan> alternatives;
   final List<RouteChangeAlert> alerts;
   final DateTime? lastMonitoredAt;
+  final List<PlaceHit> nearbyResults;
+  final String? nearbyCategory;
+  final bool nearbySearching;
 
   const NavigationState({
     this.suggestions = const [],
@@ -58,6 +61,9 @@ class NavigationState {
     this.alternatives = const [],
     this.alerts = const [],
     this.lastMonitoredAt,
+    this.nearbyResults = const [],
+    this.nearbyCategory,
+    this.nearbySearching = false,
   });
 
   bool get hasRoute => route.length >= 2;
@@ -84,10 +90,15 @@ class NavigationState {
     List<RoutePlan>? alternatives,
     List<RouteChangeAlert>? alerts,
     DateTime? lastMonitoredAt,
+    List<PlaceHit>? nearbyResults,
+    String? nearbyCategory,
+    bool? nearbySearching,
     bool clearOrigin = false,
     bool clearDestination = false,
     bool clearError = false,
     bool clearAlerts = false,
+    bool clearNearby = false,
+    bool clearNearbyCategory = false,
   }) {
     return NavigationState(
       suggestions: suggestions ?? this.suggestions,
@@ -111,6 +122,11 @@ class NavigationState {
       alternatives: alternatives ?? this.alternatives,
       alerts: clearAlerts ? const [] : (alerts ?? this.alerts),
       lastMonitoredAt: lastMonitoredAt ?? this.lastMonitoredAt,
+      nearbyResults: clearNearby ? const [] : (nearbyResults ?? this.nearbyResults),
+      nearbyCategory: clearNearby || clearNearbyCategory
+          ? null
+          : (nearbyCategory ?? this.nearbyCategory),
+      nearbySearching: nearbySearching ?? this.nearbySearching,
     );
   }
 }
@@ -118,6 +134,7 @@ class NavigationState {
 class LiveNavInfo {
   final NavStep? currentStep;
   final double remainingMeters;
+  final double remainingSeconds;
   final int? speedLimitKmh;
   final SpeedCamera? nextCamera;
   final double? nextCameraMeters;
@@ -126,6 +143,7 @@ class LiveNavInfo {
   const LiveNavInfo({
     this.currentStep,
     required this.remainingMeters,
+    this.remainingSeconds = 0,
     this.speedLimitKmh,
     this.nextCamera,
     this.nextCameraMeters,
@@ -175,7 +193,13 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     );
     _debounce = Timer(const Duration(milliseconds: 450), () async {
       try {
-        final hits = await _service.searchAddress(query.trim(), lang: lang);
+        final loc = _ref.read(locationProvider);
+        final hits = await _service.searchAddress(
+          query.trim(),
+          lang: lang,
+          lat: loc.latitude,
+          lon: loc.longitude,
+        );
         if (!mounted) return;
         state = state.copyWith(suggestions: hits, searching: false);
       } catch (_) {
@@ -224,7 +248,90 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
         activeField: SearchField.destination,
       );
     }
-    await planRoute(startFollowing: state.originIsMyLocation);
+    await planRoute(startFollowing: false);
+  }
+
+  Future<void> goToPoi(PlaceHit place) async {
+    useMyLocationAsOrigin();
+    state = state.copyWith(
+      destination: place,
+      suggestions: const [],
+      activeField: SearchField.destination,
+    );
+    await planRoute(startFollowing: false);
+  }
+
+  Future<void> searchNearby(String category, {double? lat, double? lon}) async {
+    var useLat = lat;
+    var useLon = lon;
+    if (useLat == null || useLon == null) {
+      final loc = _ref.read(locationProvider);
+      useLat = loc.latitude;
+      useLon = loc.longitude;
+    }
+    if (useLat == null || useLon == null) {
+      state = state.copyWith(
+        nearbySearching: false,
+        nearbyCategory: category,
+        nearbyResults: const [],
+        error: 'Attiva il GPS per cercare in zona',
+      );
+      return;
+    }
+    state = state.copyWith(
+      nearbySearching: true,
+      nearbyCategory: category,
+      nearbyResults: const [],
+      suggestions: const [],
+      clearError: true,
+    );
+    try {
+      final hits = await _service.searchNearby(
+        category: category,
+        lat: useLat,
+        lon: useLon,
+      );
+      final zones = _ref.read(zonesProvider).valueOrNull ?? const <EmissionZone>[];
+      final tagged = hits
+          .map((hit) {
+            EmissionZone? zone;
+            for (final z in zones) {
+              if (isInsideZone(hit.lat, hit.lon, z)) {
+                zone = z;
+                break;
+              }
+            }
+            return hit.copyWith(
+              inLez: zone != null,
+              zoneName: zone?.name,
+            );
+          })
+          .toList();
+      if (!mounted) return;
+      state = state.copyWith(
+        nearbyResults: tagged,
+        nearbySearching: false,
+        nearbyCategory: category,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      state = state.copyWith(
+        nearbySearching: false,
+        nearbyCategory: category,
+        nearbyResults: const [],
+        error: 'Ricerca in zona non riuscita',
+      );
+    }
+  }
+
+  void clearNearby() {
+    state = state.copyWith(clearNearby: true, nearbySearching: false);
+  }
+
+  void beginGuidance() {
+    if (!state.hasRoute) return;
+    state = state.copyWith(navigating: true, clearNearby: true, suggestions: const []);
+    _ref.read(locationProvider.notifier).setFollow(true);
   }
 
   Future<void> startNavigation(PlaceHit place) {
@@ -294,6 +401,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       navigating: startFollowing && state.originIsMyLocation,
       suggestions: const [],
       clearError: true,
+      clearNearby: startFollowing,
     );
     _ref.read(locationProvider.notifier).setFollow(false);
 
@@ -827,9 +935,17 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       }
     }
 
+    var remainingSeconds = state.routeDurationSeconds ?? 0;
+    final totalDist = state.routeDistanceMeters;
+    final totalDur = state.routeDurationSeconds;
+    if (totalDist != null && totalDist > 0 && totalDur != null) {
+      remainingSeconds = remaining / totalDist * totalDur;
+    }
+
     return LiveNavInfo(
       currentStep: step,
       remainingMeters: remaining,
+      remainingSeconds: remainingSeconds,
       speedLimitKmh: limit,
       nextCamera: camera,
       nextCameraMeters: cameraMeters,

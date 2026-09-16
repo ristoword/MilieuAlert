@@ -14,10 +14,43 @@ class NavigationService {
 
   final Dio _dio;
 
-  Future<List<PlaceHit>> searchAddress(String query, {String lang = 'it'}) async {
+  Future<List<PlaceHit>> searchAddress(
+    String query, {
+    String lang = 'it',
+    double? lat,
+    double? lon,
+  }) async {
     final response = await _dio.get(
       '/api/geo/search',
-      queryParameters: {'q': query, 'lang': lang},
+      queryParameters: {
+        'q': query,
+        'lang': lang,
+        if (lat != null) 'lat': lat,
+        if (lon != null) 'lon': lon,
+      },
+    );
+    final list = (response.data['results'] as List?) ?? const [];
+    return list
+        .map((e) => PlaceHit.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  Future<List<PlaceHit>> searchNearby({
+    required String category,
+    required double lat,
+    required double lon,
+    String lang = 'it',
+    int radius = 1800,
+  }) async {
+    final response = await _dio.get(
+      '/api/geo/nearby',
+      queryParameters: {
+        'category': category,
+        'lat': lat,
+        'lon': lon,
+        'lang': lang,
+        'radius': radius,
+      },
     );
     final list = (response.data['results'] as List?) ?? const [];
     return list

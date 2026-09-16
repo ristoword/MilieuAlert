@@ -20,26 +20,200 @@ async function fetchJson(url, options = {}) {
   return res.json();
 }
 
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function nominatimSearchUrl(q, { lat, lon, bounded = false, limit = 8 } = {}) {
+  let url =
+    'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=0&limit=' +
+    limit +
+    '&q=' +
+    encodeURIComponent(q);
+  if (Number.isFinite(lat) && Number.isFinite(lon)) {
+    const d = 0.035;
+    url += `&viewbox=${lon - d},${lat + d},${lon + d},${lat - d}`;
+    if (bounded) url += '&bounded=1';
+  }
+  return url;
+}
+
 router.get('/search', async (req, res) => {
   try {
     const q = String(req.query.q || '').trim();
     if (q.length < 3) return res.json({ results: [] });
     const lang = String(req.query.lang || 'it');
-    const url =
-      'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&addressdetails=0&q=' +
-      encodeURIComponent(q);
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    const url = nominatimSearchUrl(q, {
+      lat: Number.isFinite(lat) ? lat : undefined,
+      lon: Number.isFinite(lon) ? lon : undefined,
+    });
     const data = await fetchJson(url, {
       headers: { 'Accept-Language': lang },
     });
-    const results = (Array.isArray(data) ? data : []).map((item) => ({
-      label: item.display_name,
-      lat: Number(item.lat),
-      lon: Number(item.lon),
-    }));
+    const originLat = Number.isFinite(lat) ? lat : null;
+    const originLon = Number.isFinite(lon) ? lon : null;
+    const results = (Array.isArray(data) ? data : []).map((item) => {
+      const itemLat = Number(item.lat);
+      const itemLon = Number(item.lon);
+      return {
+        label: item.display_name,
+        lat: itemLat,
+        lon: itemLon,
+        distanceMeters:
+          originLat != null && originLon != null
+            ? Math.round(haversineMeters(originLat, originLon, itemLat, itemLon))
+            : null,
+      };
+    });
     res.json({ results });
   } catch (err) {
     console.error('geo search failed:', err.message);
     res.status(502).json({ error: 'Address search failed', results: [] });
+  }
+});
+
+const NEARBY_FILTERS = {
+  restaurants: ['["amenity"="restaurant"]', '["amenity"="fast_food"]'],
+  fuel: ['["amenity"="fuel"]'],
+  tobacco: [
+    '["shop"="tobacco"]',
+    '["shop"="e-cigarette"]',
+    '["vending"="cigarettes"]',
+  ],
+  parking: ['["amenity"="parking"]'],
+  supermarket: ['["shop"="supermarket"]'],
+  cafe: ['["amenity"="cafe"]'],
+  pharmacy: ['["amenity"="pharmacy"]'],
+};
+
+const NEARBY_NOMINATIM = {
+  restaurants: 'ristorante',
+  fuel: 'benzinaio',
+  tobacco: 'tabacchi',
+  parking: 'parcheggio',
+  supermarket: 'supermercato',
+  cafe: 'caffè',
+  pharmacy: 'farmacia',
+};
+
+const NEARBY_FALLBACK_LABEL = {
+  restaurants: 'Ristorante',
+  fuel: 'Pompa di benzina',
+  tobacco: 'Tabacchi',
+  parking: 'Parcheggio',
+  supermarket: 'Supermercato',
+  cafe: 'Caffè',
+  pharmacy: 'Farmacia',
+};
+
+function poiLabel(tags, category) {
+  const name =
+    (tags && (tags.name || tags.brand || tags.operator)) ||
+    NEARBY_FALLBACK_LABEL[category] ||
+    'Luogo';
+  return String(name);
+}
+
+async function overpassNearby(category, lat, lon, radius) {
+  const filters = NEARBY_FILTERS[category];
+  if (!filters) return [];
+  const clauses = filters
+    .map(
+      (f) => `
+  node${f}(around:${radius},${lat},${lon});
+  way${f}(around:${radius},${lat},${lon});`
+    )
+    .join('\n');
+  const query = `[out:json][timeout:20];\n(\n${clauses}\n);\nout body center 40;`;
+  const data = await fetchJson('https://overpass-api.de/api/interpreter', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: query,
+  });
+  const seen = new Set();
+  const results = [];
+  for (const el of data.elements || []) {
+    const tags = el.tags || {};
+    const itemLat = el.lat || (el.center && el.center.lat);
+    const itemLon = el.lon || (el.center && el.center.lon);
+    if (!Number.isFinite(itemLat) || !Number.isFinite(itemLon)) continue;
+    const key = `${itemLat.toFixed(5)},${itemLon.toFixed(5)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push({
+      label: poiLabel(tags, category),
+      lat: itemLat,
+      lon: itemLon,
+      category,
+      distanceMeters: Math.round(haversineMeters(lat, lon, itemLat, itemLon)),
+    });
+  }
+  results.sort((a, b) => a.distanceMeters - b.distanceMeters);
+  return results.slice(0, 24);
+}
+
+async function nominatimNearby(category, lat, lon, lang) {
+  const q = NEARBY_NOMINATIM[category];
+  if (!q) return [];
+  const url = nominatimSearchUrl(q, { lat, lon, bounded: true, limit: 12 });
+  const data = await fetchJson(url, {
+    headers: { 'Accept-Language': lang },
+  });
+  return (Array.isArray(data) ? data : []).map((item) => {
+    const itemLat = Number(item.lat);
+    const itemLon = Number(item.lon);
+    return {
+      label: item.display_name,
+      lat: itemLat,
+      lon: itemLon,
+      category,
+      distanceMeters: Math.round(haversineMeters(lat, lon, itemLat, itemLon)),
+    };
+  });
+}
+
+router.get('/nearby', async (req, res) => {
+  try {
+    const category = String(req.query.category || '').trim();
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    const lang = String(req.query.lang || 'it');
+    let radius = Number(req.query.radius);
+    if (!NEARBY_FILTERS[category]) {
+      return res.status(400).json({ error: 'Unknown category', results: [] });
+    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return res.status(400).json({ error: 'Invalid coordinates', results: [] });
+    }
+    if (!Number.isFinite(radius)) radius = 1800;
+    radius = Math.min(4000, Math.max(400, radius));
+
+    let results = [];
+    try {
+      results = await overpassNearby(category, lat, lon, radius);
+    } catch (err) {
+      console.error('geo nearby overpass failed:', err.message);
+    }
+    if (!results.length) {
+      try {
+        results = await nominatimNearby(category, lat, lon, lang);
+      } catch (err) {
+        console.error('geo nearby nominatim failed:', err.message);
+      }
+    }
+    res.json({ results });
+  } catch (err) {
+    console.error('geo nearby failed:', err.message);
+    res.status(502).json({ error: 'Nearby search failed', results: [] });
   }
 });
 

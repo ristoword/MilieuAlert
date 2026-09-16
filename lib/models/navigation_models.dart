@@ -2,18 +2,50 @@ class PlaceHit {
   final String label;
   final double lat;
   final double lon;
+  final String? category;
+  final double? distanceMeters;
+  final bool inLez;
+  final String? zoneName;
 
   const PlaceHit({
     required this.label,
     required this.lat,
     required this.lon,
+    this.category,
+    this.distanceMeters,
+    this.inLez = false,
+    this.zoneName,
   });
+
+  PlaceHit copyWith({
+    String? label,
+    double? lat,
+    double? lon,
+    String? category,
+    double? distanceMeters,
+    bool? inLez,
+    String? zoneName,
+  }) {
+    return PlaceHit(
+      label: label ?? this.label,
+      lat: lat ?? this.lat,
+      lon: lon ?? this.lon,
+      category: category ?? this.category,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
+      inLez: inLez ?? this.inLez,
+      zoneName: zoneName ?? this.zoneName,
+    );
+  }
 
   factory PlaceHit.fromJson(Map<String, dynamic> json) {
     return PlaceHit(
       label: json['label']?.toString() ?? '',
       lat: (json['lat'] as num).toDouble(),
       lon: (json['lon'] as num).toDouble(),
+      category: json['category']?.toString(),
+      distanceMeters: (json['distanceMeters'] as num?)?.toDouble(),
+      inLez: json['inLez'] == true,
+      zoneName: json['zoneName']?.toString(),
     );
   }
 }

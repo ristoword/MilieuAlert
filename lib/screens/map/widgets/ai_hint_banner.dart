@@ -18,31 +18,31 @@ class AiHintBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: NeonColors.cyan.withValues(alpha: 0.94),
-      borderRadius: BorderRadius.circular(12),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MapsGlass(
+      radius: 16,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 6, 2, 6),
+        padding: const EdgeInsets.fromLTRB(12, 8, 2, 8),
         child: Row(
           children: [
-            const Icon(Icons.auto_awesome, color: NeonColors.deepSpace, size: 18),
+            const Icon(Icons.auto_awesome, color: MapsColors.accent, size: 18),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 hint.text,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.exo2(
-                  color: NeonColors.deepSpace,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
+                style: GoogleFonts.inter(
+                  color: isDark ? Colors.white : MapsColors.ink,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
                 ),
               ),
             ),
             TextButton(
               onPressed: onOpen,
               style: TextButton.styleFrom(
-                foregroundColor: NeonColors.deepSpace,
+                foregroundColor: MapsColors.accent,
                 visualDensity: VisualDensity.compact,
               ),
               child: const Text('AI'),
@@ -50,7 +50,11 @@ class AiHintBanner extends StatelessWidget {
             IconButton(
               tooltip: 'Nascondi suggerimento',
               onPressed: onDismiss,
-              icon: const Icon(Icons.close, color: NeonColors.deepSpace, size: 18),
+              icon: Icon(
+                Icons.close,
+                color: isDark ? Colors.white54 : MapsColors.inkMuted,
+                size: 18,
+              ),
               visualDensity: VisualDensity.compact,
             ),
           ],
