@@ -58,6 +58,7 @@ app.get('/api/status', (req, res) => {
       'GET /api/users/profile',
       'PUT /api/users/profile',
       'POST /api/ai/chat',
+      'POST /api/ai/assist',
       'POST /api/ai/zone-check',
       'POST /api/trips/log',
       'GET /api/trips/history',

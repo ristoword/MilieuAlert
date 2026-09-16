@@ -5,10 +5,12 @@ import '../../../models/zone_status.dart';
 
 class AlertBanner extends StatefulWidget {
   final ZoneProximity? proximity;
+  final VoidCallback? onAskAi;
 
   const AlertBanner({
     super.key,
     this.proximity,
+    this.onAskAi,
   });
 
   @override
@@ -158,6 +160,12 @@ class _AlertBannerState extends State<AlertBanner>
                     ],
                   ),
                 ),
+                if (widget.onAskAi != null)
+                  IconButton(
+                    tooltip: 'Chiedi all\'AI',
+                    onPressed: widget.onAskAi,
+                    icon: Icon(Icons.auto_awesome, color: glowColor),
+                  ),
               ],
             ),
           ),

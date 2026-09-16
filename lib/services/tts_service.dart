@@ -5,10 +5,14 @@ class TtsService {
   String _currentLanguage = 'en-US';
 
   Future<void> init() async {
-    await _tts.setSharedInstance(true);
-    await _tts.setSpeechRate(0.5);
-    await _tts.setVolume(1.0);
-    await _tts.setPitch(1.0);
+    try {
+      await _tts.setSharedInstance(true);
+    } catch (_) {}
+    try {
+      await _tts.setSpeechRate(0.5);
+      await _tts.setVolume(1.0);
+      await _tts.setPitch(1.0);
+    } catch (_) {}
   }
 
   Future<void> setLanguage(String locale) async {

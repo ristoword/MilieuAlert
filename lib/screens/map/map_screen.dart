@@ -14,11 +14,14 @@ import '../../models/emission_zone.dart';
 import '../../models/navigation_models.dart';
 import '../../models/zone_status.dart';
 import '../../models/saved_places.dart';
+import '../../providers/ai_assist_provider.dart';
 import '../../providers/favorites_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/zone_provider.dart';
+import 'widgets/ai_assist_sheet.dart';
+import 'widgets/ai_hint_banner.dart';
 import 'widgets/alert_banner.dart';
 import 'widgets/favorites_panel.dart';
 
@@ -102,6 +105,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final location = ref.watch(locationProvider);
     final zonesAsync = ref.watch(zonesProvider);
     final nav = ref.watch(navigationProvider);
+    final ai = ref.watch(aiAssistProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final topPad = MediaQuery.of(context).padding.top;
 
@@ -118,6 +122,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
 
     ref.listen(navigationProvider, (prev, next) {
+      if (next.originIsMyLocation &&
+          (prev == null || !prev.originIsMyLocation) &&
+          !_originFocus.hasFocus) {
+        _originCtrl.text = 'La mia posizione';
+      } else if (!next.originIsMyLocation &&
+          next.origin != null &&
+          next.origin!.label != prev?.origin?.label &&
+          !_originFocus.hasFocus) {
+        _originCtrl.text = next.origin!.label;
+      }
+      if (next.destination != null &&
+          next.destination!.label != prev?.destination?.label &&
+          !_destFocus.hasFocus) {
+        _destCtrl.text = next.destination!.label;
+      }
       if (!next.hasRoute) return;
       final routeChanged = prev?.selectedRoute != next.selectedRoute ||
           prev?.routeDistanceMeters != next.routeDistanceMeters ||
@@ -333,15 +352,38 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       _openFavoritesHub(tab: 0, prefillLabel: label),
                   onManagePlaces: () => _openFavoritesHub(tab: 0),
                   onOpenItineraries: () => _openFavoritesHub(tab: 1),
+                  onOpenAi: _openAi,
                 ),
                 const SizedBox(height: 8),
-                AlertBanner(proximity: location.nearestZone),
+                AlertBanner(
+                  proximity: location.nearestZone,
+                  onAskAi: location.nearestZone == null ||
+                          location.nearestZone!.status == ZoneStatus.safe
+                      ? null
+                      : () {
+                          ref.read(aiAssistProvider.notifier).askAboutProximity();
+                          _openAi();
+                        },
+                ),
                 if (nav.alerts.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   _RouteChangeBanners(
                     alerts: nav.alerts,
                     onDismiss: (id) =>
                         ref.read(navigationProvider.notifier).dismissAlert(id),
+                    onAskAi: (alert) {
+                      ref.read(aiAssistProvider.notifier).askAboutAlert(alert);
+                      _openAi();
+                    },
+                  ),
+                ],
+                if (ai.hint != null) ...[
+                  const SizedBox(height: 6),
+                  AiHintBanner(
+                    hint: ai.hint!,
+                    onDismiss: () =>
+                        ref.read(aiAssistProvider.notifier).dismissHint(),
+                    onOpen: _openAi,
                   ),
                 ],
                 if (nav.zonesOnRoute.isNotEmpty) ...[
@@ -362,6 +404,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               onToggleTrack: () {
                 ref.read(locationProvider.notifier).toggleFollow();
               },
+              onOpenAi: _openAi,
               onStop: () {
                 ref.read(navigationProvider.notifier).stopNavigation();
                 _originCtrl.text = 'La mia posizione';
@@ -432,6 +475,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       onApplyPlace: _onSavedPlaceTap,
       onApplyItinerary: _applyItinerary,
     );
+  }
+
+  void _openAi() {
+    showAiAssistSheet(context);
   }
 
   Future<void> _onSavedPlaceTap(SavedPlace place) async {
@@ -535,6 +582,7 @@ class _DirectionsPanel extends StatelessWidget {
     required this.onAddSuggested,
     required this.onManagePlaces,
     required this.onOpenItineraries,
+    this.onOpenAi,
     this.highlighted = false,
   });
 
@@ -555,6 +603,7 @@ class _DirectionsPanel extends StatelessWidget {
   final ValueChanged<String> onAddSuggested;
   final VoidCallback onManagePlaces;
   final VoidCallback onOpenItineraries;
+  final VoidCallback? onOpenAi;
   final bool highlighted;
 
   @override
@@ -632,6 +681,8 @@ class _DirectionsPanel extends StatelessWidget {
                       ),
                     ),
                     _IconChip(icon: Icons.settings, onTap: onSettings),
+                    if (onOpenAi != null)
+                      _IconChip(icon: Icons.auto_awesome, onTap: onOpenAi!),
                   ],
                 ),
                 Row(
@@ -934,10 +985,12 @@ class _RouteChangeBanners extends StatelessWidget {
   const _RouteChangeBanners({
     required this.alerts,
     required this.onDismiss,
+    this.onAskAi,
   });
 
   final List<RouteChangeAlert> alerts;
   final ValueChanged<String> onDismiss;
+  final ValueChanged<RouteChangeAlert>? onAskAi;
 
   @override
   Widget build(BuildContext context) {
@@ -980,6 +1033,12 @@ class _RouteChangeBanners extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    tooltip: 'Chiedi all\'AI',
+                    onPressed: onAskAi == null ? null : () => onAskAi!(alert),
+                    icon: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
+                    visualDensity: VisualDensity.compact,
                   ),
                   IconButton(
                     tooltip: 'Chiudi avviso',
@@ -1048,6 +1107,7 @@ class _NavigatorHud extends StatelessWidget {
     required this.live,
     required this.onToggleTrack,
     required this.onStop,
+    this.onOpenAi,
   });
 
   final LocationState location;
@@ -1055,6 +1115,7 @@ class _NavigatorHud extends StatelessWidget {
   final LiveNavInfo? live;
   final VoidCallback onToggleTrack;
   final VoidCallback onStop;
+  final VoidCallback? onOpenAi;
 
   @override
   Widget build(BuildContext context) {
@@ -1195,6 +1256,19 @@ class _NavigatorHud extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (onOpenAi != null) ...[
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: onOpenAi,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: NeonColors.cyan,
+                      foregroundColor: NeonColors.deepSpace,
+                      minimumSize: const Size(48, 48),
+                      padding: EdgeInsets.zero,
+                    ),
+                    child: const Icon(Icons.auto_awesome),
+                  ),
+                ],
                 if (nav.hasRoute) ...[
                   const SizedBox(width: 8),
                   OutlinedButton(
