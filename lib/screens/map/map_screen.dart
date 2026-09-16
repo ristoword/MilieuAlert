@@ -34,6 +34,7 @@ import 'widgets/incident_banners.dart';
 import 'widgets/map_pins.dart';
 import 'widgets/report_sheet.dart';
 import 'widgets/search_sheet.dart';
+import 'widgets/transient_alert.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key, this.openNavigation = false});
@@ -60,8 +61,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _wasGuiding = false;
   bool _tilt3d = false;
   bool _userSetMapMode = false;
-  String? _seenTopAlertKey;
-  String? _seenCameraAlertId;
 
   @override
   void initState() {
@@ -126,22 +125,119 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _zoneAlertActive(ZoneProximity? zone) =>
       zone != null && zone.status != ZoneStatus.safe;
 
-  String _topAlertKey({
-    required ZoneProximity? zone,
-    required List<RouteChangeAlert> alerts,
-    required String? hintText,
+  List<TransientAlert> _flashCandidates({
+    required LocationState location,
+    required NavigationState nav,
+    required HazardState hazards,
+    required AiAssistState ai,
+    required LiveNavInfo? live,
+    required bool guiding,
+    required bool showCameraBanner,
+    required HazardReport? crowdUpcoming,
+    required HazardStrings crowdL10n,
   }) {
-    final parts = <String>[];
+    final out = <TransientAlert>[];
+    final zone = location.nearestZone;
     if (_zoneAlertActive(zone)) {
-      parts.add('z:${zone!.zoneId}:${zone.status}:${zone.isVehicleAllowed}');
+      final unauthorized = zone!.isVehicleAllowed == false;
+      out.add(TransientAlert(
+        id: 'zone:${zone.zoneId}:${zone.status}:${zone.isVehicleAllowed}',
+        priority: unauthorized
+            ? (zone.status == ZoneStatus.inside ? 85 : 80)
+            : (zone.status == ZoneStatus.inside ? 60 : 70),
+        child: AlertBanner(
+          proximity: zone,
+          onAskAi: () {
+            ref.read(aiAssistProvider.notifier).askAboutProximity();
+            _openAi();
+          },
+        ),
+      ));
     }
-    if (alerts.isNotEmpty) {
-      parts.add('a:${alerts.map((a) => a.id).join(',')}');
+    for (final alert in nav.alerts) {
+      out.add(TransientAlert(
+        id: 'alert:${alert.id}',
+        priority: alert.critical ? 50 : 40,
+        child: RouteChangeBanners(
+          alerts: [alert],
+          onDismiss: (id) =>
+              ref.read(navigationProvider.notifier).dismissAlert(id),
+          onAskAi: (a) {
+            ref.read(aiAssistProvider.notifier).askAboutAlert(a);
+            _openAi();
+          },
+        ),
+      ));
     }
-    if (hintText != null && hintText.isNotEmpty) {
-      parts.add('h:$hintText');
+    if (ai.hint != null) {
+      out.add(TransientAlert(
+        id: 'hint:${ai.hint!.id}',
+        priority: 20,
+        child: AiHintBanner(
+          hint: ai.hint!,
+          onDismiss: () => ref.read(aiAssistProvider.notifier).dismissHint(),
+          onOpen: _openAi,
+        ),
+      ));
     }
-    return parts.join('|');
+    final nextCamera = live?.nextCamera;
+    if (showCameraBanner && nextCamera != null) {
+      out.add(TransientAlert(
+        id: 'cam:${nextCamera.id}',
+        priority: 90,
+        child: CameraIncidentBanner(
+          meters: live?.nextCameraMeters,
+          maxspeed: nextCamera.maxspeed,
+          community: nextCamera.isCommunity,
+        ),
+      ));
+    }
+    if (crowdUpcoming != null &&
+        (!showCameraBanner || !crowdUpcoming.type.isCamera)) {
+      out.add(TransientAlert(
+        id: 'crowd:${crowdUpcoming.id}',
+        priority: 95,
+        child: CrowdHazardBanner(
+          title: crowdL10n.bannerTitle(
+            crowdUpcoming.type,
+            formatDistance(crowdUpcoming.distanceMeters),
+          ),
+          subtitle:
+              '${crowdL10n.aDriver} · ${crowdL10n.timeAgo(crowdUpcoming.createdAt)}',
+          icon: hazardIcon(crowdUpcoming.type),
+          color: hazardColor(crowdUpcoming.type),
+          onTap: () => showHazardDetailSheet(context, crowdUpcoming),
+        ),
+      ));
+    }
+    for (final incoming in hazards.incoming) {
+      if (incoming.id == crowdUpcoming?.id) continue;
+      out.add(TransientAlert(
+        id: 'in:${incoming.id}',
+        priority: 100,
+        child: CrowdHazardBanner(
+          title: crowdL10n.bannerTitle(
+            incoming.type,
+            formatDistance(incoming.distanceMeters),
+          ),
+          subtitle:
+              '${crowdL10n.aDriver} · ${crowdL10n.timeAgo(incoming.createdAt)}',
+          icon: hazardIcon(incoming.type),
+          color: hazardColor(incoming.type),
+          onTap: () => showHazardDetailSheet(context, incoming),
+          onDismiss: () =>
+              ref.read(hazardProvider.notifier).dismissIncoming(incoming.id),
+        ),
+      ));
+    }
+    if (guiding && nav.zonesOnRoute.isNotEmpty) {
+      out.add(TransientAlert(
+        id: 'routezones:${nav.zonesOnRoute.map((z) => z.id).join(',')}',
+        priority: 25,
+        child: RouteZoneBanner(zones: nav.zonesOnRoute),
+      ));
+    }
+    return out;
   }
 
   void _toggleSheet() {
@@ -441,19 +537,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
 
     final guiding = nav.navigating;
-    final topAlertKey = _topAlertKey(
-      zone: location.nearestZone,
-      alerts: nav.alerts,
-      hintText: ai.hint?.text,
-    );
     final nextCamera = live?.nextCamera;
-    final cameraId =
-        nextCamera != null && (live?.nextCameraMeters ?? 9999) <= 1000
-            ? nextCamera.id
-            : null;
     final needsChromeSync = guiding != _wasGuiding ||
-        topAlertKey != (_seenTopAlertKey ?? '') ||
-        cameraId != _seenCameraAlertId ||
         (nav.suggestions.isNotEmpty && !_sheetExpanded);
     if (needsChromeSync) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -463,27 +548,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
             _wasGuiding = guiding;
             if (guiding) {
               _sheetExpanded = false;
-              _trayExpanded = topAlertKey.isNotEmpty;
+              _trayExpanded = false;
               FocusManager.instance.primaryFocus?.unfocus();
               if (!_userSetMapMode) _tilt3d = true;
             } else {
               // Full map when driving without a destination.
               _sheetExpanded = nav.destination != null;
               _trayExpanded = false;
-              _seenCameraAlertId = null;
               if (!_userSetMapMode) _tilt3d = false;
-            }
-          }
-          if (topAlertKey != (_seenTopAlertKey ?? '')) {
-            _seenTopAlertKey = topAlertKey.isEmpty ? null : topAlertKey;
-            if (guiding && topAlertKey.isNotEmpty) {
-              _trayExpanded = true;
-            }
-          }
-          if (cameraId != _seenCameraAlertId) {
-            _seenCameraAlertId = cameraId;
-            if (guiding && cameraId != null) {
-              _trayExpanded = true;
             }
           }
           if (nav.suggestions.isNotEmpty) {
@@ -497,8 +569,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
         ? LatLng(nav.origin!.lat, nav.origin!.lon)
         : null;
 
-    final showCameraBanner =
-        nextCamera != null && (live?.nextCameraMeters ?? 9999) <= 1000;
+    final showCameraBanner = nextCamera != null &&
+        (live?.nextCameraMeters ?? 9999) <= 1000 &&
+        (!nextCamera.isCommunity ||
+            hazards.reports.any((r) =>
+                !r.hiddenByVotes &&
+                (r.id == nextCamera.reportId ||
+                    'c-${r.id}' == nextCamera.id)));
     final crowdL10n = HazardStrings.of(context);
     final crowdUpcoming = (location.latitude != null && location.longitude != null)
         ? ref.read(hazardProvider.notifier).upcoming(
@@ -640,84 +717,19 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     ),
                   ),
                 const SizedBox(height: 8),
-                AlertBanner(
-                  proximity: location.nearestZone,
-                  onAskAi: location.nearestZone == null ||
-                          location.nearestZone!.status == ZoneStatus.safe
-                      ? null
-                      : () {
-                          ref.read(aiAssistProvider.notifier).askAboutProximity();
-                          _openAi();
-                        },
+                TransientAlertSlot(
+                  candidates: _flashCandidates(
+                    location: location,
+                    nav: nav,
+                    hazards: hazards,
+                    ai: ai,
+                    live: live,
+                    guiding: guiding,
+                    showCameraBanner: showCameraBanner,
+                    crowdUpcoming: crowdUpcoming,
+                    crowdL10n: crowdL10n,
+                  ),
                 ),
-                if (nav.alerts.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  RouteChangeBanners(
-                    alerts: nav.alerts,
-                    onDismiss: (id) =>
-                        ref.read(navigationProvider.notifier).dismissAlert(id),
-                    onAskAi: (alert) {
-                      ref.read(aiAssistProvider.notifier).askAboutAlert(alert);
-                      _openAi();
-                    },
-                  ),
-                ],
-                if (ai.hint != null) ...[
-                  const SizedBox(height: 6),
-                  AiHintBanner(
-                    hint: ai.hint!,
-                    onDismiss: () =>
-                        ref.read(aiAssistProvider.notifier).dismissHint(),
-                    onOpen: _openAi,
-                  ),
-                ],
-                if (showCameraBanner) ...[
-                  const SizedBox(height: 6),
-                  CameraIncidentBanner(
-                    meters: live?.nextCameraMeters,
-                    maxspeed: nextCamera.maxspeed,
-                    community: nextCamera.isCommunity,
-                  ),
-                ],
-                if (crowdUpcoming != null &&
-                    (!showCameraBanner || !crowdUpcoming.type.isCamera)) ...[
-                  const SizedBox(height: 6),
-                  CrowdHazardBanner(
-                    title: crowdL10n.bannerTitle(
-                      crowdUpcoming.type,
-                      formatDistance(crowdUpcoming.distanceMeters),
-                    ),
-                    subtitle:
-                        '${crowdL10n.aDriver} · ${crowdL10n.timeAgo(crowdUpcoming.createdAt)}',
-                    icon: hazardIcon(crowdUpcoming.type),
-                    color: hazardColor(crowdUpcoming.type),
-                    onTap: () =>
-                        showHazardDetailSheet(context, crowdUpcoming),
-                  ),
-                ],
-                for (final incoming in hazards.incoming) ...[
-                  if (incoming.id != crowdUpcoming?.id) ...[
-                    const SizedBox(height: 6),
-                    CrowdHazardBanner(
-                      title: crowdL10n.bannerTitle(
-                        incoming.type,
-                        formatDistance(incoming.distanceMeters),
-                      ),
-                      subtitle:
-                          '${crowdL10n.aDriver} · ${crowdL10n.timeAgo(incoming.createdAt)}',
-                      icon: hazardIcon(incoming.type),
-                      color: hazardColor(incoming.type),
-                      onTap: () => showHazardDetailSheet(context, incoming),
-                      onDismiss: () => ref
-                          .read(hazardProvider.notifier)
-                          .dismissIncoming(incoming.id),
-                    ),
-                  ],
-                ],
-                if (guiding && nav.zonesOnRoute.isNotEmpty && _trayExpanded) ...[
-                  const SizedBox(height: 6),
-                  RouteZoneBanner(zones: nav.zonesOnRoute),
-                ],
               ],
             ),
           ),

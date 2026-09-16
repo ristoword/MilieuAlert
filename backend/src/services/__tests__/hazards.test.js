@@ -61,10 +61,14 @@ describe('crowdsourced hazards', () => {
     assert.equal(JSON.stringify(pub).includes('secret'), false);
   });
 
-  it('decays unofficial cameras when denies outpace confirms', () => {
+  it('hides unofficial reports at 3 denials or when denials outpace confirms', () => {
+    assert.equal(shouldExpireFromVotes(0, 1), false);
     assert.equal(shouldExpireFromVotes(0, 2), true);
-    assert.equal(shouldExpireFromVotes(3, 4), false);
+    assert.equal(shouldExpireFromVotes(2, 2), false);
+    assert.equal(shouldExpireFromVotes(3, 4), true);
     assert.equal(shouldExpireFromVotes(1, 3), true);
+    assert.equal(shouldExpireFromVotes(5, 3), true);
+    assert.equal(shouldExpireFromVotes(5, 2), false);
   });
 
   it('extends expiry on confirm without exceeding the cap', () => {

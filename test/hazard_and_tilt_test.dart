@@ -24,6 +24,25 @@ void main() {
       expect(report.author, 'un conducente');
       expect(report.source, 'community');
       expect(report.distanceMeters, 400);
+      expect(report.hiddenByVotes, isFalse);
+    });
+
+    test('hides when 3 denials or denials outpace confirms', () {
+      HazardReport r(int confirms, int denials) => HazardReport(
+            id: 'x',
+            type: HazardType.cameraMobile,
+            lat: 52.07,
+            lon: 4.32,
+            createdAt: DateTime.now(),
+            expiresAt: DateTime.now().add(const Duration(hours: 2)),
+            confirmCount: confirms,
+            denyCount: denials,
+          );
+      expect(r(0, 1).hiddenByVotes, isFalse);
+      expect(r(0, 2).hiddenByVotes, isTrue);
+      expect(r(2, 2).hiddenByVotes, isFalse);
+      expect(r(1, 3).hiddenByVotes, isTrue);
+      expect(r(5, 3).hiddenByVotes, isTrue);
     });
   });
 

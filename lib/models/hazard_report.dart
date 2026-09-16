@@ -86,6 +86,9 @@ class HazardReport {
 
   bool get isExpired => DateTime.now().isAfter(expiresAt);
 
+  bool get hiddenByVotes =>
+      denyCount >= 3 || (denyCount >= 2 && denyCount > confirmCount);
+
   factory HazardReport.fromJson(Map<String, dynamic> json) {
     final type = HazardTypeApi.fromApi(json['type']?.toString()) ??
         HazardType.accident;

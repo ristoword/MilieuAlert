@@ -183,11 +183,23 @@ class _HazardDetailSheetState extends ConsumerState<HazardDetailSheet> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => ref
-                          .read(hazardProvider.notifier)
-                          .vote(live.id, 'deny'),
-                      child: Text('${l10n.gone} (${live.denyCount})'),
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: MapsColors.endRed,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () async {
+                        await ref
+                            .read(hazardProvider.notifier)
+                            .vote(live.id, 'deny');
+                        if (!context.mounted) return;
+                        final stillThere = ref
+                            .read(hazardProvider)
+                            .reports
+                            .any((r) => r.id == live.id);
+                        if (!stillThere) Navigator.of(context).pop();
+                      },
+                      child: Text('${l10n.doesNotExist} (${live.denyCount})'),
                     ),
                   ),
                 ],

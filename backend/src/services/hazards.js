@@ -54,7 +54,16 @@ const REPORT_RATE_WINDOW_MS = 15 * 60 * 1000;
 const REPORT_RATE_MAX = 8;
 const DUPLICATE_METERS = 80;
 const DUPLICATE_WINDOW_MS = 20 * 60 * 1000;
-const DENY_EXPIRE_MARGIN = 2;
+const DENY_HIDE_THRESHOLD = 3;
+const DENY_CLEAR_MARGIN = 1;
+const SUPPRESS_WINDOW_MS = 7 * 24 * 3600 * 1000;
+
+/** Active, not vote-suppressed. Used in GET nearby / camera merge. */
+const VISIBLE_HAZARD_SQL = `
+  expires_at > NOW()
+  AND deny_count < ${DENY_HIDE_THRESHOLD}
+  AND (deny_count < 2 OR deny_count <= confirm_count)
+`;
 
 function isHazardType(type) {
   return Object.prototype.hasOwnProperty.call(HAZARD_TYPES, type);
@@ -108,7 +117,10 @@ function bboxDelta(radiusMeters) {
 }
 
 function shouldExpireFromVotes(confirmCount, denyCount) {
-  return Number(denyCount) >= Number(confirmCount) + DENY_EXPIRE_MARGIN;
+  const denies = Number(denyCount) || 0;
+  const confirms = Number(confirmCount) || 0;
+  if (denies >= DENY_HIDE_THRESHOLD) return true;
+  return denies >= 2 && denies >= confirms + DENY_CLEAR_MARGIN;
 }
 
 function nextExpiryOnConfirm(type, currentExpiresAt, now = new Date()) {
@@ -209,6 +221,9 @@ module.exports = {
   REPORT_RATE_MAX,
   DUPLICATE_METERS,
   DUPLICATE_WINDOW_MS,
+  DENY_HIDE_THRESHOLD,
+  SUPPRESS_WINDOW_MS,
+  VISIBLE_HAZARD_SQL,
   isHazardType,
   isCameraType,
   ttlMsFor,

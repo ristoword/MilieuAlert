@@ -144,9 +144,12 @@ class HazardNotifier extends StateNotifier<HazardState> {
       }
       if (!mounted) return;
       state = state.copyWith(
-        reports: reports,
+        reports: reports.where((r) => !r.hiddenByVotes && !r.isExpired).toList(),
         cameras: cameras,
-        incoming: [...incoming, ...state.incoming].take(4).toList(),
+        incoming: [...incoming, ...state.incoming]
+            .where((r) => !r.hiddenByVotes)
+            .take(4)
+            .toList(),
         lastFetchedAt: DateTime.now(),
         clearError: true,
       );
@@ -172,6 +175,7 @@ class HazardNotifier extends StateNotifier<HazardState> {
       final d = r.distanceMeters ??
           haversineMeters(lat, lon, r.lat, r.lon);
       if (d > bestD) continue;
+      if (r.hiddenByVotes || r.isExpired) continue;
       if (heading != null &&
           heading >= 0 &&
           !isAheadOfHeading(
@@ -229,9 +233,19 @@ class HazardNotifier extends StateNotifier<HazardState> {
         deviceId: _deviceId,
       );
       if (!mounted) return;
+      final gone = updated.hiddenByVotes || updated.isExpired;
       state = state.copyWith(
         reports: [
-          for (final r in state.reports) if (r.id == id) updated else r,
+          for (final r in state.reports)
+            if (r.id != id) r else if (!gone) updated,
+        ],
+        incoming: [
+          for (final r in state.incoming)
+            if (!(gone && r.id == id)) r,
+        ],
+        cameras: [
+          for (final c in state.cameras)
+            if (!(gone && (c.reportId == id || c.id == 'c-$id'))) c,
         ],
       );
     } catch (_) {}

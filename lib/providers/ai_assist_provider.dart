@@ -215,7 +215,7 @@ class AiAssistNotifier extends StateNotifier<AiAssistState> {
       final text = result.hint.isEmpty ? result.reply : result.hint;
       if (text.isEmpty) return;
       state = state.copyWith(hint: AiHint(id: id, text: text));
-      Future.delayed(const Duration(seconds: 8), () {
+      Future.delayed(const Duration(seconds: 2), () {
         if (!mounted) return;
         if (state.hint?.id == id) dismissHint();
       });

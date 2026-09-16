@@ -58,6 +58,16 @@ class HazardStrings {
                   ? 'Plus là'
                   : 'Gone';
 
+  String get doesNotExist => _it
+      ? 'Non esiste'
+      : _nl
+          ? 'Bestaat niet'
+          : _de
+              ? 'Existiert nicht'
+              : _fr
+                  ? 'N\'existe pas'
+                  : 'Does not exist';
+
   String get nearbyFeed => _it
       ? 'Segnalazioni vicine'
       : _nl

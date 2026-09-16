@@ -9,6 +9,7 @@ const pool = require('../db/pool');
 const {
   CAMERA_TYPES,
   mergeCameras,
+  VISIBLE_HAZARD_SQL,
 } = require('../services/hazards');
 const router = express.Router();
 
@@ -358,9 +359,9 @@ async function loadCommunityCameras(bbox) {
   if (!bbox) return [];
   try {
     const crowd = await pool.query(
-      `SELECT id, type, lat, lon, confirm_count
+      `SELECT id, type, lat, lon, confirm_count, deny_count
        FROM hazard_reports
-       WHERE expires_at > NOW()
+       WHERE ${VISIBLE_HAZARD_SQL}
          AND type = ANY($1)
          AND lat BETWEEN $2 AND $3
          AND lon BETWEEN $4 AND $5

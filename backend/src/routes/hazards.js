@@ -18,6 +18,8 @@ const {
   nextExpiryOnConfirm,
   toPublicReport,
   toPublicComment,
+  VISIBLE_HAZARD_SQL,
+  SUPPRESS_WINDOW_MS,
 } = require('../services/hazards');
 
 const router = express.Router();
@@ -79,7 +81,7 @@ async function loadActiveNearby(lat, lon, radius) {
     `SELECT id, type, lat, lon, heading, note, created_at, expires_at,
             confirm_count, deny_count
      FROM hazard_reports
-     WHERE expires_at > NOW()
+     WHERE ${VISIBLE_HAZARD_SQL}
        AND lat BETWEEN $1 AND $2
        AND lon BETWEEN $3 AND $4
      ORDER BY created_at DESC
@@ -89,6 +91,7 @@ async function loadActiveNearby(lat, lon, radius) {
   return result.rows
     .map((row) => toPublicReport(row, { lat, lon }))
     .filter((row) => (row.distanceMeters ?? 0) <= radius)
+    .filter((row) => !shouldExpireFromVotes(row.confirmCount, row.denyCount))
     .sort((a, b) => (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0))
     .slice(0, 120);
 }
@@ -140,7 +143,6 @@ router.post('/report', optionalAuth, reportLimiter, async (req, res) => {
       `SELECT id, type, lat, lon, confirm_count, deny_count, expires_at
        FROM hazard_reports
        WHERE type = $1
-         AND expires_at > NOW()
          AND created_at > $2
          AND lat BETWEEN $3 AND $4
          AND lon BETWEEN $5 AND $6
@@ -148,7 +150,7 @@ router.post('/report', optionalAuth, reportLimiter, async (req, res) => {
        LIMIT 20`,
       [
         type,
-        new Date(Date.now() - DUPLICATE_WINDOW_MS),
+        new Date(Date.now() - Math.max(DUPLICATE_WINDOW_MS, SUPPRESS_WINDOW_MS)),
         lat - 0.002,
         lat + 0.002,
         lon - 0.002,
@@ -158,7 +160,13 @@ router.post('/report', optionalAuth, reportLimiter, async (req, res) => {
     const duplicate = nearbyDup.rows.find(
       (row) => haversineMeters(lat, lon, row.lat, row.lon) <= DUPLICATE_METERS
     );
-    if (duplicate) {
+    if (duplicate && shouldExpireFromVotes(duplicate.confirm_count, duplicate.deny_count)) {
+      return res.status(409).json({
+        error: 'Report removed by drivers',
+        suppressed: true,
+      });
+    }
+    if (duplicate && new Date(duplicate.expires_at).getTime() > Date.now()) {
       if (key) {
         await pool.query(
           `INSERT INTO hazard_votes (report_id, voter_key, vote)
@@ -316,8 +324,9 @@ router.post('/:id/vote', optionalAuth, voteLimiter, async (req, res) => {
       [id, nextConfirm, nextDeny, expires]
     );
     const report = toPublicReport(updated.rows[0]);
-    broadcastHazard('hazard', report);
-    res.json({ report, vote });
+    const hidden = shouldExpireFromVotes(report.confirmCount, report.denyCount);
+    broadcastHazard(hidden ? 'hazard-gone' : 'hazard', report);
+    res.json({ report, vote, hidden });
   } catch (err) {
     console.error('hazard vote failed:', err.message);
     res.status(500).json({ error: 'Failed to vote' });
