@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -420,6 +421,7 @@ class _DirectionsPanel extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _AddressField(
+                        fieldId: 'origin',
                         controller: originCtrl,
                         focusNode: originFocus,
                         hint: 'Da: indirizzo di partenza',
@@ -445,6 +447,7 @@ class _DirectionsPanel extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _AddressField(
+                        fieldId: 'destination',
                         controller: destCtrl,
                         focusNode: destFocus,
                         hint: 'A: dove vuoi andare',
@@ -590,6 +593,7 @@ class _DirectionsPanel extends StatelessWidget {
 
 class _AddressField extends StatelessWidget {
   const _AddressField({
+    required this.fieldId,
     required this.controller,
     required this.focusNode,
     required this.hint,
@@ -598,6 +602,7 @@ class _AddressField extends StatelessWidget {
     required this.onChanged,
   });
 
+  final String fieldId;
   final TextEditingController controller;
   final FocusNode focusNode;
   final String hint;
@@ -608,16 +613,57 @@ class _AddressField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextField(
+      key: ValueKey('address-$fieldId'),
       controller: controller,
       focusNode: focusNode,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
+      obscureText: false,
+      autocorrect: !kIsWeb,
+      enableSuggestions: true,
+      enableInteractiveSelection: true,
+      maxLines: 1,
+      keyboardType:
+          kIsWeb ? TextInputType.multiline : TextInputType.streetAddress,
+      textCapitalization: TextCapitalization.words,
+      autofillHints: const [
+        AutofillHints.streetAddressLine1,
+        AutofillHints.addressCity,
+        AutofillHints.location,
+      ],
+      smartDashesType: SmartDashesType.disabled,
+      smartQuotesType: SmartQuotesType.disabled,
+      cursorColor: NeonColors.cyan,
+      cursorWidth: 2,
+      style: const TextStyle(
+        color: Color(0xFFF4FBFF),
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
+        height: 1.3,
+      ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.45)),
-        prefixIcon: Icon(icon, color: iconColor, size: 20),
-        border: InputBorder.none,
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+        hintStyle: const TextStyle(
+          color: Color(0x99D6EEF7),
+          fontSize: 15,
+          letterSpacing: 0,
+        ),
+        prefixIcon: Icon(icon, color: iconColor, size: 22),
+        filled: true,
+        fillColor: const Color(0xFF0B0B1C),
+        isDense: false,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: NeonColors.cyan, width: 1.5),
+        ),
       ),
       onChanged: onChanged,
       textInputAction: TextInputAction.search,

@@ -53,6 +53,15 @@
       z-index: 9999;
     }
     #boot span { letter-spacing: 2px; font-weight: 700; }
+    /* Address fields must show real characters, never password bullets */
+    textarea.flt-text-editing,
+    input.flt-text-editing[type="text"],
+    input.flt-text-editing[type="search"],
+    input.flt-text-editing[type="email"],
+    input.flt-text-editing[type="tel"] {
+      -webkit-text-security: none !important;
+      letter-spacing: normal !important;
+    }
   </style>
 
   <script>
