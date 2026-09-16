@@ -6,10 +6,13 @@ external JSPromise<JSBoolean> _acquire();
 @JS('milieuWakeLockRelease')
 external JSPromise<JSAny?> _release();
 
-Future<void> acquireScreenWakeLockImpl() async {
+Future<bool> acquireScreenWakeLockImpl() async {
   try {
-    await _acquire().toDart;
-  } catch (_) {}
+    final result = await _acquire().toDart;
+    return result.toDart;
+  } catch (_) {
+    return false;
+  }
 }
 
 Future<void> releaseScreenWakeLockImpl() async {

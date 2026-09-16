@@ -177,6 +177,9 @@
       window.__milieuWake.sentinel = null;
     }
 
+    window.milieuWakeLockAcquire = milieuWakeLockAcquire;
+    window.milieuWakeLockRelease = milieuWakeLockRelease;
+
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && window.__milieuWake.wanted) {
         milieuWakeLockAcquire();

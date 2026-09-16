@@ -171,6 +171,36 @@ class LiveNavInfo {
     if (speed == null || limit == null) return false;
     return speed > limit + 2;
   }
+
+  LiveNavInfo copyWith({
+    NavStep? currentStep,
+    int? stepIndex,
+    double? metersToManeuver,
+    double? remainingMeters,
+    double? remainingSeconds,
+    int? speedLimitKmh,
+    int? speedKmh,
+    SpeedCamera? nextCamera,
+    double? nextCameraMeters,
+    EmissionZone? currentZone,
+    double? offRouteMeters,
+    bool? offRoute,
+  }) {
+    return LiveNavInfo(
+      currentStep: currentStep ?? this.currentStep,
+      stepIndex: stepIndex ?? this.stepIndex,
+      metersToManeuver: metersToManeuver ?? this.metersToManeuver,
+      remainingMeters: remainingMeters ?? this.remainingMeters,
+      remainingSeconds: remainingSeconds ?? this.remainingSeconds,
+      speedLimitKmh: speedLimitKmh ?? this.speedLimitKmh,
+      speedKmh: speedKmh ?? this.speedKmh,
+      nextCamera: nextCamera ?? this.nextCamera,
+      nextCameraMeters: nextCameraMeters ?? this.nextCameraMeters,
+      currentZone: currentZone ?? this.currentZone,
+      offRouteMeters: offRouteMeters ?? this.offRouteMeters,
+      offRoute: offRoute ?? this.offRoute,
+    );
+  }
 }
 
 final navigationProvider =
@@ -190,6 +220,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
   Timer? _debounce;
   Timer? _monitor;
   bool _checking = false;
+  bool _monitoring = false;
   DateTime? _watchedAt;
   DateTime? _lastRerouteAt;
   double? _watchedDuration;
@@ -653,13 +684,13 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
   }
 
   Future<void> _refreshRouteConditions() async {
-    if (_checking || !mounted || state.routing || !state.hasRoute) return;
+    if (_monitoring || !mounted || state.routing || !state.hasRoute) return;
     final dest = state.destination;
     if (dest == null) return;
     final from = _originCoords();
     if (from == null) return;
 
-    _checking = true;
+    _monitoring = true;
     try {
       final bundle = await _service.route(
         fromLat: from.lat,
@@ -734,7 +765,11 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
         zones: onRoute,
       );
 
-      final applyLive = state.navigating || changed;
+      // Periodic traffic check must not rewrite the live polyline — that
+      // resets step progress and stalls HUD ticks while OSRM/Overpass run.
+      // Off-route reroute (8s) handles deviation; apply a new plan only
+      // when delay/detour/faster is actually detected.
+      final applyLive = changed;
       if (applyLive) {
         _invalidateMetrics();
         final altPolylines = plans
@@ -769,7 +804,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       }
     } catch (_) {
     } finally {
-      _checking = false;
+      _monitoring = false;
     }
   }
 

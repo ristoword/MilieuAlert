@@ -176,3 +176,87 @@ ZoneProximity? nearestProximity({
 
   return inside ?? approaching;
 }
+
+double headingDeltaDeg(double a, double b) {
+  var diff = (a - b).abs() % 360;
+  if (diff > 180) diff = 360 - diff;
+  return diff;
+}
+
+/// WGS84 destination from a start point, bearing and distance.
+({double lat, double lon}) destinationPoint(
+  double lat,
+  double lon,
+  double bearingDeg,
+  double meters,
+) {
+  const r = 6371000.0;
+  if (!meters.isFinite || meters.abs() < 0.01) {
+    return (lat: lat, lon: lon);
+  }
+  final br = bearingDeg * pi / 180;
+  final lat1 = lat * pi / 180;
+  final lon1 = lon * pi / 180;
+  final ang = meters / r;
+  final lat2 = asin(sin(lat1) * cos(ang) + cos(lat1) * sin(ang) * cos(br));
+  final lon2 = lon1 +
+      atan2(sin(br) * sin(ang) * cos(lat1), cos(ang) - sin(lat1) * sin(lat2));
+  return (lat: lat2 * 180 / pi, lon: ((lon2 * 180 / pi + 540) % 360) - 180);
+}
+
+bool _usableReportedSpeed(double? reported) =>
+    reported != null && reported.isFinite && reported >= 0.45;
+
+/// Web `watchPosition` often reports `speed` as 0/null. Use a real reading
+/// when present, otherwise metres/time between two fixes.
+double? resolveTravelSpeedMps({
+  required double? reported,
+  double? previousLat,
+  double? previousLon,
+  DateTime? previousAt,
+  required double lat,
+  required double lon,
+  required DateTime at,
+  double? previousSpeed,
+}) {
+  if (_usableReportedSpeed(reported)) return reported;
+  if (previousLat != null && previousLon != null && previousAt != null) {
+    final dt = at.difference(previousAt).inMilliseconds / 1000.0;
+    if (dt >= 0.2 && dt <= 8) {
+      final d = haversineMeters(previousLat, previousLon, lat, lon);
+      final derived = d / dt;
+      if (derived >= 0.4) return derived;
+      if (d < 4) return 0;
+    }
+  }
+  if (reported != null && reported.isFinite && reported >= 0 && reported < 0.45) {
+    if (previousSpeed != null && previousSpeed > 1) return previousSpeed;
+    return 0;
+  }
+  return previousSpeed;
+}
+
+double? resolveHeadingDeg({
+  required double? reported,
+  double? previousLat,
+  double? previousLon,
+  required double lat,
+  required double lon,
+  double? previousHeading,
+}) {
+  final ok = reported != null &&
+      reported.isFinite &&
+      reported >= 0 &&
+      reported <= 360;
+  if (previousLat != null && previousLon != null) {
+    final d = haversineMeters(previousLat, previousLon, lat, lon);
+    if (d >= 8) {
+      final derived = bearingDegrees(previousLat, previousLon, lat, lon);
+      if (!ok || (reported == 0 && headingDeltaDeg(derived, 0) > 25)) {
+        return derived;
+      }
+    }
+  }
+  if (ok) return reported;
+  return previousHeading;
+}

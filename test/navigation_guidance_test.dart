@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:milieu_alert/models/navigation_models.dart';
+import 'package:milieu_alert/services/geo_utils.dart';
 import 'package:milieu_alert/services/navigation_guidance.dart';
 
 List<LatLng> _northLine({int segments = 20, double stepMeters = 50}) {
@@ -163,6 +164,30 @@ void main() {
     expect(gpsSpeedKmh(0), 0);
     expect(gpsSpeedKmh(-1), isNull);
     expect(gpsSpeedKmh(null), isNull);
+  });
+
+  test('resolveTravelSpeedMps uses displacement when GPS reports 0', () {
+    final now = DateTime.utc(2026, 1, 1, 12, 0, 2);
+    final prev = DateTime.utc(2026, 1, 1, 12, 0, 0);
+    final lat = startLat + 28 / mPerDeg;
+    final speed = resolveTravelSpeedMps(
+      reported: 0,
+      previousLat: startLat,
+      previousLon: lon,
+      previousAt: prev,
+      lat: lat,
+      lon: lon,
+      at: now,
+    );
+    expect(speed, closeTo(14, 1.5));
+  });
+
+  test('destinationPoint moves about 100m north', () {
+    final dest = destinationPoint(startLat, lon, 0, 100);
+    expect(
+      haversineMeters(startLat, lon, dest.lat, dest.lon),
+      closeTo(100, 2),
+    );
   });
 
   test('OSRM annotation speed is only a legal-limit fallback', () {

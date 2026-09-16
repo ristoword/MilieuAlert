@@ -17,6 +17,7 @@ import '../../l10n/hazard_strings.dart';
 import '../../providers/ai_assist_provider.dart';
 import '../../providers/favorites_provider.dart';
 import '../../providers/hazard_provider.dart';
+import '../../providers/live_hud_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -86,6 +87,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
       final locN = ref.read(locationProvider.notifier);
       locN.startTracking();
       locN.setFollow(true);
+      locN.liveFix.addListener(_onLiveFix);
+      ref.read(liveHudProvider);
       final loc = ref.read(locationProvider);
       ref.read(hazardProvider.notifier).start(
             lat: loc.latitude,
@@ -123,122 +126,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
     setState(() => _sheetExpanded = true);
   }
 
-  bool _zoneAlertActive(ZoneProximity? zone) =>
-      zone != null && zone.status != ZoneStatus.safe;
-
-  List<TransientAlert> _flashCandidates({
-    required LocationState location,
-    required NavigationState nav,
-    required HazardState hazards,
-    required AiAssistState ai,
-    required LiveNavInfo? live,
-    required bool guiding,
-    required bool showCameraBanner,
-    required HazardReport? crowdUpcoming,
-    required HazardStrings crowdL10n,
-  }) {
-    final out = <TransientAlert>[];
-    final zone = location.nearestZone;
-    if (_zoneAlertActive(zone)) {
-      final unauthorized = zone!.isVehicleAllowed == false;
-      out.add(TransientAlert(
-        id: 'zone:${zone.zoneId}:${zone.status}:${zone.isVehicleAllowed}',
-        priority: unauthorized
-            ? (zone.status == ZoneStatus.inside ? 85 : 80)
-            : (zone.status == ZoneStatus.inside ? 60 : 70),
-        child: AlertBanner(
-          proximity: zone,
-          onAskAi: () {
-            ref.read(aiAssistProvider.notifier).askAboutProximity();
-            _openAi();
-          },
-        ),
-      ));
+  void _onLiveFix() {
+    if (!mounted) return;
+    final fix = ref.read(locationProvider.notifier).liveFix.value;
+    if (fix == null) return;
+    ref.read(hazardProvider.notifier).updateAnchor(fix.lat, fix.lon);
+    final follow = ref.read(locationProvider).follow;
+    if (!_movedToUser || follow) {
+      final zoom = _movedToUser ? null : 16.0;
+      _movedToUser = true;
+      _moveToUser(fix.lat, fix.lon, zoom: zoom);
     }
-    for (final alert in nav.alerts) {
-      out.add(TransientAlert(
-        id: 'alert:${alert.id}',
-        priority: alert.critical ? 50 : 40,
-        child: RouteChangeBanners(
-          alerts: [alert],
-          onDismiss: (id) =>
-              ref.read(navigationProvider.notifier).dismissAlert(id),
-          onAskAi: (a) {
-            ref.read(aiAssistProvider.notifier).askAboutAlert(a);
-            _openAi();
-          },
-        ),
-      ));
-    }
-    if (ai.hint != null) {
-      out.add(TransientAlert(
-        id: 'hint:${ai.hint!.id}',
-        priority: 20,
-        child: AiHintBanner(
-          hint: ai.hint!,
-          onDismiss: () => ref.read(aiAssistProvider.notifier).dismissHint(),
-          onOpen: _openAi,
-        ),
-      ));
-    }
-    final nextCamera = live?.nextCamera;
-    if (showCameraBanner && nextCamera != null) {
-      out.add(TransientAlert(
-        id: 'cam:${nextCamera.id}',
-        priority: 90,
-        child: CameraIncidentBanner(
-          meters: live?.nextCameraMeters,
-          maxspeed: nextCamera.maxspeed,
-          community: nextCamera.isCommunity,
-        ),
-      ));
-    }
-    if (crowdUpcoming != null &&
-        (!showCameraBanner || !crowdUpcoming.type.isCamera)) {
-      out.add(TransientAlert(
-        id: 'crowd:${crowdUpcoming.id}',
-        priority: 95,
-        child: CrowdHazardBanner(
-          title: crowdL10n.bannerTitle(
-            crowdUpcoming.type,
-            formatDistance(crowdUpcoming.distanceMeters),
-          ),
-          subtitle:
-              '${crowdL10n.aDriver} · ${crowdL10n.timeAgo(crowdUpcoming.createdAt)}',
-          icon: hazardIcon(crowdUpcoming.type),
-          color: hazardColor(crowdUpcoming.type),
-          onTap: () => showHazardDetailSheet(context, crowdUpcoming),
-        ),
-      ));
-    }
-    for (final incoming in hazards.incoming) {
-      if (incoming.id == crowdUpcoming?.id) continue;
-      out.add(TransientAlert(
-        id: 'in:${incoming.id}',
-        priority: 100,
-        child: CrowdHazardBanner(
-          title: crowdL10n.bannerTitle(
-            incoming.type,
-            formatDistance(incoming.distanceMeters),
-          ),
-          subtitle:
-              '${crowdL10n.aDriver} · ${crowdL10n.timeAgo(incoming.createdAt)}',
-          icon: hazardIcon(incoming.type),
-          color: hazardColor(incoming.type),
-          onTap: () => showHazardDetailSheet(context, incoming),
-          onDismiss: () =>
-              ref.read(hazardProvider.notifier).dismissIncoming(incoming.id),
-        ),
-      ));
-    }
-    if (guiding && nav.zonesOnRoute.isNotEmpty) {
-      out.add(TransientAlert(
-        id: 'routezones:${nav.zonesOnRoute.map((z) => z.id).join(',')}',
-        priority: 25,
-        child: RouteZoneBanner(zones: nav.zonesOnRoute),
-      ));
-    }
-    return out;
   }
 
   void _toggleSheet() {
@@ -257,6 +155,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    try {
+      ref.read(locationProvider.notifier).liveFix.removeListener(_onLiveFix);
+    } catch (_) {}
     _originCtrl.dispose();
     _destCtrl.dispose();
     _originFocus.dispose();
@@ -334,16 +235,16 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
   }
 
-  Widget _recenterButton(LocationState location) {
+  Widget _recenterButton(bool follow) {
     return _RoundMapButton(
-      icon: location.follow ? Icons.gps_fixed : Icons.gps_not_fixed,
-      tooltip: location.follow ? 'Centrato' : 'Ricentra',
-      emphasized: !location.follow,
+      icon: follow ? Icons.gps_fixed : Icons.gps_not_fixed,
+      tooltip: follow ? 'Centrato' : 'Ricentra',
+      emphasized: !follow,
       onTap: _recenter,
     );
   }
 
-  Widget _sideMapButtons(LocationState location) {
+  Widget _sideMapButtons(bool follow) {
     final l10n = HazardStrings.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -362,7 +263,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
           onTap: () => showHazardFeedSheet(context),
         ),
         const SizedBox(height: 8),
-        _recenterButton(location),
+        _recenterButton(follow),
         const SizedBox(height: 10),
         Material(
           color: const Color(0xFFFF9F0A),
@@ -380,45 +281,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
         ),
       ],
     );
-  }
-
-  List<Marker> _cameraAndHazardMarkers(
-    NavigationState nav,
-    HazardState hazards,
-  ) {
-    final markers = <Marker>[];
-    final osmIds = <String>{};
-    for (final c in [...nav.cameras, ...hazards.cameras]) {
-      if (c.isCommunity) continue;
-      if (!osmIds.add(c.id)) continue;
-      markers.add(
-        Marker(
-          point: LatLng(c.lat, c.lon),
-          width: 34,
-          height: 34,
-          child: const CameraPin(),
-        ),
-      );
-    }
-    for (final r in hazards.reports) {
-      markers.add(
-        Marker(
-          point: LatLng(r.lat, r.lon),
-          width: 38,
-          height: 38,
-          child: GestureDetector(
-            onTap: () => showHazardDetailSheet(context, r),
-            child: r.type.isCamera
-                ? const CameraPin(community: true)
-                : HazardPin(
-                    icon: hazardIcon(r.type),
-                    color: hazardColor(r.type),
-                  ),
-          ),
-        ),
-      );
-    }
-    return markers;
   }
 
   void _fitPois(List<PlaceHit> hits, LocationState location) {
@@ -457,30 +319,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   @override
   Widget build(BuildContext context) {
-    final location = ref.watch(locationProvider);
+    final locOnce = ref.read(locationProvider);
     final zonesAsync = ref.watch(zonesProvider);
     final nav = ref.watch(navigationProvider);
-    final hazards = ref.watch(hazardProvider);
-    final ai = ref.watch(aiAssistProvider);
+    final follow = ref.watch(locationProvider.select((s) => s.follow));
     ref.watch(voiceGuidanceProvider);
     ref.watch(screenWakeLockProvider);
+    ref.listen(liveHudProvider, (_, __) {});
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final topPad = MediaQuery.of(context).padding.top;
-
-    ref.listen(locationProvider, (prev, next) {
-      if (next.latitude == null || next.longitude == null) return;
-      ref.read(hazardProvider.notifier).updateAnchor(
-            next.latitude!,
-            next.longitude!,
-          );
-      // Follow the puck whenever follow is on — walking or turn-by-turn.
-      final followLive = next.follow;
-      if (!_movedToUser || followLive) {
-        final zoom = _movedToUser ? null : 16.0;
-        _movedToUser = true;
-        _moveToUser(next.latitude!, next.longitude!, zoom: zoom);
-      }
-    });
 
     ref.listen(navigationProvider, (prev, next) {
       if (next.originIsMyLocation &&
@@ -525,23 +372,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
     });
 
     final center = LatLng(
-      location.latitude ?? AppConstants.initialLat,
-      location.longitude ?? AppConstants.initialLng,
+      locOnce.latitude ?? AppConstants.initialLat,
+      locOnce.longitude ?? AppConstants.initialLng,
     );
 
-    LiveNavInfo? live;
-    if (location.latitude != null && location.longitude != null) {
-      live = ref.read(navigationProvider.notifier).liveInfo(
-            location.latitude!,
-            location.longitude!,
-            heading: location.heading,
-            accuracy: location.accuracy,
-            speedMps: location.speed,
-          );
-    }
-
     final guiding = nav.navigating;
-    final nextCamera = live?.nextCamera;
     final needsChromeSync = guiding != _wasGuiding ||
         (nav.suggestions.isNotEmpty && !_sheetExpanded);
     if (needsChromeSync) {
@@ -573,22 +408,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
         ? LatLng(nav.origin!.lat, nav.origin!.lon)
         : null;
 
-    final showCameraBanner = nextCamera != null &&
-        (live?.nextCameraMeters ?? 9999) <= 1000 &&
-        (!nextCamera.isCommunity ||
-            hazards.reports.any((r) =>
-                !r.hiddenByVotes &&
-                (r.id == nextCamera.reportId ||
-                    'c-${r.id}' == nextCamera.id)));
-    final crowdL10n = HazardStrings.of(context);
-    final crowdUpcoming = (location.latitude != null && location.longitude != null)
-        ? ref.read(hazardProvider.notifier).upcoming(
-              lat: location.latitude!,
-              lon: location.longitude!,
-              heading: location.heading,
-            )
-        : null;
-
     return Scaffold(
       bottomNavigationBar: const MainBottomNav(),
       body: Stack(
@@ -599,7 +418,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
             mapController: _mapController,
             options: MapOptions(
               initialCenter: center,
-              initialZoom: location.latitude != null
+              initialZoom: locOnce.latitude != null
                   ? 13
                   : AppConstants.initialZoom,
               interactionOptions: InteractionOptions(
@@ -662,7 +481,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       height: 32,
                       child: PoiPin(hit: poi),
                     ),
-                ..._cameraAndHazardMarkers(nav, hazards),
                 if (originPoint != null)
                   Marker(
                     point: originPoint,
@@ -685,16 +503,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       size: 36,
                     ),
                   ),
-                if (location.latitude != null && location.longitude != null)
-                  Marker(
-                    point: LatLng(location.latitude!, location.longitude!),
-                    width: 40,
-                    height: 40,
-                    child: LocationPuck(
-                      heading: _tilt3d ? 0 : location.heading,
-                    ),
-                  ),
               ]),
+              _HazardPinsLayer(onOpenHazard: showHazardDetailSheet),
+              _LivePuckLayer(tilt3d: _tilt3d),
               const RichAttributionWidget(
                 attributions: [
                   TextSourceAttribution('© OpenStreetMap contributors'),
@@ -710,7 +521,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
             child: Column(
               children: [
                 if (guiding)
-                  AppleGuidanceCard(nav: nav, live: live)
+                  const _LiveGuidanceCard()
                 else
                   Align(
                     alignment: Alignment.topRight,
@@ -721,18 +532,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     ),
                   ),
                 const SizedBox(height: 8),
-                TransientAlertSlot(
-                  candidates: _flashCandidates(
-                    location: location,
-                    nav: nav,
-                    hazards: hazards,
-                    ai: ai,
-                    live: live,
-                    guiding: guiding,
-                    showCameraBanner: showCameraBanner,
-                    crowdUpcoming: crowdUpcoming,
-                    crowdL10n: crowdL10n,
-                  ),
+                _LiveAlertHost(
+                  guiding: guiding,
+                  onOpenAi: _openAi,
                 ),
               ],
             ),
@@ -749,7 +551,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     alignment: Alignment.centerRight,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: _sideMapButtons(location),
+                      child: _sideMapButtons(follow),
                     ),
                   ),
                   ConstrainedBox(
@@ -866,13 +668,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     alignment: Alignment.centerRight,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: _sideMapButtons(location),
+                      child: _sideMapButtons(follow),
                     ),
                   ),
-                  AppleEtaTray(
-                location: location,
-                nav: nav,
-                live: live,
+                  _LiveEtaTray(
                 expanded: _trayExpanded,
                 onToggleExpanded: _toggleTray,
                 onStop: () {
@@ -1037,6 +836,302 @@ class _MapScreenState extends ConsumerState<MapScreen>
     await ref.read(favoritesProvider.notifier).touchItinerary(trip.id);
     if (!mounted) return;
     FocusScope.of(context).unfocus();
+  }
+}
+
+class _LivePuckLayer extends ConsumerWidget {
+  const _LivePuckLayer({required this.tilt3d});
+
+  final bool tilt3d;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ValueListenableBuilder<LiveGpsFix?>(
+      valueListenable: ref.read(locationProvider.notifier).liveFix,
+      builder: (context, fix, _) {
+        if (fix == null) return const MarkerLayer(markers: []);
+        return MarkerLayer(
+          markers: [
+            Marker(
+              point: LatLng(fix.lat, fix.lon),
+              width: 40,
+              height: 40,
+              child: LocationPuck(heading: tilt3d ? 0 : fix.heading),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _HazardPinsLayer extends ConsumerWidget {
+  const _HazardPinsLayer({required this.onOpenHazard});
+
+  final void Function(BuildContext context, HazardReport report) onOpenHazard;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final nav = ref.watch(navigationProvider);
+    final hazards = ref.watch(hazardProvider);
+    final markers = <Marker>[];
+    final osmIds = <String>{};
+    for (final c in [...nav.cameras, ...hazards.cameras]) {
+      if (c.isCommunity) continue;
+      if (!osmIds.add(c.id)) continue;
+      markers.add(
+        Marker(
+          point: LatLng(c.lat, c.lon),
+          width: 34,
+          height: 34,
+          child: const CameraPin(),
+        ),
+      );
+    }
+    for (final r in hazards.reports) {
+      markers.add(
+        Marker(
+          point: LatLng(r.lat, r.lon),
+          width: 38,
+          height: 38,
+          child: GestureDetector(
+            onTap: () => onOpenHazard(context, r),
+            child: r.type.isCamera
+                ? const CameraPin(community: true)
+                : HazardPin(
+                    icon: hazardIcon(r.type),
+                    color: hazardColor(r.type),
+                  ),
+          ),
+        ),
+      );
+    }
+    return MarkerLayer(markers: markers);
+  }
+}
+
+class _LiveGuidanceCard extends ConsumerWidget {
+  const _LiveGuidanceCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hud = ref.watch(liveHudProvider);
+    final nav = ref.watch(navigationProvider);
+    return AppleGuidanceCard(nav: nav, live: hud.snapshot.live);
+  }
+}
+
+class _LiveEtaTray extends ConsumerWidget {
+  const _LiveEtaTray({
+    required this.expanded,
+    required this.onToggleExpanded,
+    required this.onStop,
+    required this.onOverview,
+    required this.onRecenter,
+    required this.onSelectAlternative,
+  });
+
+  final bool expanded;
+  final ValueChanged<bool?> onToggleExpanded;
+  final VoidCallback onStop;
+  final VoidCallback onOverview;
+  final VoidCallback onRecenter;
+  final ValueChanged<int> onSelectAlternative;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hud = ref.watch(liveHudProvider);
+    final nav = ref.watch(navigationProvider);
+    final snap = hud.snapshot;
+    final loc = LocationState(
+      latitude: snap.fix?.lat,
+      longitude: snap.fix?.lon,
+      heading: snap.fix?.heading,
+      follow: snap.follow,
+      nearestZone: snap.nearestZone,
+    );
+    return AppleEtaTray(
+      location: loc,
+      nav: nav,
+      live: snap.live,
+      expanded: expanded,
+      onToggleExpanded: onToggleExpanded,
+      onStop: onStop,
+      onOverview: onOverview,
+      onRecenter: onRecenter,
+      onSelectAlternative: onSelectAlternative,
+    );
+  }
+}
+
+class _LiveAlertHost extends ConsumerWidget {
+  const _LiveAlertHost({
+    required this.guiding,
+    required this.onOpenAi,
+  });
+
+  final bool guiding;
+  final VoidCallback onOpenAi;
+
+  bool _zoneAlertActive(ZoneProximity? zone) =>
+      zone != null && zone.status != ZoneStatus.safe;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hud = ref.watch(liveHudProvider);
+    final nav = ref.watch(navigationProvider);
+    final hazards = ref.watch(hazardProvider);
+    final ai = ref.watch(aiAssistProvider);
+    final live = hud.snapshot.live;
+    final zone = hud.snapshot.nearestZone;
+    final nextCamera = live?.nextCamera;
+    final showCameraBanner = nextCamera != null &&
+        (live?.nextCameraMeters ?? 9999) <= 1000 &&
+        (!nextCamera.isCommunity ||
+            hazards.reports.any((r) =>
+                !r.hiddenByVotes &&
+                (r.id == nextCamera.reportId ||
+                    'c-${r.id}' == nextCamera.id)));
+    final crowdL10n = HazardStrings.of(context);
+    final fix = hud.snapshot.fix;
+    final crowdUpcoming = fix != null
+        ? ref.read(hazardProvider.notifier).upcoming(
+              lat: fix.lat,
+              lon: fix.lon,
+              heading: fix.heading,
+            )
+        : null;
+    return TransientAlertSlot(
+      candidates: _candidates(
+        ref: ref,
+        context: context,
+        zone: zone,
+        nav: nav,
+        hazards: hazards,
+        ai: ai,
+        live: live,
+        guiding: guiding,
+        showCameraBanner: showCameraBanner,
+        crowdUpcoming: crowdUpcoming,
+        crowdL10n: crowdL10n,
+      ),
+    );
+  }
+
+  List<TransientAlert> _candidates({
+    required WidgetRef ref,
+    required BuildContext context,
+    required ZoneProximity? zone,
+    required NavigationState nav,
+    required HazardState hazards,
+    required AiAssistState ai,
+    required LiveNavInfo? live,
+    required bool guiding,
+    required bool showCameraBanner,
+    required HazardReport? crowdUpcoming,
+    required HazardStrings crowdL10n,
+  }) {
+    final out = <TransientAlert>[];
+    if (_zoneAlertActive(zone)) {
+      final unauthorized = zone!.isVehicleAllowed == false;
+      out.add(TransientAlert(
+        id: 'zone:${zone.zoneId}:${zone.status}:${zone.isVehicleAllowed}',
+        priority: unauthorized
+            ? (zone.status == ZoneStatus.inside ? 85 : 80)
+            : (zone.status == ZoneStatus.inside ? 60 : 70),
+        child: AlertBanner(
+          proximity: zone,
+          onAskAi: () {
+            ref.read(aiAssistProvider.notifier).askAboutProximity();
+            onOpenAi();
+          },
+        ),
+      ));
+    }
+    for (final alert in nav.alerts) {
+      out.add(TransientAlert(
+        id: 'alert:${alert.id}',
+        priority: alert.critical ? 50 : 40,
+        child: RouteChangeBanners(
+          alerts: [alert],
+          onDismiss: (id) =>
+              ref.read(navigationProvider.notifier).dismissAlert(id),
+          onAskAi: (a) {
+            ref.read(aiAssistProvider.notifier).askAboutAlert(a);
+            onOpenAi();
+          },
+        ),
+      ));
+    }
+    if (ai.hint != null) {
+      out.add(TransientAlert(
+        id: 'hint:${ai.hint!.id}',
+        priority: 20,
+        child: AiHintBanner(
+          hint: ai.hint!,
+          onDismiss: () => ref.read(aiAssistProvider.notifier).dismissHint(),
+          onOpen: onOpenAi,
+        ),
+      ));
+    }
+    final nextCamera = live?.nextCamera;
+    if (showCameraBanner && nextCamera != null) {
+      out.add(TransientAlert(
+        id: 'cam:${nextCamera.id}',
+        priority: 90,
+        child: CameraIncidentBanner(
+          meters: live?.nextCameraMeters,
+          maxspeed: nextCamera.maxspeed,
+          community: nextCamera.isCommunity,
+        ),
+      ));
+    }
+    if (crowdUpcoming != null &&
+        (!showCameraBanner || !crowdUpcoming.type.isCamera)) {
+      out.add(TransientAlert(
+        id: 'crowd:${crowdUpcoming.id}',
+        priority: 95,
+        child: CrowdHazardBanner(
+          title: crowdL10n.bannerTitle(
+            crowdUpcoming.type,
+            formatDistance(crowdUpcoming.distanceMeters),
+          ),
+          subtitle:
+              '${crowdL10n.aDriver} · ${crowdL10n.timeAgo(crowdUpcoming.createdAt)}',
+          icon: hazardIcon(crowdUpcoming.type),
+          color: hazardColor(crowdUpcoming.type),
+          onTap: () => showHazardDetailSheet(context, crowdUpcoming),
+        ),
+      ));
+    }
+    for (final incoming in hazards.incoming) {
+      if (incoming.id == crowdUpcoming?.id) continue;
+      out.add(TransientAlert(
+        id: 'in:${incoming.id}',
+        priority: 100,
+        child: CrowdHazardBanner(
+          title: crowdL10n.bannerTitle(
+            incoming.type,
+            formatDistance(incoming.distanceMeters),
+          ),
+          subtitle:
+              '${crowdL10n.aDriver} · ${crowdL10n.timeAgo(incoming.createdAt)}',
+          icon: hazardIcon(incoming.type),
+          color: hazardColor(incoming.type),
+          onTap: () => showHazardDetailSheet(context, incoming),
+          onDismiss: () =>
+              ref.read(hazardProvider.notifier).dismissIncoming(incoming.id),
+        ),
+      ));
+    }
+    if (guiding && nav.zonesOnRoute.isNotEmpty) {
+      out.add(TransientAlert(
+        id: 'routezones:${nav.zonesOnRoute.map((z) => z.id).join(',')}',
+        priority: 25,
+        child: RouteZoneBanner(zones: nav.zonesOnRoute),
+      ));
+    }
+    return out;
   }
 }
 

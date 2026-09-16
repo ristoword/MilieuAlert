@@ -11,6 +11,27 @@ import 'settings_provider.dart';
 import 'vehicle_provider.dart';
 import 'zone_provider.dart';
 
+/// High-frequency GPS sample. Interpolation ticks set [snapped] to false.
+class LiveGpsFix {
+  final double lat;
+  final double lon;
+  final double? heading;
+  final double? accuracy;
+  final double? speedMps;
+  final bool snapped;
+  final DateTime at;
+
+  const LiveGpsFix({
+    required this.lat,
+    required this.lon,
+    this.heading,
+    this.accuracy,
+    this.speedMps,
+    this.snapped = true,
+    required this.at,
+  });
+}
+
 class LocationState {
   final double? latitude;
   final double? longitude;
@@ -73,8 +94,11 @@ class LocationNotifier extends StateNotifier<LocationState> {
   StreamSubscription<Position>? _sub;
   Timer? _webKeepAlive;
   Timer? _restartTimer;
+  Timer? _interp;
   DateTime? _lastFixAt;
   Future<void>? _startInFlight;
+  LiveGpsFix? _lastRaw;
+  final ValueNotifier<LiveGpsFix?> liveFix = ValueNotifier(null);
 
   LocationSettings get _streamSettings {
     if (kIsWeb) {
@@ -161,6 +185,7 @@ class LocationNotifier extends StateNotifier<LocationState> {
 
       _listenToStream();
       _startWebKeepAlive();
+      _startInterp();
 
       state = state.copyWith(tracking: true, clearError: true);
     } catch (e) {
@@ -217,8 +242,72 @@ class LocationNotifier extends StateNotifier<LocationState> {
     });
   }
 
+  void _startInterp() {
+    _interp?.cancel();
+    _interp = Timer.periodic(const Duration(milliseconds: 280), (_) {
+      _emitInterpolated();
+    });
+  }
+
+  void _emitInterpolated() {
+    if (!mounted) return;
+    final last = _lastRaw;
+    if (last == null) return;
+    final now = DateTime.now();
+    final dt = now.difference(last.at).inMilliseconds / 1000.0;
+    if (dt < 0.18) return;
+    if (dt > 3.5) return;
+    final heading = last.heading;
+    final speed = last.speedMps ?? 0;
+    if (heading == null || heading < 0 || speed < 0.5) return;
+    final moved = speed * dt;
+    if (moved < 0.4) return;
+    final dest = destinationPoint(last.lat, last.lon, heading, moved);
+    liveFix.value = LiveGpsFix(
+      lat: dest.lat,
+      lon: dest.lon,
+      heading: heading,
+      accuracy: last.accuracy,
+      speedMps: speed,
+      snapped: false,
+      at: now,
+    );
+  }
+
   void _applyPosition(Position pos) {
-    _lastFixAt = DateTime.now();
+    final now = DateTime.now();
+    _lastFixAt = now;
+    final prev = _lastRaw;
+    final speed = resolveTravelSpeedMps(
+      reported: pos.speed,
+      previousLat: prev?.lat,
+      previousLon: prev?.lon,
+      previousAt: prev?.at,
+      lat: pos.latitude,
+      lon: pos.longitude,
+      at: now,
+      previousSpeed: prev?.speedMps ?? state.speed,
+    );
+    final heading = resolveHeadingDeg(
+      reported: pos.heading,
+      previousLat: prev?.lat,
+      previousLon: prev?.lon,
+      lat: pos.latitude,
+      lon: pos.longitude,
+      previousHeading: prev?.heading ?? state.heading,
+    );
+    final fix = LiveGpsFix(
+      lat: pos.latitude,
+      lon: pos.longitude,
+      heading: heading,
+      accuracy: pos.accuracy,
+      speedMps: speed,
+      snapped: true,
+      at: now,
+    );
+    _lastRaw = fix;
+    liveFix.value = fix;
+
     final zones = _ref.read(zonesProvider).valueOrNull ?? const <EmissionZone>[];
     final vehicle = _ref.read(vehicleProvider).valueOrNull;
     final alertDistance = _ref.read(alertDistanceProvider);
@@ -233,8 +322,8 @@ class LocationNotifier extends StateNotifier<LocationState> {
     state = state.copyWith(
       latitude: pos.latitude,
       longitude: pos.longitude,
-      speed: pos.speed,
-      heading: pos.heading,
+      speed: speed,
+      heading: heading,
       accuracy: pos.accuracy,
       nearestZone: proximity,
       clearZone: proximity == null,
@@ -247,7 +336,9 @@ class LocationNotifier extends StateNotifier<LocationState> {
   void dispose() {
     _restartTimer?.cancel();
     _webKeepAlive?.cancel();
+    _interp?.cancel();
     _sub?.cancel();
+    liveFix.dispose();
     super.dispose();
   }
 }
