@@ -58,7 +58,21 @@ class VoiceGuidance {
           );
     }
     if (nav.navigating) {
-      _maybeSpeakTurn(live);
+      if (nav.recalculating || live?.offRoute == true) {
+        _speak(
+          'reroute',
+          _t(
+            it: 'Ricalcolo percorso',
+            nl: 'Route opnieuw berekend',
+            en: 'Recalculating route',
+          ),
+          critical: true,
+          skipCooldown: true,
+        );
+      } else {
+        _spoken.remove('reroute');
+        _maybeSpeakTurn(live, nav);
+      }
     }
     if (nav.mode.isCar) {
       _maybeSpeakCamera(live?.nextCamera, live?.nextCameraMeters);
@@ -75,7 +89,37 @@ class VoiceGuidance {
 
   void onNavigation(NavigationState? prev, NavigationState next) {
     if (prev?.navigating == true && !next.navigating) {
-      _spoken.removeWhere((k) => k.startsWith('turn-') || k.startsWith('cam-'));
+      _spoken.removeWhere((k) =>
+          k.startsWith('turn-') ||
+          k.startsWith('cam-') ||
+          k == 'reroute' ||
+          k == 'walk-leg');
+    }
+    if (next.recalculating && prev?.recalculating != true) {
+      _spoken.remove('reroute');
+      _speak(
+        'reroute',
+        _t(
+          it: 'Ricalcolo percorso',
+          nl: 'Route opnieuw berekend',
+          en: 'Recalculating route',
+        ),
+        critical: true,
+        skipCooldown: true,
+      );
+    }
+    if (next.walkLegActive && prev?.walkLegActive != true) {
+      final walk = formatDistance(next.walkMeters);
+      _speak(
+        'walk-leg',
+        _t(
+          it: 'Lascia l’auto e cammina $walk',
+          nl: 'Laat de auto achter en loop $walk',
+          en: 'Leave the car and walk $walk',
+        ),
+        critical: true,
+        skipCooldown: true,
+      );
     }
     if (prev?.routeDistanceMeters != next.routeDistanceMeters ||
         prev?.steps != next.steps) {
@@ -92,10 +136,14 @@ class VoiceGuidance {
     }
   }
 
-  void _maybeSpeakTurn(LiveNavInfo? live) {
+  void _maybeSpeakTurn(LiveNavInfo? live, NavigationState nav) {
     final step = live?.currentStep;
     if (step == null || live == null) return;
+    if (live.offRoute || nav.recalculating) return;
     if (!step.isManeuver && step.lanes.isEmpty) return;
+    if (step.type == 'arrive' && nav.usingDropOff && !nav.walkLegActive) {
+      return;
+    }
     final meters = live.metersToManeuver;
     final bucket = meters <= 40
         ? 'now'

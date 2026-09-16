@@ -1,5 +1,7 @@
 enum TravelMode { car, foot, transit }
 
+enum RouteOptionKind { standard, dropOff, driveToDoor }
+
 TravelMode parseTravelMode(String? raw) {
   switch (raw) {
     case 'foot':
@@ -494,6 +496,13 @@ class RoutePlan {
   final double distanceMeters;
   final double durationSeconds;
   final TransitItinerary? itinerary;
+  final RouteOptionKind kind;
+  final double? walkMeters;
+  final PlaceHit? dropOff;
+  final List<List<double>> walkPoints;
+  final List<NavStep> walkSteps;
+  final double? insideZoneMeters;
+  final String? zoneName;
 
   const RoutePlan({
     this.mode = TravelMode.car,
@@ -503,7 +512,65 @@ class RoutePlan {
     required this.distanceMeters,
     required this.durationSeconds,
     this.itinerary,
+    this.kind = RouteOptionKind.standard,
+    this.walkMeters,
+    this.dropOff,
+    this.walkPoints = const [],
+    this.walkSteps = const [],
+    this.insideZoneMeters,
+    this.zoneName,
   });
+
+  bool get isDropOff => kind == RouteOptionKind.dropOff;
+  bool get isDriveToDoor => kind == RouteOptionKind.driveToDoor;
+
+  String chipLabelIt(int index) {
+    switch (kind) {
+      case RouteOptionKind.dropOff:
+        final w = walkMeters;
+        if (w == null || !w.isFinite) return 'Consigliato · lascia auto';
+        final meters = w < 1000 ? '${w.round()} m' : '${(w / 1000).toStringAsFixed(1)} km';
+        return 'Consigliato · $meters a piedi';
+      case RouteOptionKind.driveToDoor:
+        return 'Fino alla porta · milieuzone';
+      case RouteOptionKind.standard:
+        return 'Percorso ${index + 1}';
+    }
+  }
+
+  RoutePlan copyWith({
+    TravelMode? mode,
+    List<List<double>>? points,
+    List<NavStep>? steps,
+    List<double>? speeds,
+    double? distanceMeters,
+    double? durationSeconds,
+    TransitItinerary? itinerary,
+    RouteOptionKind? kind,
+    double? walkMeters,
+    PlaceHit? dropOff,
+    List<List<double>>? walkPoints,
+    List<NavStep>? walkSteps,
+    double? insideZoneMeters,
+    String? zoneName,
+  }) {
+    return RoutePlan(
+      mode: mode ?? this.mode,
+      points: points ?? this.points,
+      steps: steps ?? this.steps,
+      speeds: speeds ?? this.speeds,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      itinerary: itinerary ?? this.itinerary,
+      kind: kind ?? this.kind,
+      walkMeters: walkMeters ?? this.walkMeters,
+      dropOff: dropOff ?? this.dropOff,
+      walkPoints: walkPoints ?? this.walkPoints,
+      walkSteps: walkSteps ?? this.walkSteps,
+      insideZoneMeters: insideZoneMeters ?? this.insideZoneMeters,
+      zoneName: zoneName ?? this.zoneName,
+    );
+  }
 
   factory RoutePlan.fromJson(Map<String, dynamic> data) {
     final points = ((data['points'] as List?) ?? const [])

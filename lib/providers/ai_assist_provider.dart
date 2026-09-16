@@ -336,6 +336,9 @@ Map<String, dynamic> buildDrivingContext(
           ? (nav.hasRoute ? 1 : 0)
           : nav.alternatives.length,
       'selectedRoute': nav.selectedRoute,
+      'dropOffWalkMeters': nav.walkMeters,
+      'usingDropOff': nav.usingDropOff,
+      'dropOffMessage': nav.dropOffMessage,
     },
     'zonesOnRoute': nav.zonesOnRoute
         .take(6)

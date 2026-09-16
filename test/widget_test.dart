@@ -41,5 +41,23 @@ void main() {
       );
       expect(VehicleChecker.isVehicleAllowed(vehicle, zone), isTrue);
     });
+
+    test('diesel is blocked when the zone only allows petrol', () {
+      final petrolOnly = EmissionZone(
+        id: 'petrol_only',
+        country: 'NL',
+        city: 'Test',
+        name: 'Test',
+        zoneType: 'ENVIRONMENTAL_ZONE',
+        polygonCoordinates: const [],
+        allowedFuelTypes: const ['petrol'],
+      );
+      const diesel = Vehicle(
+        type: VehicleType.car,
+        fuelType: FuelType.diesel,
+        euroClass: EuroClass.euro6,
+      );
+      expect(VehicleChecker.isVehicleAllowed(diesel, petrolOnly), isFalse);
+    });
   });
 }

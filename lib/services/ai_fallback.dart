@@ -116,9 +116,27 @@ AiAssistResult localAiFallback({
   if (_has(q, const ['veicol', 'euro', 'diesel', 'conforme', 'allowed', 'autorizz'])) {
     final name = zoneName.isEmpty ? _zoneNames(zones) : zoneName;
     if (denied) {
-      return _pack(_t(lang, vehicleBad: true, zone: name, euro: vehicle['euroClass']?.toString(), fuel: vehicle['fuel']?.toString()), lang);
+      return _pack(
+        _t(
+          lang,
+          vehicleBad: true,
+          zone: name,
+          euro: vehicle['euroClass']?.toString(),
+          fuel: vehicle['fuel']?.toString(),
+          dropOffWalk: formatAiDistance(route['dropOffWalkMeters'] as num?),
+        ),
+        lang,
+      );
     }
     return _pack(_t(lang, vehicleOk: true, zone: name), lang);
+  }
+
+  if (route['usingDropOff'] == true ||
+      _has(q, const ['sosta', 'a piedi', 'cammin', 'drop', 'parchegg'])) {
+    final walk = formatAiDistance(route['dropOffWalkMeters'] as num?);
+    if (walk.isNotEmpty || route['usingDropOff'] == true) {
+      return _pack(_t(lang, dropOff: true, dist: walk.isEmpty ? '100 m' : walk, zone: zoneName), lang);
+    }
   }
 
   if (status == 'inside' && denied && zoneName.isNotEmpty) {
@@ -278,6 +296,8 @@ String _t(
   String? euro,
   String? fuel,
   bool alts = false,
+  bool dropOff = false,
+  String dropOffWalk = '',
 }) {
   if (lang == 'nl') {
     if (missingHome) return 'Thuis is nog niet opgeslagen.';
@@ -287,7 +307,15 @@ String _t(
     if (noAlt) return 'Geen alternatieve routes nu.';
     if (switchAlt) return 'Ik schakel naar een alternatieve route.';
     if (noCamera) return 'Geen flitser dichtbij op dit traject.';
-    if (vehicleBad) return 'Je ${euro ?? 'voertuig'} ${fuel ?? ''} mag $zone niet in. Kies een andere route.';
+    if (vehicleBad) {
+      final extra = dropOffWalk.isEmpty
+          ? ''
+          : ' Laat de auto aan de rand en loop de laatste $dropOffWalk.';
+      return 'Je ${euro ?? 'voertuig'} ${fuel ?? ''} mag $zone niet in.$extra';
+    }
+    if (dropOff) {
+      return 'Rijd tot de rand van $zone, parkeer, dan $dist te voet.';
+    }
     if (vehicleOk) return 'Met dit voertuig lijkt $zone toegelaten.';
     if (insideDenied) return 'Je bent in $zone en het voertuig is niet toegelaten. Verlaat de zone.';
     if (insideOk) return 'Je bent in $zone: voertuig toegelaten.';
@@ -313,7 +341,15 @@ String _t(
     if (noAlt) return 'No alternative routes right now.';
     if (switchAlt) return 'Switching to an alternative route.';
     if (noCamera) return 'No speed camera close on this stretch.';
-    if (vehicleBad) return 'Your ${euro ?? 'vehicle'} ${fuel ?? ''} is not allowed in $zone. Use another route.';
+    if (vehicleBad) {
+      final extra = dropOffWalk.isEmpty
+          ? ''
+          : ' Park at the zone edge and walk the last $dropOffWalk.';
+      return 'Your ${euro ?? 'vehicle'} ${fuel ?? ''} is not allowed in $zone.$extra';
+    }
+    if (dropOff) {
+      return 'Drive to the edge of $zone, then walk $dist.';
+    }
     if (vehicleOk) return 'With this vehicle $zone looks allowed.';
     if (insideDenied) return 'You are inside $zone and the vehicle is not authorized. Leave or reroute now.';
     if (insideOk) return 'Inside $zone: vehicle authorized. Keep to zone rules.';
@@ -339,7 +375,13 @@ String _t(
   if (switchAlt) return 'Passo a un itinerario alternativo e controllo zone e autovelox.';
   if (noCamera) return 'Nessun autovelox vicino su questo tratto.';
   if (vehicleBad) {
-    return 'Il tuo ${euro ?? 'veicolo'} ${fuel ?? ''} non è conforme per $zone. Usa un altro itinerario.';
+    final extra = dropOffWalk.isEmpty
+        ? ' Usa un altro itinerario.'
+        : ' Lascia l’auto al bordo e cammina gli ultimi $dropOffWalk.';
+    return 'Il tuo ${euro ?? 'veicolo'} ${fuel ?? ''} non è conforme per $zone.$extra';
+  }
+  if (dropOff) {
+    return 'Il percorso fino alla porta entra in milieuzone. Avvicinati al bordo e cammina $dist.';
   }
   if (vehicleOk) return 'Con il veicolo attuale $zone risulta accessibile. Conferma le regole ufficiali.';
   if (insideDenied) return 'Sei dentro $zone e il veicolo non è autorizzato. Esci o cambia percorso.';

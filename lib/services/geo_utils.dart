@@ -3,6 +3,7 @@ import 'dart:math';
 import '../models/emission_zone.dart';
 import '../models/vehicle.dart';
 import '../models/zone_status.dart';
+import 'vehicle_checker.dart';
 
 double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
   const earthRadius = 6371000.0;
@@ -141,9 +142,8 @@ ZoneProximity? nearestProximity({
   ZoneProximity? approaching;
 
   for (final zone in zones) {
-    final allowed = vehicle == null || zone.minimumEuroLevel == null
-        ? true
-        : vehicle.euroClass.level >= zone.minimumEuroLevel!;
+    final allowed =
+        vehicle == null || VehicleChecker.isVehicleAllowed(vehicle, zone);
 
     if (isInsideZone(lat, lon, zone)) {
       inside = ZoneProximity(
@@ -259,4 +259,118 @@ double? resolveHeadingDeg({
   }
   if (ok) return reported;
   return previousHeading;
+}
+
+class BoundaryPoint {
+  final double lat;
+  final double lon;
+  final double metersToTarget;
+
+  const BoundaryPoint({
+    required this.lat,
+    required this.lon,
+    required this.metersToTarget,
+  });
+}
+
+/// Closest point on the polygon outline (not vertices only).
+BoundaryPoint? closestPointOnZoneBoundary(
+  double lat,
+  double lon,
+  EmissionZone zone,
+) {
+  BoundaryPoint? best;
+  for (final ring in zone.polygonCoordinates) {
+    if (ring.length < 2) continue;
+    for (var i = 0; i < ring.length; i++) {
+      final a = ring[i];
+      final b = ring[(i + 1) % ring.length];
+      if (a.length < 2 || b.length < 2) continue;
+      final hit = _closestOnSegment(
+        lat,
+        lon,
+        a[1],
+        a[0],
+        b[1],
+        b[0],
+      );
+      if (best == null || hit.metersToTarget < best.metersToTarget) {
+        best = hit;
+      }
+    }
+  }
+  return best;
+}
+
+BoundaryPoint _closestOnSegment(
+  double lat,
+  double lon,
+  double aLat,
+  double aLon,
+  double bLat,
+  double bLon,
+) {
+  final metersPerDegLat = 111320.0;
+  final metersPerDegLon =
+      111320.0 * cos(lat * pi / 180).clamp(0.2, 1.0);
+  final ax = (aLon - lon) * metersPerDegLon;
+  final ay = (aLat - lat) * metersPerDegLat;
+  final bx = (bLon - lon) * metersPerDegLon;
+  final by = (bLat - lat) * metersPerDegLat;
+  final abx = bx - ax;
+  final aby = by - ay;
+  final ab2 = abx * abx + aby * aby;
+  var t = 0.0;
+  if (ab2 > 1e-6) {
+    t = ((-ax) * abx + (-ay) * aby) / ab2;
+    if (t < 0) t = 0;
+    if (t > 1) t = 1;
+  }
+  final qLat = aLat + t * (bLat - aLat);
+  final qLon = aLon + t * (bLon - aLon);
+  return BoundaryPoint(
+    lat: qLat,
+    lon: qLon,
+    metersToTarget: haversineMeters(lat, lon, qLat, qLon),
+  );
+}
+
+/// Drive meters of [pathLatLon] ([lat, lon] pairs) that sit inside [zone].
+double metersInsideZone(
+  List<List<double>> pathLatLon,
+  EmissionZone zone,
+) {
+  if (pathLatLon.length < 2) return 0;
+  var inside = 0.0;
+  for (var i = 1; i < pathLatLon.length; i++) {
+    final a = pathLatLon[i - 1];
+    final b = pathLatLon[i];
+    if (a.length < 2 || b.length < 2) continue;
+    final midLat = (a[0] + b[0]) / 2;
+    final midLon = (a[1] + b[1]) / 2;
+    if (isInsideZone(a[0], a[1], zone) ||
+        isInsideZone(b[0], b[1], zone) ||
+        isInsideZone(midLat, midLon, zone)) {
+      inside += haversineMeters(a[0], a[1], b[0], b[1]);
+    }
+  }
+  return inside;
+}
+
+/// Point past [via] along the dest→via ray, [extraMeters] beyond the boundary.
+({double lat, double lon}) extendBeyondBoundary({
+  required double fromLat,
+  required double fromLon,
+  required double viaLat,
+  required double viaLon,
+  required double extraMeters,
+}) {
+  final span = haversineMeters(fromLat, fromLon, viaLat, viaLon);
+  final bearing = bearingDegrees(fromLat, fromLon, viaLat, viaLon);
+  return destinationPoint(
+    fromLat,
+    fromLon,
+    bearing,
+    span + extraMeters,
+  );
 }

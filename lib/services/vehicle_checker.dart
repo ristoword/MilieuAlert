@@ -10,6 +10,16 @@ class VehicleChecker {
       return false;
     }
 
+    final fuels = zone.allowedFuelTypes;
+    if (fuels != null && fuels.isNotEmpty) {
+      final allowed = fuels.map((e) => e.toLowerCase().trim()).toSet();
+      final name = vehicle.fuelType.name.toLowerCase();
+      final label = vehicle.fuelType.label.toLowerCase();
+      if (!allowed.contains(name) && !allowed.contains(label)) {
+        return false;
+      }
+    }
+
     if (zone.allowedVehicleTypes != null &&
         zone.allowedVehicleTypes!.isNotEmpty &&
         !zone.allowedVehicleTypes!

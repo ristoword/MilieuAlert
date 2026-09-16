@@ -247,6 +247,10 @@ class SearchSheet extends ConsumerWidget {
                 const SizedBox(height: 10),
                 _LezOnRouteNotice(zones: nav.zonesOnRoute),
               ],
+              if (nav.dropOffMessage != null && !nav.navigating) ...[
+                const SizedBox(height: 10),
+                _DropOffNotice(message: nav.dropOffMessage!),
+              ],
               if (_shouldShowGo(nav, destCtrl.text)) ...[
                 const SizedBox(height: 12),
                 _GoCta(
@@ -364,7 +368,7 @@ class SearchSheet extends ConsumerWidget {
                         return ChoiceChip(
                           selected: selected,
                           label: Text(
-                            'Percorso ${i + 1} · ${formatDuration(plan.durationSeconds)}',
+                            '${plan.chipLabelIt(i)} · ${formatDuration(plan.durationSeconds)}',
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -492,6 +496,61 @@ class _LezOnRouteNotice extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : MapsColors.ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DropOffNotice extends StatelessWidget {
+  const _DropOffNotice({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: MapsColors.endRed.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: MapsColors.endRed, width: 1.2),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.directions_walk_rounded,
+            color: MapsColors.endRed,
+            size: 22,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Consigliato: sosta e a piedi',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    color: MapsColors.endRed,
+                  ),
+                ),
+                Text(
+                  message,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
                     color: isDark ? Colors.white : MapsColors.ink,
                   ),
                 ),

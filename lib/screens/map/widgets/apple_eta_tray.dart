@@ -203,6 +203,19 @@ class AppleEtaTray extends StatelessWidget {
                 ? 'Il tragitto evita le LEZ evidenziate'
                 : nav.zonesOnRoute.map((z) => z.name).take(3).join(' · '),
           ),
+          if (nav.usingDropOff) ...[
+            const SizedBox(height: 8),
+            _DetailRow(
+              icon: Icons.directions_walk_rounded,
+              color: MapsColors.accent,
+              title: nav.walkLegActive
+                  ? 'Tratto a piedi'
+                  : 'Consigliato: sosta e a piedi',
+              subtitle: nav.walkLegActive
+                  ? 'Cammina verso ${nav.destination?.label ?? 'destinazione'}'
+                  : '${formatDistance(nav.walkMeters)} a piedi dopo la sosta',
+            ),
+          ],
           if (nav.mode.isTransit) ...[
             const SizedBox(height: 10),
             _TransitLegsList(nav: nav),
@@ -258,7 +271,7 @@ class AppleEtaTray extends StatelessWidget {
                   return ChoiceChip(
                     selected: selected,
                     label: Text(
-                      'Percorso ${i + 1} · ${formatDuration(plan.durationSeconds)}',
+                      '${plan.chipLabelIt(i)} · ${formatDuration(plan.durationSeconds)}',
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

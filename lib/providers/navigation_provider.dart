@@ -7,11 +7,13 @@ import 'package:latlong2/latlong.dart';
 import '../models/emission_zone.dart';
 import '../models/navigation_models.dart';
 import '../models/zone_status.dart';
+import '../services/dropoff_planner.dart';
 import '../services/geo_utils.dart';
 import '../services/navigation_guidance.dart';
 import '../services/navigation_service.dart';
 import 'location_provider.dart';
 import 'settings_provider.dart';
+import 'vehicle_provider.dart';
 import 'zone_provider.dart';
 
 enum SearchField { origin, destination }
@@ -43,6 +45,14 @@ class NavigationState {
   final String? nearbyCategory;
   final bool nearbySearching;
   final TravelMode mode;
+  final bool recalculating;
+  final bool usingDropOff;
+  final bool walkLegActive;
+  final PlaceHit? dropOff;
+  final List<LatLng> walkRoute;
+  final List<NavStep> walkSteps;
+  final double? walkMeters;
+  final String? dropOffMessage;
 
   const NavigationState({
     this.suggestions = const [],
@@ -71,6 +81,14 @@ class NavigationState {
     this.nearbyCategory,
     this.nearbySearching = false,
     this.mode = TravelMode.car,
+    this.recalculating = false,
+    this.usingDropOff = false,
+    this.walkLegActive = false,
+    this.dropOff,
+    this.walkRoute = const [],
+    this.walkSteps = const [],
+    this.walkMeters,
+    this.dropOffMessage,
   });
 
   bool get hasRoute => route.length >= 2;
@@ -102,12 +120,23 @@ class NavigationState {
     String? nearbyCategory,
     bool? nearbySearching,
     TravelMode? mode,
+    bool? recalculating,
+    bool? usingDropOff,
+    bool? walkLegActive,
+    PlaceHit? dropOff,
+    List<LatLng>? walkRoute,
+    List<NavStep>? walkSteps,
+    double? walkMeters,
+    String? dropOffMessage,
     bool clearOrigin = false,
     bool clearDestination = false,
     bool clearError = false,
     bool clearAlerts = false,
     bool clearNearby = false,
     bool clearNearbyCategory = false,
+    bool clearDropOff = false,
+    bool clearWalkMeters = false,
+    bool clearDropOffMessage = false,
   }) {
     return NavigationState(
       suggestions: suggestions ?? this.suggestions,
@@ -138,6 +167,16 @@ class NavigationState {
           : (nearbyCategory ?? this.nearbyCategory),
       nearbySearching: nearbySearching ?? this.nearbySearching,
       mode: mode ?? this.mode,
+      recalculating: recalculating ?? this.recalculating,
+      usingDropOff: usingDropOff ?? this.usingDropOff,
+      walkLegActive: walkLegActive ?? this.walkLegActive,
+      dropOff: clearDropOff ? null : (dropOff ?? this.dropOff),
+      walkRoute: walkRoute ?? this.walkRoute,
+      walkSteps: walkSteps ?? this.walkSteps,
+      walkMeters: clearWalkMeters ? null : (walkMeters ?? this.walkMeters),
+      dropOffMessage: clearDropOffMessage
+          ? null
+          : (dropOffMessage ?? this.dropOffMessage),
     );
   }
 }
@@ -491,6 +530,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       suggestions: const [],
       clearError: true,
       clearNearby: startFollowing,
+      recalculating: false,
     );
     if (keepFollow) {
       _ref.read(locationProvider.notifier).setFollow(true);
@@ -516,6 +556,14 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     }
 
     if (plans.isEmpty) {
+      if (state.navigating && state.hasRoute) {
+        if (!mounted) return;
+        state = state.copyWith(
+          routing: false,
+          error: routeError ?? 'Ricalcolo non riuscito, restiamo sul percorso',
+        );
+        return;
+      }
       if (mode != TravelMode.car) {
         if (!mounted) return;
         state = state.copyWith(
@@ -542,6 +590,14 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
           durationSeconds: 0,
         ),
       ];
+    }
+
+    if (mode == TravelMode.car) {
+      plans = await _withDropOffOptions(
+        from: from,
+        dest: dest,
+        plans: plans,
+      );
     }
 
     final altPolylines = plans
@@ -625,11 +681,6 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     }
 
     if (!mounted) return;
-    final forecast = _forecastAlerts(
-      polyline,
-      plan.durationSeconds,
-      onRoute,
-    );
     _rememberSnapshot(
       duration: plan.durationSeconds,
       distance: plan.distanceMeters,
@@ -638,6 +689,41 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     );
     _invalidateMetrics();
     final navigating = startFollowing || state.navigating;
+    final isDrop = plan.isDropOff;
+    final walkPts = plan.walkPoints
+        .map((c) => LatLng(c[1], c[0]))
+        .where((p) => p.latitude.isFinite && p.longitude.isFinite)
+        .toList();
+    var alerts = _forecastAlerts(
+      polyline,
+      plan.durationSeconds,
+      onRoute,
+    );
+    if (isDrop && !navigating) {
+      alerts = [
+        RouteChangeAlert(
+          id: 'dropoff-${plan.dropOff?.lat}-${plan.dropOff?.lon}',
+          kind: RouteAlertKind.detour,
+          title: 'Sosta e ultimi metri a piedi',
+          message: _dropOffMessage(plan),
+          at: DateTime.now(),
+          critical: true,
+        ),
+        ...alerts,
+      ];
+    } else if (plan.isDriveToDoor && !navigating) {
+      alerts = [
+        RouteChangeAlert(
+          id: 'door-lez-${plan.zoneName}',
+          kind: RouteAlertKind.newZone,
+          title: 'Tratto in milieuzone',
+          message: _doorWarning(plan),
+          at: DateTime.now(),
+          critical: true,
+        ),
+        ...alerts,
+      ];
+    }
     state = state.copyWith(
       route: polyline,
       steps: plan.steps,
@@ -651,8 +737,21 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       mode: plan.mode,
       routeDistanceMeters: plan.distanceMeters,
       routeDurationSeconds: plan.durationSeconds,
-      alerts: _mergeAlerts(forecast, replaceForecast: true),
+      alerts: _mergeAlerts(alerts, replaceForecast: true),
       lastMonitoredAt: DateTime.now(),
+      recalculating: false,
+      usingDropOff: isDrop,
+      walkLegActive: false,
+      dropOff: isDrop ? plan.dropOff : null,
+      walkRoute: isDrop ? walkPts : const [],
+      walkSteps: isDrop ? plan.walkSteps : const [],
+      walkMeters: isDrop ? plan.walkMeters : null,
+      dropOffMessage: isDrop
+          ? _dropOffMessage(plan)
+          : (plan.isDriveToDoor ? _doorWarning(plan) : null),
+      clearDropOff: !isDrop,
+      clearWalkMeters: !isDrop,
+      clearDropOffMessage: !isDrop && !plan.isDriveToDoor,
     );
     if (navigating) {
       _ref.read(locationProvider.notifier).setFollow(true);
@@ -668,6 +767,186 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     }
     if (out.last != route.last) out.add(route.last);
     return out;
+  }
+
+  String _dropOffMessage(RoutePlan plan) {
+    final walk = formatDistance(plan.walkMeters);
+    final zone = (plan.zoneName ?? '').trim();
+    final zoneBit = zone.isEmpty ? 'la milieuzone' : zone;
+    if ((plan.insideZoneMeters ?? 0) >= kLongLezDriveMeters) {
+      return 'Il percorso fino alla porta ti fa percorrere tanta $zoneBit. '
+          'Meglio avvicinarti e poi camminare $walk.';
+    }
+    return 'Destinazione dentro $zoneBit e il veicolo non è autorizzato. '
+        'Avvicinati al bordo e cammina $walk.';
+  }
+
+  String _doorWarning(RoutePlan plan) {
+    final zone = (plan.zoneName ?? 'milieuzone').trim();
+    return 'Attenzione: tratto lungo in $zone. Veicolo non autorizzato.';
+  }
+
+  PlaceHit? get _rerouteTarget {
+    if (state.walkLegActive) return state.destination;
+    if (state.usingDropOff && state.dropOff != null) return state.dropOff;
+    return state.destination;
+  }
+
+  TravelMode get _rerouteMode {
+    if (state.walkLegActive) return TravelMode.foot;
+    return state.mode;
+  }
+
+  Future<List<RoutePlan>> _withDropOffOptions({
+    required ({double lat, double lon}) from,
+    required PlaceHit dest,
+    required List<RoutePlan> plans,
+  }) async {
+    final zones = _ref.read(zonesProvider).valueOrNull ?? const <EmissionZone>[];
+    final vehicle = _ref.read(vehicleProvider).valueOrNull;
+    final denying = denyingZonesAt(
+      lat: dest.lat,
+      lon: dest.lon,
+      zones: zones,
+      vehicle: vehicle,
+    );
+    if (denying.isEmpty) return plans;
+    if (!originOutsideDenyingZones(
+      lat: from.lat,
+      lon: from.lon,
+      denyingZones: denying,
+    )) {
+      return plans;
+    }
+
+    final door = plans.first;
+    final doorPath = door.points
+        .map((c) => c.length >= 2 ? <double>[c[1], c[0]] : const <double>[])
+        .where((c) => c.length >= 2)
+        .toList();
+    final insideM = insideDriveMetersFor(doorPath, denying);
+    final hint = suggestDropOff(
+      destLat: dest.lat,
+      destLon: dest.lon,
+      denyingZones: denying,
+      insideDriveMeters: insideM,
+      originLat: from.lat,
+      originLon: from.lon,
+      originKnown: true,
+    );
+    if (hint == null) return plans;
+
+    RoutePlan? carToCurb;
+    RoutePlan? walkToDoor;
+    try {
+      final carBundle = await _service.route(
+        fromLat: from.lat,
+        fromLon: from.lon,
+        toLat: hint.lat,
+        toLon: hint.lon,
+        mode: TravelMode.car,
+      );
+      carToCurb = carBundle.alternatives.where((p) => p.points.isNotEmpty).isEmpty
+          ? null
+          : carBundle.alternatives.where((p) => p.points.isNotEmpty).first;
+      final walkBundle = await _service.route(
+        fromLat: hint.lat,
+        fromLon: hint.lon,
+        toLat: dest.lat,
+        toLon: dest.lon,
+        mode: TravelMode.foot,
+      );
+      walkToDoor = walkBundle.alternatives
+          .where((p) => p.points.isNotEmpty)
+          .firstOrNull;
+    } catch (_) {
+      return plans;
+    }
+    if (carToCurb == null || walkToDoor == null) return plans;
+
+    final curbInside = insideDriveMetersFor(
+      carToCurb.points
+          .map((c) => c.length >= 2 ? <double>[c[1], c[0]] : const <double>[])
+          .where((c) => c.length >= 2)
+          .toList(),
+      denying,
+    );
+    if (curbInside > insideM && curbInside > 80) {
+      return plans;
+    }
+
+    final dropHit = PlaceHit(
+      label: 'Sosta a ${formatDistance(hint.walkMeters)} a piedi',
+      lat: hint.lat,
+      lon: hint.lon,
+    );
+    final recommended = carToCurb.copyWith(
+      kind: RouteOptionKind.dropOff,
+      walkMeters: walkToDoor.distanceMeters > 0
+          ? walkToDoor.distanceMeters
+          : hint.walkMeters,
+      dropOff: dropHit,
+      walkPoints: walkToDoor.points,
+      walkSteps: walkToDoor.steps,
+      insideZoneMeters: insideM,
+      zoneName: hint.zone.name,
+      durationSeconds: carToCurb.durationSeconds + walkToDoor.durationSeconds,
+    );
+    final warnedDoor = door.copyWith(
+      kind: RouteOptionKind.driveToDoor,
+      insideZoneMeters: insideM,
+      zoneName: hint.zone.name,
+    );
+    final rest = plans.skip(1).where((p) => !identical(p, door)).toList();
+    return [recommended, warnedDoor, ...rest];
+  }
+
+  Future<void> _startWalkRemainder() async {
+    if (!mounted || !state.usingDropOff || state.walkLegActive) return;
+    final dest = state.destination;
+    var walk = state.walkRoute;
+    var steps = state.walkSteps;
+    var meters = state.walkMeters ?? 0;
+    var seconds = meters > 0 ? meters / 1.3 : 0.0;
+    if (walk.length < 2 && dest != null) {
+      final loc = _ref.read(locationProvider);
+      if (loc.latitude == null || loc.longitude == null) return;
+      try {
+        final bundle = await _service.route(
+          fromLat: loc.latitude!,
+          fromLon: loc.longitude!,
+          toLat: dest.lat,
+          toLon: dest.lon,
+          mode: TravelMode.foot,
+        );
+        final plan = bundle.alternatives
+            .where((p) => p.points.isNotEmpty)
+            .firstOrNull;
+        if (plan != null) {
+          walk = plan.points.map((c) => LatLng(c[1], c[0])).toList();
+          steps = plan.steps;
+          meters = plan.distanceMeters;
+          seconds = plan.durationSeconds;
+        }
+      } catch (_) {}
+    }
+    if (walk.length < 2) return;
+    _invalidateMetrics();
+    state = state.copyWith(
+      route: walk,
+      steps: steps,
+      mode: TravelMode.foot,
+      walkLegActive: true,
+      navigating: true,
+      routing: false,
+      recalculating: false,
+      routeDistanceMeters: meters,
+      routeDurationSeconds: seconds,
+      alternativeRoutes: const [],
+      selectedRoute: 0,
+    );
+    _ref.read(locationProvider.notifier).setFollow(true);
+    _armMonitor();
   }
 
   void stopNavigation() {
@@ -732,7 +1011,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
 
   Future<void> _refreshRouteConditions() async {
     if (_monitoring || !mounted || state.routing || !state.hasRoute) return;
-    final dest = state.destination;
+    final dest = _rerouteTarget;
     if (dest == null) return;
     final from = _originCoords();
     if (from == null) return;
@@ -744,7 +1023,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
         fromLon: from.lon,
         toLat: dest.lat,
         toLon: dest.lon,
-        mode: _travelMode,
+        mode: _rerouteMode,
       );
       final plans = bundle.alternatives.where((p) => p.points.isNotEmpty).toList();
       if (plans.isEmpty || !mounted) return;
@@ -835,7 +1114,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
           limits: limits,
           annotationSpeeds: plan.speeds,
           zonesOnRoute: onRoute,
-          mode: plan.mode,
+          mode: _rerouteMode,
           routeDistanceMeters: plan.distanceMeters,
           routeDurationSeconds: plan.durationSeconds,
           alerts: _mergeAlerts(incoming),
@@ -1029,8 +1308,23 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
   }
 
   void _onGps(LocationState loc) {
-    if (!state.navigating || !state.hasRoute || state.routing) return;
+    if (!state.navigating || !state.hasRoute) return;
     if (loc.latitude == null || loc.longitude == null) return;
+    if (state.usingDropOff &&
+        !state.walkLegActive &&
+        state.dropOff != null) {
+      final toCurb = haversineMeters(
+        loc.latitude!,
+        loc.longitude!,
+        state.dropOff!.lat,
+        state.dropOff!.lon,
+      );
+      if (toCurb < 45) {
+        unawaited(_startWalkRemainder());
+        return;
+      }
+    }
+    if (state.routing) return;
     final info = liveInfo(
       loc.latitude!,
       loc.longitude!,
@@ -1039,34 +1333,61 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       speedMps: loc.speed,
     );
     if (!info.offRoute) return;
-    final accuracy = loc.accuracy ?? 0;
-    if (accuracy >= 50) return;
     unawaited(_rerouteFromLiveGps());
   }
 
   Future<void> _rerouteFromLiveGps() async {
-    if (_checking || !mounted || state.routing || !state.navigating) return;
-    final dest = state.destination;
+    if (_checking || !mounted || !state.navigating) return;
+    final dest = _rerouteTarget;
     if (dest == null) return;
     final now = DateTime.now();
     if (_lastRerouteAt != null &&
-        now.difference(_lastRerouteAt!) < const Duration(seconds: 8)) {
+        now.difference(_lastRerouteAt!) < const Duration(seconds: 4)) {
       return;
     }
     final loc = _ref.read(locationProvider);
     if (loc.latitude == null || loc.longitude == null) return;
     _lastRerouteAt = now;
     _checking = true;
+    final previous = state;
+    state = state.copyWith(
+      recalculating: true,
+      originIsMyLocation: true,
+      origin: PlaceHit(
+        label: 'La mia posizione',
+        lat: loc.latitude!,
+        lon: loc.longitude!,
+      ),
+    );
     try {
       final bundle = await _service.route(
         fromLat: loc.latitude!,
         fromLon: loc.longitude!,
         toLat: dest.lat,
         toLon: dest.lon,
-        mode: _travelMode,
+        mode: _rerouteMode,
       );
-      final plans = bundle.alternatives.where((p) => p.points.isNotEmpty).toList();
-      if (plans.isEmpty || !mounted) return;
+      final plans =
+          bundle.alternatives.where((p) => p.points.isNotEmpty).toList();
+      if (!mounted) return;
+      if (plans.isEmpty) {
+        state = previous.copyWith(recalculating: false);
+        return;
+      }
+      var plan = plans.first;
+      if (previous.usingDropOff &&
+          !previous.walkLegActive &&
+          previous.dropOff != null) {
+        plan = plan.copyWith(
+          kind: RouteOptionKind.dropOff,
+          walkMeters: previous.walkMeters,
+          dropOff: previous.dropOff,
+          walkPoints: previous.walkRoute
+              .map((p) => <double>[p.longitude, p.latitude])
+              .toList(),
+          walkSteps: previous.walkSteps,
+        );
+      }
       final altPolylines = plans
           .map((p) => p.points.map((c) => LatLng(c[1], c[0])).toList())
           .toList();
@@ -1074,14 +1395,38 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
         alternatives: plans,
         alternativeRoutes: altPolylines,
         selectedRoute: 0,
+        recalculating: false,
       );
       await _applyPlan(
-        plans.first,
+        plan,
         altPolylines.first,
         startFollowing: true,
       );
+      if (previous.usingDropOff && !previous.walkLegActive) {
+        state = state.copyWith(
+          usingDropOff: true,
+          walkLegActive: false,
+          dropOff: previous.dropOff,
+          walkRoute: previous.walkRoute,
+          walkSteps: previous.walkSteps,
+          walkMeters: previous.walkMeters,
+          dropOffMessage: previous.dropOffMessage,
+        );
+      }
+      if (previous.walkLegActive) {
+        state = state.copyWith(
+          usingDropOff: true,
+          walkLegActive: true,
+          mode: TravelMode.foot,
+          dropOff: previous.dropOff,
+          walkMeters: previous.walkMeters,
+          dropOffMessage: previous.dropOffMessage,
+        );
+      }
       _armMonitor();
     } catch (_) {
+      if (!mounted) return;
+      state = previous.copyWith(recalculating: false);
     } finally {
       _checking = false;
     }
@@ -1107,6 +1452,10 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     }
 
     final metrics = _routeMetrics();
+    final acc = accuracy ?? 0;
+    final threshold = acc > 40
+        ? (acc * 0.55 + 45).clamp(90.0, 180.0).toDouble()
+        : kOffRouteMeters;
     final fix = computeGuidance(
       lat: lat,
       lon: lon,
@@ -1114,7 +1463,32 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       route: state.route,
       steps: state.steps,
       metrics: metrics,
+      offRouteThreshold: threshold,
     );
+
+    final target = _rerouteTarget;
+    final crowToTarget = target == null
+        ? fix.remainingMeters
+        : haversineMeters(lat, lon, target.lat, target.lon);
+    var offRoute = fix.offRoute;
+    if (crowToTarget > 80 && fix.remainingMeters < 40) {
+      offRoute = true;
+    }
+
+    var remainingMeters = offRoute ? crowToTarget : fix.remainingMeters;
+    if (state.usingDropOff && !state.walkLegActive && !offRoute) {
+      remainingMeters += state.walkMeters ?? 0;
+    }
+
+    NavStep? step = fix.currentStep;
+    if (offRoute || state.recalculating) {
+      step = const NavStep(
+        type: 'continue',
+        modifier: '',
+        name: 'Ricalcolo percorso',
+        distanceMeters: 0,
+      );
+    }
 
     int? limit;
     final cum = metrics?.cum;
@@ -1177,15 +1551,18 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     var remainingSeconds = state.routeDurationSeconds ?? 0;
     final totalDist = metrics?.totalMeters ?? state.routeDistanceMeters;
     final totalDur = state.routeDurationSeconds;
-    if (totalDist != null && totalDist > 0 && totalDur != null) {
+    if (totalDist != null && totalDist > 0 && totalDur != null && !offRoute) {
       remainingSeconds = fix.remainingMeters / totalDist * totalDur;
+    } else if (offRoute && remainingMeters > 0) {
+      remainingSeconds = remainingMeters / 11.0;
     }
 
     return LiveNavInfo(
-      currentStep: fix.currentStep,
+      currentStep: step,
       stepIndex: fix.stepIndex,
-      metersToManeuver: fix.metersToManeuver,
-      remainingMeters: fix.remainingMeters,
+      metersToManeuver:
+          offRoute || state.recalculating ? remainingMeters : fix.metersToManeuver,
+      remainingMeters: remainingMeters,
       remainingSeconds: remainingSeconds,
       speedLimitKmh: limit,
       speedKmh: gpsSpeedKmh(speedMps),
@@ -1193,7 +1570,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       nextCameraMeters: cameraMeters,
       currentZone: currentZone,
       offRouteMeters: fix.offRouteMeters,
-      offRoute: fix.offRoute && (accuracy == null || accuracy < 50),
+      offRoute: offRoute,
     );
   }
 

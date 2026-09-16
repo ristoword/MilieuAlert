@@ -102,6 +102,19 @@ void main() {
     expect(off.offRoute, isTrue);
   });
 
+  test('does not treat a missed turn near the destination as arrival', () {
+    final end = route.last;
+    final besideEnd = computeGuidance(
+      lat: end.latitude,
+      lon: lon + 0.003,
+      route: route,
+      steps: steps,
+    );
+    expect(besideEnd.offRoute, isTrue);
+    final crow = haversineMeters(end.latitude, lon + 0.003, end.latitude, lon);
+    expect(crow, greaterThan(80));
+  });
+
   test('parses real OSRM lanes and never invents extras', () {
     final step = NavStep.fromJson({
       'type': 'continue',

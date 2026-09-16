@@ -551,8 +551,22 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     ),
                     Polyline(
                       points: nav.route,
-                      color: MapsColors.route,
+                      color: nav.walkLegActive
+                          ? MapsColors.accent
+                          : MapsColors.route,
                       strokeWidth: 7,
+                    ),
+                  ],
+                ),
+              if (nav.usingDropOff &&
+                  !nav.walkLegActive &&
+                  nav.walkRoute.length >= 2)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: nav.walkRoute,
+                      color: MapsColors.accent,
+                      strokeWidth: 5,
                     ),
                   ],
                 ),
@@ -590,6 +604,20 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       Icons.location_on,
                       color: MapsColors.endRed,
                       size: 36,
+                    ),
+                  ),
+                if (nav.usingDropOff &&
+                    !nav.walkLegActive &&
+                    nav.dropOff != null)
+                  Marker(
+                    point: LatLng(nav.dropOff!.lat, nav.dropOff!.lon),
+                    width: 34,
+                    height: 34,
+                    rotate: true,
+                    child: const Icon(
+                      Icons.local_parking_rounded,
+                      color: MapsColors.accent,
+                      size: 30,
                     ),
                   ),
               ]),

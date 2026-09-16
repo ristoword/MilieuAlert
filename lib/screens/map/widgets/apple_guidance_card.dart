@@ -54,6 +54,20 @@ IconData mapsTurnIcon(NavStep? step) {
 }
 
 String mapsInstruction(LiveNavInfo? live, NavigationState nav) {
+  if (nav.recalculating || live?.offRoute == true) {
+    return 'Ricalcolo percorso';
+  }
+  if (nav.usingDropOff &&
+      !nav.walkLegActive &&
+      live?.currentStep?.type == 'arrive') {
+    final walk = formatDistance(nav.walkMeters);
+    return 'Sosta, poi $walk a piedi';
+  }
+  if (nav.walkLegActive) {
+    final step = live?.currentStep;
+    if (step != null && step.type != 'arrive') return step.instructionIt;
+    return 'Cammina verso destinazione';
+  }
   final step = live?.currentStep;
   if (step != null) return step.instructionIt;
   if (nav.destination != null) {
@@ -76,6 +90,7 @@ class AppleGuidanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final rerouting = nav.recalculating || live?.offRoute == true;
     final step = live?.currentStep;
     final meters = live?.metersToManeuver ??
         live?.remainingMeters ??
@@ -83,16 +98,32 @@ class AppleGuidanceCard extends StatelessWidget {
     final dist = formatDistance(meters);
     final nearAlight =
         step?.isTransitVehicle == true && (meters ?? 9999) <= 80;
-    final action = nearAlight
-        ? (step?.alightActionIt ?? mapsInstruction(live, nav))
-        : (step?.maneuverIt ?? mapsInstruction(live, nav));
-    var street = step?.hudSubtitle(metersToManeuver: meters) ?? '';
+    final action = rerouting
+        ? 'Ricalcolo percorso'
+        : nav.walkLegActive && (step == null || step.type == 'arrive')
+            ? 'Cammina verso destinazione'
+            : nearAlight
+                ? (step?.alightActionIt ?? mapsInstruction(live, nav))
+                : (step?.maneuverIt ?? mapsInstruction(live, nav));
+    var street = rerouting
+        ? (nav.destination?.label ?? '')
+        : (step?.hudSubtitle(metersToManeuver: meters) ?? '');
     if (street.isEmpty &&
         step?.isWalkAction != true &&
         step?.isTransitVehicle != true) {
       street = nav.destination?.label ?? '';
     }
-    final lanes = nav.mode.isCar ? (step?.lanes ?? const <NavLane>[]) : const <NavLane>[];
+    if (nav.usingDropOff && !nav.walkLegActive && !rerouting) {
+      street = 'Poi ${formatDistance(nav.walkMeters)} a piedi';
+    }
+    final lanes = !rerouting && nav.mode.isCar
+        ? (step?.lanes ?? const <NavLane>[])
+        : const <NavLane>[];
+    final icon = rerouting
+        ? Icons.sync_rounded
+        : nav.walkLegActive
+            ? Icons.directions_walk_rounded
+            : mapsTurnIcon(step);
 
     return MapsGlass(
       radius: 20,
@@ -111,7 +142,7 @@ class AppleGuidanceCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
-                    mapsTurnIcon(step),
+                    icon,
                     color: MapsColors.route,
                     size: 32,
                   ),
