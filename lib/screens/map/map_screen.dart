@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -90,6 +92,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   double _lastAutoRotation = 0;
   LatLng? _lastAutoCenter;
   double? _pendingZoom;
+  Timer? _northUpPeek;
   static const _puckScreenOffset = Offset(0, 118);
 
   @override
@@ -183,7 +186,24 @@ class _MapScreenState extends ConsumerState<MapScreen>
     return nav.navigating && nav.mode != TravelMode.transit;
   }
 
+  void _cancelNorthUpPeek() {
+    _northUpPeek?.cancel();
+    _northUpPeek = null;
+  }
+
+  void _scheduleCourseUpResume() {
+    _cancelNorthUpPeek();
+    _northUpPeek = Timer(kNorthUpPeekDuration, () {
+      if (!mounted) return;
+      final nav = ref.read(navigationProvider);
+      if (!_wantsCourseUp(nav)) return;
+      if (!ref.read(locationProvider).follow) return;
+      _startCourseUp();
+    });
+  }
+
   void _startCourseUp({double? zoom}) {
+    _cancelNorthUpPeek();
     if (!_headingUp) {
       setState(() => _headingUp = true);
     }
@@ -206,6 +226,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   @override
   void dispose() {
+    _cancelNorthUpPeek();
     WidgetsBinding.instance.removeObserver(this);
     try {
       ref.read(locationProvider.notifier).liveFix.removeListener(_onLiveFix);
@@ -306,11 +327,29 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   void _onCompassTap() {
+    final nav = ref.read(navigationProvider);
     final follow = ref.read(locationProvider).follow;
     if (!follow) {
       _startCourseUp();
       return;
     }
+    // During guidance, heading-up stays the default. Tap peeks north-up,
+    // then course-up resumes automatically.
+    if (_wantsCourseUp(nav)) {
+      if (_headingUp) {
+        setState(() => _headingUp = false);
+        _withProgrammaticCamera(() {
+          _mapController.rotate(0);
+          _lastAutoRotation = 0;
+        });
+        _applyLiveCamera();
+        _scheduleCourseUpResume();
+      } else {
+        _startCourseUp();
+      }
+      return;
+    }
+    _cancelNorthUpPeek();
     setState(() => _headingUp = !_headingUp);
     if (!_headingUp) {
       _withProgrammaticCamera(() {
@@ -356,6 +395,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       paused = true;
     }
     if (paused) {
+      _cancelNorthUpPeek();
       ref.read(locationProvider.notifier).setFollow(false);
     }
   }
@@ -446,7 +486,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
     ref.read(locationProvider.notifier).setFollow(true);
     ref.read(locationProvider.notifier).startTracking();
     if (_wantsCourseUp(nav)) {
-      setState(() => _headingUp = true);
+      _startCourseUp(zoom: 16);
+      return;
     }
     _applyLiveCamera(zoom: 16);
   }
@@ -539,6 +580,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
               _trayExpanded = false;
               if (!_userSetMapMode) _tilt3d = false;
               _headingUp = false;
+              _cancelNorthUpPeek();
               _withProgrammaticCamera(() {
                 _mapController.rotate(0);
                 _lastAutoRotation = 0;
