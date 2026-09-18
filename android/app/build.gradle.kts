@@ -15,7 +15,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.milieuzone.milieu_alert"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -27,8 +27,8 @@ android {
     defaultConfig {
         applicationId = "com.milieuzone.milieu_alert"
         minSdk = flutter.minSdkVersion
-        targetSdk = 35
-        versionCode = 2
+        targetSdk = 36
+        versionCode = 3
         versionName = "1.0.1"
         multiDexEnabled = true
         resConfigs("nl", "it", "en")
