@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../l10n/l10n_ext.dart';
 import '../../../models/navigation_models.dart';
 import '../../../models/zone_status.dart';
 import '../../../providers/navigation_provider.dart';
@@ -53,28 +55,34 @@ IconData mapsTurnIcon(NavStep? step) {
   }
 }
 
-String mapsInstruction(LiveNavInfo? live, NavigationState nav) {
+String mapsInstruction(
+  LiveNavInfo? live,
+  NavigationState nav, [
+  AppLocalizations? l10n,
+]) {
+  final t = l10n;
   if (nav.recalculating || live?.offRoute == true) {
-    return 'Ricalcolo percorso';
+    return t?.recalculatingRoute ?? 'Ricalcolo percorso';
   }
   if (nav.usingDropOff &&
       !nav.walkLegActive &&
       live?.currentStep?.type == 'arrive') {
     final walk = formatDistance(nav.walkMeters);
-    return 'Sosta, poi $walk a piedi';
+    return t?.stopThenWalk(walk) ?? 'Sosta, poi $walk a piedi';
   }
   if (nav.walkLegActive) {
     final step = live?.currentStep;
     if (step != null && step.type != 'arrive') return step.instructionIt;
-    return 'Cammina verso destinazione';
+    return t?.walkTowardsDestination ?? 'Cammina verso destinazione';
   }
   final step = live?.currentStep;
   if (step != null) return step.instructionIt;
   if (nav.destination != null) {
-    return 'Verso ${nav.destination!.label}';
+    return t?.towardsDestination(nav.destination!.label) ??
+        'Verso ${nav.destination!.label}';
   }
-  if (nav.hasRoute) return 'Percorso pronto';
-  return 'Nessun percorso';
+  if (nav.hasRoute) return t?.routeReady ?? 'Percorso pronto';
+  return t?.noRoute ?? 'Nessun percorso';
 }
 
 class AppleGuidanceCard extends StatelessWidget {
@@ -90,6 +98,7 @@ class AppleGuidanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = l10nOf(context);
     final rerouting = nav.recalculating || live?.offRoute == true;
     final step = live?.currentStep;
     final meters = live?.metersToManeuver ??
@@ -99,12 +108,12 @@ class AppleGuidanceCard extends StatelessWidget {
     final nearAlight =
         step?.isTransitVehicle == true && (meters ?? 9999) <= 80;
     final action = rerouting
-        ? 'Ricalcolo percorso'
+        ? l10n.recalculatingRoute
         : nav.walkLegActive && (step == null || step.type == 'arrive')
-            ? 'Cammina verso destinazione'
+            ? l10n.walkTowardsDestination
             : nearAlight
-                ? (step?.alightActionIt ?? mapsInstruction(live, nav))
-                : (step?.maneuverIt ?? mapsInstruction(live, nav));
+                ? (step?.alightActionIt ?? mapsInstruction(live, nav, l10n))
+                : (step?.maneuverIt ?? mapsInstruction(live, nav, l10n));
     var street = rerouting
         ? (nav.destination?.label ?? '')
         : (step?.hudSubtitle(metersToManeuver: meters) ?? '');
@@ -114,7 +123,7 @@ class AppleGuidanceCard extends StatelessWidget {
       street = nav.destination?.label ?? '';
     }
     if (nav.usingDropOff && !nav.walkLegActive && !rerouting) {
-      street = 'Poi ${formatDistance(nav.walkMeters)} a piedi';
+      street = l10n.thenWalk(formatDistance(nav.walkMeters));
     }
     final lanes = !rerouting && nav.mode.isCar
         ? (step?.lanes ?? const <NavLane>[])

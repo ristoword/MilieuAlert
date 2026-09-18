@@ -5,6 +5,7 @@ import '../../models/vehicle.dart';
 import '../../providers/vehicle_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../core/widgets/install_app_button.dart';
+import '../../l10n/l10n_ext.dart';
 
 class VehicleSetupScreen extends ConsumerStatefulWidget {
   const VehicleSetupScreen({super.key});
@@ -49,10 +50,11 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = l10nOf(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Vehicle Setup'),
+        title: Text(l10n.onboardingVehicleTitle),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/onboarding/language'),
@@ -64,19 +66,19 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Tell us about your vehicle',
+              l10n.vehicleDescription,
               style: theme.textTheme.titleLarge
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
-              'This information helps determine if your vehicle is allowed in emission zones.',
+              l10n.vehicleDescriptionSubtext,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 24),
-            _sectionLabel('Vehicle Type'),
+            _sectionLabel(l10n.vehicleType),
             DropdownButtonFormField<VehicleType>(
               initialValue: _vehicleType,
               decoration: const InputDecoration(
@@ -86,7 +88,7 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
               items: VehicleType.values
                   .map((t) => DropdownMenuItem(
                         value: t,
-                        child: Text(_vehicleTypeLabel(t)),
+                        child: Text(localizedVehicleType(l10n, t)),
                       ))
                   .toList(),
               onChanged: (v) {
@@ -94,7 +96,7 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
               },
             ),
             const SizedBox(height: 16),
-            _sectionLabel('Fuel Type'),
+            _sectionLabel(l10n.fuelType),
             DropdownButtonFormField<FuelType>(
               initialValue: _fuelType,
               decoration: const InputDecoration(
@@ -104,7 +106,7 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
               items: FuelType.values
                   .map((f) => DropdownMenuItem(
                         value: f,
-                        child: Text(f.label),
+                        child: Text(localizedFuelType(l10n, f)),
                       ))
                   .toList(),
               onChanged: (v) {
@@ -112,7 +114,7 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
               },
             ),
             const SizedBox(height: 16),
-            _sectionLabel('Euro Class'),
+            _sectionLabel(l10n.euroClass),
             DropdownButtonFormField<EuroClass>(
               initialValue: _euroClass,
               decoration: const InputDecoration(
@@ -130,18 +132,18 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
               },
             ),
             const SizedBox(height: 16),
-            _sectionLabel('License Plate (optional)'),
+            _sectionLabel(l10n.licensePlate),
             TextFormField(
               controller: _licensePlateController,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: 'e.g. AB-123-CD',
-                prefixIcon: Icon(Icons.pin),
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                hintText: l10n.licensePlateHint,
+                prefixIcon: const Icon(Icons.pin),
               ),
               textCapitalization: TextCapitalization.characters,
             ),
             const SizedBox(height: 16),
-            _sectionLabel('Country of Registration'),
+            _sectionLabel(l10n.country),
             DropdownButtonFormField<String>(
               initialValue: _country,
               decoration: const InputDecoration(
@@ -174,8 +176,8 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text(
-                        'Save & Continue',
+                    : Text(
+                        l10n.saveAndContinue,
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold),
                       ),
@@ -199,21 +201,6 @@ class _VehicleSetupScreenState extends ConsumerState<VehicleSetupScreen> {
             ),
       ),
     );
-  }
-
-  String _vehicleTypeLabel(VehicleType type) {
-    switch (type) {
-      case VehicleType.car:
-        return 'Car';
-      case VehicleType.van:
-        return 'Van';
-      case VehicleType.truck:
-        return 'Truck';
-      case VehicleType.camper:
-        return 'Camper';
-      case VehicleType.motorcycle:
-        return 'Motorcycle';
-    }
   }
 
   Future<void> _saveVehicle() async {

@@ -2,8 +2,25 @@
   "@@locale": "it",
   "appTitle": "MilieuAlert",
   "alertApproaching": "Attenzione: tra {distance} metri entrerai nella {zoneName}.",
+  "@alertApproaching": {
+    "placeholders": {
+      "distance": {"type": "int"},
+      "zoneName": {"type": "String"}
+    }
+  },
   "alertEntering": "Stai entrando nella {zoneName}.",
+  "@alertEntering": {
+    "placeholders": {
+      "zoneName": {"type": "String"}
+    }
+  },
   "alertNotAuthorized": "Il tuo veicolo {euroClass} {fuelType} potrebbe non essere autorizzato a circolare in questa zona.",
+  "@alertNotAuthorized": {
+    "placeholders": {
+      "euroClass": {"type": "String"},
+      "fuelType": {"type": "String"}
+    }
+  },
   "alertAuthorized": "Il tuo veicolo è autorizzato a circolare in questa zona.",
   "alertLeaving": "Zona a basse emissioni terminata.",
   "onboardingLanguageTitle": "Seleziona Lingua",
@@ -57,7 +74,17 @@
   "speed": "Velocità",
   "kmh": "km/h",
   "meters": "{count} m",
+  "@meters": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "kilometers": "{count} km",
+  "@kilometers": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "environmentalZone": "Zona Ambientale",
   "zeroEmissionZone": "Zona a Zero Emissioni",
   "noZonesNearby": "Nessuna zona nelle vicinanze",
@@ -65,18 +92,258 @@
   "syncComplete": "Dati zone aggiornati",
   "syncError": "Sincronizzazione fallita",
   "approachingZone": "Avvicinamento a {zoneName} - {distance}m",
+  "@approachingZone": {
+    "placeholders": {
+      "zoneName": {"type": "String"},
+      "distance": {"type": "int"}
+    }
+  },
   "insideZoneAuthorized": "Dentro {zoneName} - Veicolo autorizzato",
+  "@insideZoneAuthorized": {
+    "placeholders": {
+      "zoneName": {"type": "String"}
+    }
+  },
   "insideZoneNotAuthorized": "⚠ Veicolo NON autorizzato in {zoneName}",
+  "@insideZoneNotAuthorized": {
+    "placeholders": {
+      "zoneName": {"type": "String"}
+    }
+  },
   "loading": "Caricamento...",
   "error": "Errore",
   "retry": "Riprova",
   "cancel": "Annulla",
   "ok": "OK",
   "appVersion": "MilieuAlert v{version}",
+  "@appVersion": {
+    "placeholders": {
+      "version": {"type": "String"}
+    }
+  },
   "licensePlateHint": "es. AB-123-CD",
   "locationPermissionRequired": "Il permesso di localizzazione è necessario per gli avvisi sulle zone",
   "notificationPermissionRequired": "Il permesso di notifica è necessario per gli avvisi sulle zone",
   "backgroundLocationRequired": "La localizzazione in background è necessaria per avvisarti durante la guida",
   "grantPermission": "Concedi Permesso",
-  "euro": "Euro {level}"
+  "paywallExpiredTitle": "15 giorni scaduti",
+  "paywallExpiredBody": "2,99 euro al mese per sbloccare tutto: milieuzone, autovelox, EcoEntry. Resta il navigatore base (mappa, percorso A-B, heading-up, metri).",
+  "paywallUnlock": "Sblocca tutto — 2,99 €/mese",
+  "paywallTrialTitle": "Prova 15 giorni",
+  "paywallTrialDays": "Prova: {days} giorni rimasti",
+  "@paywallTrialDays": {
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+  "paywallTrialHint": "Poi 2,99 €/mese per milieuzone, autovelox, EcoEntry.",
+  "paywallRedeem": "Ho un codice / licenza GS",
+  "euro": "Euro {level}",
+  "@euro": {
+    "placeholders": {
+      "level": {"type": "int"}
+    }
+  },
+  "searchPlace": "Cerca un luogo",
+  "searchPlaceOrAddress": "Cerca un luogo o un indirizzo",
+  "fromMyLocation": "Da: La mia posizione",
+  "myLocation": "La mia posizione",
+  "useMyLocation": "Usa la mia posizione",
+  "swapOriginDestination": "Inverti A e B",
+  "go": "VAI",
+  "calculating": "Calcolo…",
+  "goHint": "Tocca VAI per partire",
+  "goHintLez": "Milieuzone sul percorso — tocca VAI",
+  "travelCar": "Auto",
+  "travelFoot": "A piedi",
+  "travelTransit": "Mezzi",
+  "noResultsNearby": "Nessun risultato in zona",
+  "noZones": "Nessuna zona",
+  "zonesOnRouteCount": "{count} milieuzone",
+  "@zonesOnRouteCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "noSpeedCameras": "Nessun autovelox",
+  "speedCamerasCount": "{count} autovelox",
+  "@speedCamerasCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "lezOnRoute": "Milieuzone sul percorso",
+  "lezOnChosenRoute": "Zona ambientale sul tragitto scelto",
+  "dropoffRecommended": "Consigliato: sosta e a piedi",
+  "places": "Luoghi",
+  "recents": "Recenti",
+  "itineraries": "Itinerari",
+  "fromOrigin": "Da {origin}",
+  "@fromOrigin": {
+    "placeholders": {
+      "origin": {"type": "String"}
+    }
+  },
+  "environmentalZoneShort": "Zona ambientale",
+  "centered": "Centrato",
+  "recenter": "Ricentra",
+  "overview": "Panoramica",
+  "endNav": "Fine",
+  "noLezOnRoute": "Nessuna milieuzone sul percorso",
+  "routeAvoidsLez": "Il tragitto evita le LEZ evidenziate",
+  "zonesCountEnvironmental": "{count} zona/e ambientali",
+  "@zonesCountEnvironmental": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "walkLeg": "Tratto a piedi",
+  "walkTowards": "Cammina verso {dest}",
+  "@walkTowards": {
+    "placeholders": {
+      "dest": {"type": "String"}
+    }
+  },
+  "walkAfterStop": "{distance} a piedi dopo la sosta",
+  "@walkAfterStop": {
+    "placeholders": {
+      "distance": {"type": "String"}
+    }
+  },
+  "destinationGeneric": "destinazione",
+  "vehicleNotAuthorized": "Veicolo non autorizzato",
+  "vehicleAuthorized": "Veicolo autorizzato",
+  "nearbyEnvironmentalZone": "Zona ambientale vicina",
+  "speedCameraIn": "Autovelox tra {distance}",
+  "@speedCameraIn": {
+    "placeholders": {
+      "distance": {"type": "String"}
+    }
+  },
+  "speedLimitKmh": "Limite {limit} km/h",
+  "@speedLimitKmh": {
+    "placeholders": {
+      "limit": {"type": "String"}
+    }
+  },
+  "speedCheckOnRoute": "Controllo velocità sul percorso",
+  "camerasOnRoute": "{count} autovelox sul percorso",
+  "@camerasOnRoute": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "camerasAsPins": "Mostrati come pin sulla mappa",
+  "transitNoTransfers": "Mezzi · senza cambi",
+  "transitTransfers": "Mezzi · {count} cambio/i",
+  "@transitTransfers": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "approachingZoneMeters": "Zona ambientale tra {distance} m",
+  "@approachingZoneMeters": {
+    "placeholders": {
+      "distance": {"type": "int"}
+    }
+  },
+  "vehicleNotAuthorizedInZone": "{zoneName} · veicolo non autorizzato",
+  "@vehicleNotAuthorizedInZone": {
+    "placeholders": {
+      "zoneName": {"type": "String"}
+    }
+  },
+  "insideZoneName": "Dentro {zoneName}",
+  "@insideZoneName": {
+    "placeholders": {
+      "zoneName": {"type": "String"}
+    }
+  },
+  "askAi": "Chiedi all'AI",
+  "close": "Chiudi",
+  "speedCheckApproaching": "Controllo velocità in avvicinamento",
+  "cameraCommunity": "Non in mappa ufficiale · segnalato da un conducente",
+  "cameraCommunityLimit": "Limite {limit} km/h · segnalato da un conducente",
+  "@cameraCommunityLimit": {
+    "placeholders": {
+      "limit": {"type": "String"}
+    }
+  },
+  "routeZonesCount": "{count} zona/e: {names}",
+  "@routeZonesCount": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "names": {"type": "String"}
+    }
+  },
+  "recalculatingRoute": "Ricalcolo percorso",
+  "stopThenWalk": "Sosta, poi {distance} a piedi",
+  "@stopThenWalk": {
+    "placeholders": {
+      "distance": {"type": "String"}
+    }
+  },
+  "walkTowardsDestination": "Cammina verso destinazione",
+  "towardsDestination": "Verso {dest}",
+  "@towardsDestination": {
+    "placeholders": {
+      "dest": {"type": "String"}
+    }
+  },
+  "routeReady": "Percorso pronto",
+  "noRoute": "Nessun percorso",
+  "thenWalk": "Poi {distance} a piedi",
+  "@thenWalk": {
+    "placeholders": {
+      "distance": {"type": "String"}
+    }
+  },
+  "premiumActive": "Premium attivo",
+  "complimentaryAccount": "Account omaggio — accesso completo",
+  "premiumUnlockedFeatures": "Milieuzone, autovelox, EcoEntry sbloccati",
+  "paywallFeatureAlerts": "Allerte milieuzone / LEZ / ZTL",
+  "paywallFeatureCameras": "Autovelox, flitsers e community",
+  "paywallFeatureEcoentry": "EcoEntry, drop-off, AI, preferiti, POI",
+  "playBillingLine": "Google Play: {productId} · {price} €/mese",
+  "@playBillingLine": {
+    "placeholders": {
+      "productId": {"type": "String"},
+      "price": {"type": "String"}
+    }
+  },
+  "paywallTrialHintShort": "2,99 €/mese: milieuzone, autovelox, EcoEntry.",
+  "personalData": "Dati personali",
+  "name": "Nome",
+  "enterName": "Inserisci il tuo nome",
+  "email": "Email",
+  "enterValidEmail": "Inserisci un'email valida",
+  "newPasswordOptional": "Nuova password (facoltativa)",
+  "leaveBlankPassword": "Lascia vuoto per mantenere quella attuale",
+  "show": "Mostra",
+  "hide": "Nascondi",
+  "atLeast8Chars": "Almeno 8 caratteri",
+  "navVoice": "Voce navigazione",
+  "voiceMale": "Maschile",
+  "voiceFemale": "Femminile",
+  "yourCar": "Il tuo veicolo",
+  "type": "Tipo",
+  "fuel": "Alimentazione",
+  "saving": "Salvataggio…",
+  "savePersonalData": "Salva dati personali",
+  "personalDataSaved": "Dati personali salvati",
+  "savedLocallyServerFailed": "Salvato in locale. Impossibile aggiornare il server.",
+  "aiAssistant": "Assistente AI",
+  "aiAssistantSubtitle": "Chiedi di zone, autovelox e percorso",
+  "installOnPc": "Installa su questo PC",
+  "installOnPcBody": "Aggiungi MilieuAlert come app sul desktop — nessuno store o SDK richiesto.",
+  "signOut": "Esci",
+  "poiRestaurants": "Ristoranti",
+  "poiFuel": "Pompe di benzina",
+  "poiTobacco": "Tabacchi",
+  "poiParking": "Parcheggi",
+  "poiSupermarket": "Supermercati",
+  "poiCafe": "Caffè",
+  "poiPharmacy": "Farmacie",
+  "placeHome": "Casa",
+  "placeWork": "Lavoro"
 }

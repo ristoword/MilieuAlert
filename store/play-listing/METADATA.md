@@ -10,7 +10,7 @@ Package Android: `com.milieuzone.milieu_alert` (diverso da `com.gestionesemplifi
 | Nome app | MilieuAlert |
 | Tipo | App |
 | Categoria | Mappe e navigazione |
-| Gratuita / a pagamento | Gratuita (abbonamento in-app non ancora su Play Billing) |
+| Gratuita / a pagamento | Gratuita + IAP abbonamento `milieualert_premium_2_99` a **2,99 €/mese** |
 | Lingua predefinita | Italiano |
 | Altre lingue scheda | Nederlands, English |
 | Contatto sviluppatore | assistenza@gestionesemplificata.com (stesso di Gestione Semplificata / IoChef) |

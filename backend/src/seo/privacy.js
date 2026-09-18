@@ -69,7 +69,7 @@ const PAGES = {
 <li><strong>Legittimo interesse</strong> (art. 6.1.f): sicurezza del servizio, prevenzione abusi sulle segnalazioni, log tecnici.</li>
 <li><strong>Obbligo legale</strong> (art. 6.1.c): richieste dell’autorità, conservazione fiscale se attiva una fatturazione.</li>
 </ul>
-<p>Non usiamo i dati per profilazione pubblicitaria né li vendiamo a broker.</p>`
+<p>Non usiamo i dati per profilazione pubblicitaria né li vendiamo a broker. Gli acquisti in-app (Google Play Billing, abbonamento 2,99 €/mese, product id <code>milieualert_premium_2_99</code>) sono gestiti da Google; riceviamo solo lo stato dell’abbonamento per sbloccare le funzioni premium.</p>`
       },
       {
         h2: '4. Destinatari e trasferimenti',
@@ -136,7 +136,7 @@ const PAGES = {
 <li><strong>Gerechtvaardigd belang</strong> (art. 6.1.f): beveiliging, misbruikpreventie, logs.</li>
 <li><strong>Wettelijke plicht</strong> (art. 6.1.c) indien van toepassing.</li>
 </ul>
-<p>Geen verkoop van gegevens, geen ad-profilering.</p>`
+<p>Geen verkoop van gegevens, geen ad-profilering. In-app aankopen (Google Play, €2,99/maand, product <code>milieualert_premium_2_99</code>) worden door Google afgehandeld; wij zien alleen of het abonnement actief is.</p>`
       },
       {
         h2: '4. Ontvangers',
@@ -196,7 +196,7 @@ const PAGES = {
 <li><strong>Legitimate interests</strong> (Art. 6(1)(f)): security, abuse prevention, logs.</li>
 <li><strong>Legal obligation</strong> (Art. 6(1)(c)) where applicable.</li>
 </ul>
-<p>We do not sell personal data or use it for advertising profiles.</p>`
+<p>We do not sell personal data or use it for advertising profiles. In-app purchases (Google Play Billing, €2.99/month, product id <code>milieualert_premium_2_99</code>) are processed by Google; we only store subscription status to unlock premium features.</p>`
       },
       {
         h2: '4. Recipients',

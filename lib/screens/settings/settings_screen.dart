@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants.dart';
 import '../../core/widgets/main_bottom_nav.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../models/vehicle.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/vehicle_provider.dart';
 import '../../providers/voice_guidance_provider.dart';
 import '../../core/widgets/install_app_button.dart';
+import '../../core/widgets/paywall.dart';
+import '../../providers/entitlement_provider.dart';
 import '../map/widgets/ai_assist_sheet.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -25,7 +28,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final TextEditingController _passwordCtrl;
   late final TextEditingController _plateCtrl;
 
-  String _language = 'en';
+  String _language = 'it';
   String _country = 'NL';
   VehicleType _vehicleType = VehicleType.car;
   FuelType _fuelType = FuelType.diesel;
@@ -87,7 +90,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             auth.preferredLanguage!.isNotEmpty) {
           const supported = ['en', 'nl', 'de', 'fr', 'it'];
           final lang = auth.preferredLanguage!.toLowerCase();
-          _language = supported.contains(lang) ? lang : 'en';
+          _language = supported.contains(lang) ? lang : 'it';
         }
         _applyVehicle(vehicle);
         _hydrated = true;
@@ -154,13 +157,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _saving = false);
     _passwordCtrl.clear();
 
+    final l10n = l10nOf(context);
     final err = ref.read(authProvider).errorMessage;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           ok
-              ? 'Personal data saved'
-              : (err ?? 'Saved locally. Could not update the server.'),
+              ? l10n.personalDataSaved
+              : (err ?? l10n.savedLocallyServerFailed),
         ),
         backgroundColor: ok ? null : Theme.of(context).colorScheme.error,
       ),
@@ -170,6 +174,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = l10nOf(context);
     final alertDistance = ref.watch(alertDistanceProvider);
     final auth = ref.watch(authProvider);
     final countryValue = _countries.any((c) => c.$1 == _country) ? _country : 'NL';
@@ -177,7 +182,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       bottomNavigationBar: const MainBottomNav(),
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(l10n.settings),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/map'),
@@ -189,6 +194,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              PaywallSettingsCard(),
+              const SizedBox(height: 12),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -200,7 +207,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           Icon(Icons.person, color: theme.colorScheme.primary),
                           const SizedBox(width: 8),
                           Text(
-                            'Personal data',
+                            l10n.personalData,
                             style: theme.textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
@@ -215,13 +222,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         keyboardType: TextInputType.name,
                         textCapitalization: TextCapitalization.words,
                         autofillHints: const [AutofillHints.name],
-                        decoration: const InputDecoration(
-                          labelText: 'Name',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.badge_outlined),
+                        decoration: InputDecoration(
+                          labelText: l10n.name,
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.badge_outlined),
                         ),
                         validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Enter your name'
+                            ? l10n.enterName
                             : null,
                       ),
                       const SizedBox(height: 12),
@@ -231,15 +238,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         obscureText: false,
                         keyboardType: TextInputType.emailAddress,
                         autofillHints: const [AutofillHints.email],
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.email_outlined),
+                        decoration: InputDecoration(
+                          labelText: l10n.email,
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.email_outlined),
                         ),
                         validator: (v) {
                           final value = v?.trim() ?? '';
                           if (value.isEmpty || !value.contains('@')) {
-                            return 'Enter a valid email';
+                            return l10n.enterValidEmail;
                           }
                           return null;
                         },
@@ -254,12 +261,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         keyboardType: TextInputType.visiblePassword,
                         autofillHints: const [AutofillHints.newPassword],
                         decoration: InputDecoration(
-                          labelText: 'New password (optional)',
-                          hintText: 'Leave blank to keep current',
+                          labelText: l10n.newPasswordOptional,
+                          hintText: l10n.leaveBlankPassword,
                           border: const OutlineInputBorder(),
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
-                            tooltip: _obscurePassword ? 'Show' : 'Hide',
+                            tooltip: _obscurePassword ? l10n.show : l10n.hide,
                             onPressed: () => setState(
                               () => _obscurePassword = !_obscurePassword,
                             ),
@@ -273,7 +280,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         validator: (v) {
                           if (v == null || v.isEmpty) return null;
                           if (v.length < 8) {
-                            return 'At least 8 characters';
+                            return l10n.atLeast8Chars;
                           }
                           return null;
                         },
@@ -282,10 +289,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       DropdownButtonFormField<String>(
                         key: ValueKey('country-$countryValue'),
                         initialValue: countryValue,
-                        decoration: const InputDecoration(
-                          labelText: 'Country',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.flag_outlined),
+                        decoration: InputDecoration(
+                          labelText: l10n.country,
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.flag_outlined),
                         ),
                         items: _countries
                             .map(
@@ -315,7 +322,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           Icon(Icons.language, color: theme.colorScheme.primary),
                           const SizedBox(width: 8),
                           Text(
-                            'Language',
+                            l10n.language,
                             style: theme.textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
@@ -363,7 +370,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               color: theme.colorScheme.primary),
                           const SizedBox(width: 8),
                           Text(
-                            'Voce navigazione',
+                            l10n.navVoice,
                             style: theme.textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
@@ -371,16 +378,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       const SizedBox(height: 12),
                       SegmentedButton<NavVoiceGender>(
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                             value: NavVoiceGender.male,
-                            label: Text('Maschile'),
-                            icon: Icon(Icons.man_outlined),
+                            label: Text(l10n.voiceMale),
+                            icon: const Icon(Icons.man_outlined),
                           ),
                           ButtonSegment(
                             value: NavVoiceGender.female,
-                            label: Text('Femminile'),
-                            icon: Icon(Icons.woman_outlined),
+                            label: Text(l10n.voiceFemale),
+                            icon: const Icon(Icons.woman_outlined),
                           ),
                         ],
                         selected: {ref.watch(navVoiceProvider)},
@@ -409,7 +416,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               color: theme.colorScheme.primary),
                           const SizedBox(width: 8),
                           Text(
-                            'Alert Distance',
+                            l10n.alertDistance,
                             style: theme.textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
@@ -456,7 +463,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               color: theme.colorScheme.primary),
                           const SizedBox(width: 8),
                           Text(
-                            'Your car',
+                            l10n.yourCar,
                             style: theme.textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
@@ -466,14 +473,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       DropdownButtonFormField<VehicleType>(
                         key: ValueKey('vtype-${_vehicleType.name}'),
                         initialValue: _vehicleType,
-                        decoration: const InputDecoration(
-                          labelText: 'Type',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l10n.type,
+                          border: const OutlineInputBorder(),
                         ),
                         items: VehicleType.values
                             .map((t) => DropdownMenuItem(
                                   value: t,
-                                  child: Text(_vehicleTypeLabel(t)),
+                                  child: Text(localizedVehicleType(l10n, t)),
                                 ))
                             .toList(),
                         onChanged: (v) {
@@ -484,14 +491,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       DropdownButtonFormField<FuelType>(
                         key: ValueKey('fuel-${_fuelType.name}'),
                         initialValue: _fuelType,
-                        decoration: const InputDecoration(
-                          labelText: 'Fuel',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l10n.fuel,
+                          border: const OutlineInputBorder(),
                         ),
                         items: FuelType.values
                             .map((f) => DropdownMenuItem(
                                   value: f,
-                                  child: Text(f.label),
+                                  child: Text(localizedFuelType(l10n, f)),
                                 ))
                             .toList(),
                         onChanged: (v) {
@@ -502,9 +509,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       DropdownButtonFormField<EuroClass>(
                         key: ValueKey('euro-${_euroClass.name}'),
                         initialValue: _euroClass,
-                        decoration: const InputDecoration(
-                          labelText: 'Euro class',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l10n.euroClass,
+                          border: const OutlineInputBorder(),
                         ),
                         items: EuroClass.values
                             .map((e) => DropdownMenuItem(
@@ -522,10 +529,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         readOnly: false,
                         obscureText: false,
                         textCapitalization: TextCapitalization.characters,
-                        decoration: const InputDecoration(
-                          labelText: 'License plate (optional)',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.pin_outlined),
+                        decoration: InputDecoration(
+                          labelText: l10n.licensePlate,
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.pin_outlined),
                         ),
                       ),
                     ],
@@ -544,7 +551,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.save_outlined),
-                  label: Text(_saving ? 'Saving…' : 'Save personal data'),
+                  label: Text(_saving ? l10n.saving : l10n.savePersonalData),
                 ),
               ),
               if (auth.errorMessage != null && !_saving) ...[
@@ -559,29 +566,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: ListTile(
                   leading: Icon(Icons.auto_awesome,
                       color: theme.colorScheme.primary),
-                  title: const Text('AI assistant'),
-                  subtitle: const Text('Ask about zones, cameras and the route'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => showAiAssistSheet(context),
+                  title: Text(l10n.aiAssistant),
+                  subtitle: Text(l10n.aiAssistantSubtitle),
+                  trailing: Icon(
+                    ref.watch(entitlementProvider).fullAccess
+                        ? Icons.chevron_right
+                        : Icons.lock_outline,
+                  ),
+                  onTap: () {
+                    if (ref.read(entitlementProvider).navigatorOnly) {
+                      showPaywallSheet(context);
+                      return;
+                    }
+                    showAiAssistSheet(context);
+                  },
                 ),
               ),
               const SizedBox(height: 12),
-              const Card(
+              Card(
                 child: Padding(
-                  padding: EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Install on this PC',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        l10n.installOnPc,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Add MilieuAlert as an app on your desktop — no store or SDK required.',
-                      ),
-                      SizedBox(height: 12),
-                      InstallAppButton(),
+                      const SizedBox(height: 8),
+                      Text(l10n.installOnPcBody),
+                      const SizedBox(height: 12),
+                      const InstallAppButton(),
                     ],
                   ),
                 ),
@@ -595,7 +610,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     if (context.mounted) context.go('/auth');
                   },
                   icon: const Icon(Icons.logout),
-                  label: const Text('Sign Out'),
+                  label: Text(l10n.signOut),
                 ),
               ),
               const SizedBox(height: 24),
@@ -613,14 +628,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'MilieuAlert v1.0.0',
+                      l10n.appVersion('1.0.1'),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Informational result. Always verify official regulations.',
+                      l10n.disclaimer,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontStyle: FontStyle.italic,
@@ -636,19 +651,5 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
-
-  String _vehicleTypeLabel(VehicleType type) {
-    switch (type) {
-      case VehicleType.car:
-        return 'Car';
-      case VehicleType.van:
-        return 'Van';
-      case VehicleType.truck:
-        return 'Truck';
-      case VehicleType.camper:
-        return 'Camper';
-      case VehicleType.motorcycle:
-        return 'Motorcycle';
-    }
-  }
 }
+

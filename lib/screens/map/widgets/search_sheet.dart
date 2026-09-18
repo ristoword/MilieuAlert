@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme.dart';
-import '../../../l10n/app_localizations.dart';
+import '../../../l10n/l10n_ext.dart';
 import '../../../models/navigation_models.dart';
 import '../../../models/poi_category.dart';
 import '../../../models/saved_places.dart';
@@ -24,6 +24,8 @@ class SearchSheet extends ConsumerWidget {
     required this.nav,
     required this.expanded,
     required this.highlighted,
+    this.premiumUnlocked = true,
+    this.onUpgrade,
     required this.onToggleExpanded,
     required this.onOriginQuery,
     required this.onDestQuery,
@@ -49,6 +51,8 @@ class SearchSheet extends ConsumerWidget {
   final NavigationState nav;
   final bool expanded;
   final bool highlighted;
+  final bool premiumUnlocked;
+  final VoidCallback? onUpgrade;
   final VoidCallback onToggleExpanded;
   final ValueChanged<String> onOriginQuery;
   final ValueChanged<String> onDestQuery;
@@ -76,6 +80,7 @@ class SearchSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = l10nOf(context);
     final fav = ref.watch(favoritesProvider);
     final travelMode = ref.watch(travelModeProvider);
     final ink = isDark ? Colors.white : MapsColors.ink;
@@ -121,7 +126,7 @@ class SearchSheet extends ConsumerWidget {
                         const SizedBox(width: 4),
                         Text(
                           destCtrl.text.trim().isEmpty
-                              ? 'Cerca un luogo'
+                              ? l10n.searchPlace
                               : destCtrl.text.trim(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -178,8 +183,7 @@ class SearchSheet extends ConsumerWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                          AppLocalizations.of(context)?.navNavigation ??
-                              'Navigazione',
+                          l10n.navNavigation,
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
@@ -195,7 +199,7 @@ class SearchSheet extends ConsumerWidget {
                 fieldId: 'destination',
                 controller: destCtrl,
                 focusNode: destFocus,
-                hint: 'Cerca un luogo o un indirizzo',
+                hint: l10n.searchPlaceOrAddress,
                 icon: Icons.search_rounded,
                 onChanged: onDestQuery,
               ),
@@ -207,13 +211,13 @@ class SearchSheet extends ConsumerWidget {
                       fieldId: 'origin',
                       controller: originCtrl,
                       focusNode: originFocus,
-                      hint: 'Da: La mia posizione',
+                      hint: l10n.fromMyLocation,
                       icon: Icons.my_location_rounded,
                       onChanged: onOriginQuery,
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Usa la mia posizione',
+                    tooltip: l10n.useMyLocation,
                     onPressed: onUseMyLocation,
                     icon: Icon(
                       Icons.gps_fixed,
@@ -224,7 +228,7 @@ class SearchSheet extends ConsumerWidget {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Inverti A e B',
+                    tooltip: l10n.swapOriginDestination,
                     onPressed: onSwap,
                     icon: Icon(Icons.swap_vert_rounded, color: muted),
                   ),
@@ -234,6 +238,8 @@ class SearchSheet extends ConsumerWidget {
               _TravelModeChips(
                 selected: travelMode,
                 enabled: !nav.routing,
+                premiumUnlocked: premiumUnlocked,
+                onUpgrade: onUpgrade,
                 onSelect: (mode) async {
                   await ref.read(travelModeProvider.notifier).setMode(mode);
                   if (nav.destination != null) {
@@ -243,11 +249,13 @@ class SearchSheet extends ConsumerWidget {
                   }
                 },
               ),
-              if (nav.zonesOnRoute.isNotEmpty) ...[
+              if (premiumUnlocked && nav.zonesOnRoute.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 _LezOnRouteNotice(zones: nav.zonesOnRoute),
               ],
-              if (nav.dropOffMessage != null && !nav.navigating) ...[
+              if (premiumUnlocked &&
+                  nav.dropOffMessage != null &&
+                  !nav.navigating) ...[
                 const SizedBox(height: 10),
                 _DropOffNotice(message: nav.dropOffMessage!),
               ],
@@ -264,15 +272,40 @@ class SearchSheet extends ConsumerWidget {
               const SizedBox(height: 12),
               _HomeWorkRow(
                 fav: fav,
-                onPlaceTap: onSavedPlaceTap,
-                onAddSuggested: onAddSuggested,
-                onManagePlaces: onManagePlaces,
+                onPlaceTap: (place) {
+                  if (!premiumUnlocked) {
+                    onUpgrade?.call();
+                    return;
+                  }
+                  onSavedPlaceTap(place);
+                },
+                onAddSuggested: (label) {
+                  if (!premiumUnlocked) {
+                    onUpgrade?.call();
+                    return;
+                  }
+                  onAddSuggested(label);
+                },
+                onManagePlaces: () {
+                  if (!premiumUnlocked) {
+                    onUpgrade?.call();
+                    return;
+                  }
+                  onManagePlaces();
+                },
               ),
               const SizedBox(height: 12),
               _CategoryRow(
                 selectedId: nav.nearbyCategory,
                 searching: nav.nearbySearching,
-                onSelect: onSelectCategory,
+                locked: !premiumUnlocked,
+                onSelect: (cat) {
+                  if (!premiumUnlocked) {
+                    onUpgrade?.call();
+                    return;
+                  }
+                  onSelectCategory(cat);
+                },
               ),
               if (nav.error != null)
                 Padding(
@@ -293,7 +326,7 @@ class SearchSheet extends ConsumerWidget {
                   nav: nav,
                   onSelect: onSelectSuggestion,
                 ),
-              if (nav.nearbySearching)
+              if (premiumUnlocked && nav.nearbySearching)
                 const Padding(
                   padding: EdgeInsets.only(top: 12),
                   child: LinearProgressIndicator(
@@ -301,18 +334,19 @@ class SearchSheet extends ConsumerWidget {
                     color: MapsColors.accent,
                   ),
                 ),
-              if (nav.nearbyResults.isNotEmpty)
+              if (premiumUnlocked && nav.nearbyResults.isNotEmpty)
                 _PoiResults(
                   results: nav.nearbyResults,
                   onSelect: onSelectPoi,
                 )
-              else if (nav.nearbyCategory != null &&
+              else if (premiumUnlocked &&
+                  nav.nearbyCategory != null &&
                   !nav.nearbySearching &&
                   nav.nearbyResults.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: Text(
-                    'Nessun risultato in zona',
+                    l10n.noResultsNearby,
                     style: GoogleFonts.inter(fontSize: 13, color: muted),
                   ),
                 ),
@@ -336,8 +370,8 @@ class SearchSheet extends ConsumerWidget {
                     _MiniChip(
                       icon: Icons.shield_outlined,
                       label: nav.zonesOnRoute.isEmpty
-                          ? 'Nessuna zona'
-                          : '${nav.zonesOnRoute.length} milieuzone',
+                          ? l10n.noZones
+                          : l10n.zonesOnRouteCount(nav.zonesOnRoute.length),
                       color: nav.zonesOnRoute.isEmpty
                           ? MapsColors.accent
                           : MapsColors.lezOnRouteBorder,
@@ -346,8 +380,8 @@ class SearchSheet extends ConsumerWidget {
                       _MiniChip(
                         icon: Icons.videocam_outlined,
                         label: nav.cameras.isEmpty
-                            ? 'Nessun autovelox'
-                            : '${nav.cameras.length} autovelox',
+                            ? l10n.noSpeedCameras
+                            : l10n.speedCamerasCount(nav.cameras.length),
                         color: nav.cameras.isEmpty
                             ? MapsColors.accent
                             : const Color(0xFFFF9F0A),
@@ -399,24 +433,29 @@ class _TravelModeChips extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     this.enabled = true,
+    this.premiumUnlocked = true,
+    this.onUpgrade,
   });
 
   final TravelMode selected;
   final ValueChanged<TravelMode> onSelect;
   final bool enabled;
+  final bool premiumUnlocked;
+  final VoidCallback? onUpgrade;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = l10nOf(context);
     final ink = isDark ? Colors.white : MapsColors.ink;
     return Wrap(
       spacing: 8,
       runSpacing: 6,
       children: [
-        for (final item in const [
-          (TravelMode.car, 'Auto', Icons.directions_car_rounded),
-          (TravelMode.foot, 'A piedi', Icons.directions_walk_rounded),
-          (TravelMode.transit, 'Mezzi', Icons.directions_transit_rounded),
+        for (final item in [
+          (TravelMode.car, l10n.travelCar, Icons.directions_car_rounded),
+          (TravelMode.foot, l10n.travelFoot, Icons.directions_walk_rounded),
+          (TravelMode.transit, l10n.travelTransit, Icons.directions_transit_rounded),
         ])
           ChoiceChip(
               selected: selected == item.$1,
@@ -442,7 +481,12 @@ class _TravelModeChips extends StatelessWidget {
               onSelected: !enabled
                   ? null
                   : (on) {
-                      if (on) onSelect(item.$1);
+                      if (!on) return;
+                      if (!premiumUnlocked && item.$1 != TravelMode.car) {
+                        onUpgrade?.call();
+                        return;
+                      }
+                      onSelect(item.$1);
                     },
             ),
       ],
@@ -458,6 +502,7 @@ class _LezOnRouteNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = l10nOf(context);
     final names = zones.map((z) => z.name).where((n) => n.trim().isNotEmpty);
     return Container(
       width: double.infinity,
@@ -480,7 +525,7 @@ class _LezOnRouteNotice extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Milieuzone sul percorso',
+                  l10n.lezOnRoute,
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w800,
                     fontSize: 13,
@@ -489,7 +534,7 @@ class _LezOnRouteNotice extends StatelessWidget {
                 ),
                 Text(
                   names.isEmpty
-                      ? 'Zona ambientale sul tragitto scelto'
+                      ? l10n.lezOnChosenRoute
                       : names.take(3).join(' · '),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -516,6 +561,7 @@ class _DropOffNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = l10nOf(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -538,7 +584,7 @@ class _DropOffNotice extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Consigliato: sosta e a piedi',
+                  l10n.dropoffRecommended,
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w800,
                     fontSize: 13,
@@ -642,7 +688,7 @@ class _GoCtaState extends State<_GoCta> with SingleTickerProviderStateMixin {
                     : Icons.navigation_rounded,
                 size: 26,
               ),
-              label: Text(widget.routing ? 'Calcolo…' : 'VAI'),
+              label: Text(widget.routing ? l10nOf(context).calculating : l10nOf(context).go),
               style: FilledButton.styleFrom(
                 backgroundColor: _goGreen,
                 disabledBackgroundColor: _goGreen.withValues(alpha: 0.55),
@@ -666,8 +712,8 @@ class _GoCtaState extends State<_GoCta> with SingleTickerProviderStateMixin {
             padding: const EdgeInsets.only(top: 6),
             child: Text(
               widget.lezOnRoute
-                  ? 'Milieuzone sul percorso — tocca VAI'
-                  : 'Tocca VAI per partire',
+                  ? l10nOf(context).goHintLez
+                  : l10nOf(context).goHint,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 13,
@@ -776,17 +822,19 @@ class _HomeWorkRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     return Row(
       children: [
         for (final label in kSuggestedPlaceLabels)
           Padding(
             padding: const EdgeInsets.only(right: 14),
             child: _RoundShortcut(
-              label: label,
+              label: suggestedPlaceLabel(label, l10n),
               icon: label.toLowerCase() == 'casa'
                   ? Icons.home_rounded
                   : Icons.work_rounded,
               saved: fav.placeByLabel(label) != null,
+              plusIfUnsaved: true,
               onTap: () {
                 final place = fav.placeByLabel(label);
                 if (place == null) {
@@ -798,9 +846,10 @@ class _HomeWorkRow extends StatelessWidget {
             ),
           ),
         _RoundShortcut(
-          label: 'Luoghi',
+          label: l10n.places,
           icon: Icons.add_rounded,
           saved: false,
+          plusIfUnsaved: false,
           onTap: onManagePlaces,
         ),
       ],
@@ -814,11 +863,13 @@ class _RoundShortcut extends StatelessWidget {
     required this.icon,
     required this.saved,
     required this.onTap,
+    this.plusIfUnsaved = true,
   });
 
   final String label;
   final IconData icon;
   final bool saved;
+  final bool plusIfUnsaved;
   final VoidCallback onTap;
 
   @override
@@ -847,7 +898,7 @@ class _RoundShortcut extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            saved ? label : (label == 'Luoghi' ? label : '$label +'),
+            saved ? label : (plusIfUnsaved ? '$label +' : label),
             style: GoogleFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -865,11 +916,13 @@ class _CategoryRow extends StatelessWidget {
     required this.selectedId,
     required this.searching,
     required this.onSelect,
+    this.locked = false,
   });
 
   final String? selectedId;
   final bool searching;
   final ValueChanged<PoiCategory> onSelect;
+  final bool locked;
 
   @override
   Widget build(BuildContext context) {
@@ -910,7 +963,7 @@ class _CategoryRow extends StatelessWidget {
                             ),
                           )
                         : Icon(
-                            cat.icon,
+                            locked ? Icons.lock_outline : cat.icon,
                             color: selected
                                 ? Colors.white
                                 : MapsColors.route,
@@ -919,7 +972,7 @@ class _CategoryRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    cat.label,
+                    localizedPoiLabel(l10nOf(context), cat),
                     maxLines: 2,
                     textAlign: TextAlign.center,
                     overflow: TextOverflow.ellipsis,
@@ -1030,7 +1083,7 @@ class _PoiResults extends StatelessWidget {
               [
                 if (hit.distanceMeters != null)
                   formatDistance(hit.distanceMeters),
-                if (hit.inLez) 'Zona ambientale',
+                if (hit.inLez) l10nOf(context).environmentalZoneShort,
                 if (hit.zoneName != null && hit.zoneName!.isNotEmpty)
                   hit.zoneName!,
               ].join(' · '),
@@ -1067,6 +1120,7 @@ class _Recents extends StatelessWidget {
   Widget build(BuildContext context) {
     if (trips.isEmpty) return const SizedBox.shrink();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = l10nOf(context);
     final recent = trips.take(4).toList();
     return Padding(
       padding: const EdgeInsets.only(top: 8),
@@ -1076,7 +1130,7 @@ class _Recents extends StatelessWidget {
           Row(
             children: [
               Text(
-                'Recenti',
+                l10n.recents,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
@@ -1090,7 +1144,7 @@ class _Recents extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   foregroundColor: MapsColors.route,
                 ),
-                child: const Text('Itinerari'),
+                child: Text(l10n.itineraries),
               ),
             ],
           ),
@@ -1115,7 +1169,7 @@ class _Recents extends StatelessWidget {
                 ),
               ),
               subtitle: Text(
-                'Da ${trip.originLabel}',
+                l10n.fromOrigin(trip.originLabel),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.inter(

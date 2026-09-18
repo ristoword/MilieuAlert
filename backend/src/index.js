@@ -13,6 +13,7 @@ const tripRoutes = require('./routes/trips');
 const zoneRoutes = require('./routes/zones');
 const geoRoutes = require('./routes/geo');
 const hazardRoutes = require('./routes/hazards');
+const billingRoutes = require('./routes/billing');
 const seo = require('./seo');
 
 const app = express();
@@ -66,9 +67,14 @@ app.get('/api/status', (req, res) => {
       'GET /api/auth/me',
       'PUT /api/auth/me',
       'PATCH /api/auth/me',
+      'GET /api/users/me',
+      'PATCH /api/users/me',
       'GET /api/users/profile',
       'PUT /api/users/profile',
       'PATCH /api/users/profile',
+      'GET /api/billing/catalog',
+      'POST /api/billing/play',
+      'POST /api/billing/redeem',
       'POST /api/ai/chat',
       'POST /api/ai/assist',
       'POST /api/ai/zone-check',
@@ -94,6 +100,7 @@ app.get('/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/billing', billingRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/zones', zoneRoutes);

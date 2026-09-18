@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "node --test src/seo/__tests__/seo.test.js src/services/__tests__/tiles.test.js src/services/__tests__/hazards.test.js src/services/__tests__/osrmRoute.test.js src/services/__tests__/transitRoute.test.js src/services/__tests__/zones.test.js",
+    "test": "node --test src/seo/__tests__/seo.test.js src/services/__tests__/tiles.test.js src/services/__tests__/hazards.test.js src/services/__tests__/osrmRoute.test.js src/services/__tests__/transitRoute.test.js src/services/__tests__/zones.test.js src/services/__tests__/entitlement.test.js",
     "import-zones": "node scripts/import-europe-zones.js",
     "restore-seo": "node scripts/restore-seo.js"
   },

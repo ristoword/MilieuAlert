@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme.dart';
+import '../../../l10n/l10n_ext.dart';
 import '../../../models/zone_status.dart';
 
 class AlertBanner extends StatelessWidget {
@@ -26,6 +27,7 @@ class AlertBanner extends StatelessWidget {
 
   Widget _buildBanner(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = l10nOf(context);
     late Color color;
     late IconData icon;
     late String title;
@@ -36,22 +38,22 @@ class AlertBanner extends StatelessWidget {
         color = MapsColors.lezOnRouteBorder;
         icon = Icons.shield_outlined;
         final dist = proximity!.distanceMeters?.toInt() ?? 0;
-        title = 'Zona ambientale tra $dist m';
+        title = l10n.approachingZoneMeters(dist);
         subtitle = proximity!.isVehicleAllowed == false
-            ? '${proximity!.zoneName} · veicolo non autorizzato'
+            ? l10n.vehicleNotAuthorizedInZone(proximity!.zoneName)
             : proximity!.zoneName;
         break;
       case ZoneStatus.inside:
         if (proximity!.isVehicleAllowed == false) {
           color = MapsColors.endRed;
           icon = Icons.error_outline;
-          title = 'Veicolo non autorizzato';
+          title = l10n.vehicleNotAuthorized;
           subtitle = proximity!.zoneName;
         } else {
           color = MapsColors.accent;
           icon = Icons.check_circle_outline;
-          title = 'Veicolo autorizzato';
-          subtitle = 'Dentro ${proximity!.zoneName}';
+          title = l10n.vehicleAuthorized;
+          subtitle = l10n.insideZoneName(proximity!.zoneName);
         }
         break;
       default:
@@ -101,7 +103,7 @@ class AlertBanner extends StatelessWidget {
             ),
             if (onAskAi != null)
               IconButton(
-                tooltip: 'Chiedi all\'AI',
+                tooltip: l10n.askAi,
                 onPressed: onAskAi,
                 icon: Icon(Icons.auto_awesome, color: color, size: 18),
               ),

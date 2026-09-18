@@ -106,477 +106,1149 @@ abstract class AppLocalizations {
 
   /// No description provided for @appTitle.
   ///
-  /// In en, this message translates to:
+  /// In it, this message translates to:
   /// **'MilieuAlert'**
   String get appTitle;
 
   /// No description provided for @alertApproaching.
   ///
-  /// In en, this message translates to:
-  /// **'Warning: in {distance} metres you will enter the {zoneName}.'**
+  /// In it, this message translates to:
+  /// **'Attenzione: tra {distance} metri entrerai nella {zoneName}.'**
   String alertApproaching(int distance, String zoneName);
 
   /// No description provided for @alertEntering.
   ///
-  /// In en, this message translates to:
-  /// **'You are entering the {zoneName}.'**
+  /// In it, this message translates to:
+  /// **'Stai entrando nella {zoneName}.'**
   String alertEntering(String zoneName);
 
   /// No description provided for @alertNotAuthorized.
   ///
-  /// In en, this message translates to:
-  /// **'Your vehicle {euroClass} {fuelType} may not be authorized to drive in this zone.'**
+  /// In it, this message translates to:
+  /// **'Il tuo veicolo {euroClass} {fuelType} potrebbe non essere autorizzato a circolare in questa zona.'**
   String alertNotAuthorized(String euroClass, String fuelType);
 
   /// No description provided for @alertAuthorized.
   ///
-  /// In en, this message translates to:
-  /// **'Your vehicle is authorized to drive in this zone.'**
+  /// In it, this message translates to:
+  /// **'Il tuo veicolo è autorizzato a circolare in questa zona.'**
   String get alertAuthorized;
 
   /// No description provided for @alertLeaving.
   ///
-  /// In en, this message translates to:
-  /// **'Low emission zone ended.'**
+  /// In it, this message translates to:
+  /// **'Zona a basse emissioni terminata.'**
   String get alertLeaving;
 
   /// No description provided for @onboardingLanguageTitle.
   ///
-  /// In en, this message translates to:
-  /// **'Select Language'**
+  /// In it, this message translates to:
+  /// **'Seleziona Lingua'**
   String get onboardingLanguageTitle;
 
   /// No description provided for @onboardingVehicleTitle.
   ///
-  /// In en, this message translates to:
-  /// **'Vehicle Setup'**
+  /// In it, this message translates to:
+  /// **'Configurazione Veicolo'**
   String get onboardingVehicleTitle;
 
   /// No description provided for @vehicleType.
   ///
-  /// In en, this message translates to:
-  /// **'Vehicle Type'**
+  /// In it, this message translates to:
+  /// **'Tipo di Veicolo'**
   String get vehicleType;
 
   /// No description provided for @fuelType.
   ///
-  /// In en, this message translates to:
-  /// **'Fuel Type'**
+  /// In it, this message translates to:
+  /// **'Tipo di Alimentazione'**
   String get fuelType;
 
   /// No description provided for @euroClass.
   ///
-  /// In en, this message translates to:
-  /// **'Euro Class'**
+  /// In it, this message translates to:
+  /// **'Classe Euro'**
   String get euroClass;
 
   /// No description provided for @licensePlate.
   ///
-  /// In en, this message translates to:
-  /// **'License Plate (optional)'**
+  /// In it, this message translates to:
+  /// **'Targa (opzionale)'**
   String get licensePlate;
 
   /// No description provided for @country.
   ///
-  /// In en, this message translates to:
-  /// **'Country of Registration'**
+  /// In it, this message translates to:
+  /// **'Paese di Immatricolazione'**
   String get country;
 
   /// No description provided for @next.
   ///
-  /// In en, this message translates to:
-  /// **'Next'**
+  /// In it, this message translates to:
+  /// **'Avanti'**
   String get next;
 
   /// No description provided for @save.
   ///
-  /// In en, this message translates to:
-  /// **'Save'**
+  /// In it, this message translates to:
+  /// **'Salva'**
   String get save;
 
   /// No description provided for @saveAndContinue.
   ///
-  /// In en, this message translates to:
-  /// **'Save & Continue'**
+  /// In it, this message translates to:
+  /// **'Salva e Continua'**
   String get saveAndContinue;
 
   /// No description provided for @settings.
   ///
-  /// In en, this message translates to:
-  /// **'Settings'**
+  /// In it, this message translates to:
+  /// **'Impostazioni'**
   String get settings;
 
   /// No description provided for @navMap.
   ///
-  /// In en, this message translates to:
-  /// **'Map'**
+  /// In it, this message translates to:
+  /// **'Mappa'**
   String get navMap;
 
   /// No description provided for @navNavigation.
   ///
-  /// In en, this message translates to:
-  /// **'Navigation'**
+  /// In it, this message translates to:
+  /// **'Navigazione'**
   String get navNavigation;
 
   /// No description provided for @alertDistance.
   ///
-  /// In en, this message translates to:
-  /// **'Alert Distance'**
+  /// In it, this message translates to:
+  /// **'Distanza di Avviso'**
   String get alertDistance;
 
   /// No description provided for @language.
   ///
-  /// In en, this message translates to:
-  /// **'Language'**
+  /// In it, this message translates to:
+  /// **'Lingua'**
   String get language;
 
   /// No description provided for @vehicleInfo.
   ///
-  /// In en, this message translates to:
-  /// **'Vehicle Information'**
+  /// In it, this message translates to:
+  /// **'Informazioni Veicolo'**
   String get vehicleInfo;
 
   /// No description provided for @editVehicle.
   ///
-  /// In en, this message translates to:
-  /// **'Edit Vehicle'**
+  /// In it, this message translates to:
+  /// **'Modifica Veicolo'**
   String get editVehicle;
 
   /// No description provided for @noVehicleConfigured.
   ///
-  /// In en, this message translates to:
-  /// **'No vehicle configured'**
+  /// In it, this message translates to:
+  /// **'Nessun veicolo configurato'**
   String get noVehicleConfigured;
 
   /// No description provided for @vehicleDescription.
   ///
-  /// In en, this message translates to:
-  /// **'Tell us about your vehicle'**
+  /// In it, this message translates to:
+  /// **'Parlaci del tuo veicolo'**
   String get vehicleDescription;
 
   /// No description provided for @vehicleDescriptionSubtext.
   ///
-  /// In en, this message translates to:
-  /// **'This information helps determine if your vehicle is allowed in emission zones.'**
+  /// In it, this message translates to:
+  /// **'Queste informazioni aiutano a determinare se il tuo veicolo è autorizzato nelle zone ambientali.'**
   String get vehicleDescriptionSubtext;
 
   /// No description provided for @chooseLanguage.
   ///
-  /// In en, this message translates to:
-  /// **'Choose your preferred language'**
+  /// In it, this message translates to:
+  /// **'Scegli la tua lingua preferita'**
   String get chooseLanguage;
 
   /// No description provided for @zoneDetails.
   ///
-  /// In en, this message translates to:
-  /// **'Zone Details'**
+  /// In it, this message translates to:
+  /// **'Dettagli Zona'**
   String get zoneDetails;
 
   /// No description provided for @zoneName.
   ///
-  /// In en, this message translates to:
-  /// **'Zone Name'**
+  /// In it, this message translates to:
+  /// **'Nome Zona'**
   String get zoneName;
 
   /// No description provided for @zoneCity.
   ///
-  /// In en, this message translates to:
-  /// **'City'**
+  /// In it, this message translates to:
+  /// **'Città'**
   String get zoneCity;
 
   /// No description provided for @zoneCountry.
   ///
-  /// In en, this message translates to:
-  /// **'Country'**
+  /// In it, this message translates to:
+  /// **'Paese'**
   String get zoneCountry;
 
   /// No description provided for @zoneType.
   ///
-  /// In en, this message translates to:
-  /// **'Zone Type'**
+  /// In it, this message translates to:
+  /// **'Tipo di Zona'**
   String get zoneType;
 
   /// No description provided for @zoneInformation.
   ///
-  /// In en, this message translates to:
-  /// **'Zone Information'**
+  /// In it, this message translates to:
+  /// **'Informazioni Zona'**
   String get zoneInformation;
 
   /// No description provided for @zoneNotFound.
   ///
-  /// In en, this message translates to:
-  /// **'Zone not found'**
+  /// In it, this message translates to:
+  /// **'Zona non trovata'**
   String get zoneNotFound;
 
   /// No description provided for @activeFrom.
   ///
-  /// In en, this message translates to:
-  /// **'Active From'**
+  /// In it, this message translates to:
+  /// **'Attiva dal'**
   String get activeFrom;
 
   /// No description provided for @activeTo.
   ///
-  /// In en, this message translates to:
-  /// **'Active To'**
+  /// In it, this message translates to:
+  /// **'Attiva fino al'**
   String get activeTo;
 
   /// No description provided for @activeDays.
   ///
-  /// In en, this message translates to:
-  /// **'Active Days'**
+  /// In it, this message translates to:
+  /// **'Giorni attivi'**
   String get activeDays;
 
   /// No description provided for @minimumEuro.
   ///
-  /// In en, this message translates to:
-  /// **'Minimum Euro Class'**
+  /// In it, this message translates to:
+  /// **'Classe Euro Minima'**
   String get minimumEuro;
 
   /// No description provided for @allowedFuelTypes.
   ///
-  /// In en, this message translates to:
-  /// **'Allowed Fuel Types'**
+  /// In it, this message translates to:
+  /// **'Tipi di alimentazione consentiti'**
   String get allowedFuelTypes;
 
   /// No description provided for @allowedVehicleTypes.
   ///
-  /// In en, this message translates to:
-  /// **'Allowed Vehicle Types'**
+  /// In it, this message translates to:
+  /// **'Tipi di veicolo consentiti'**
   String get allowedVehicleTypes;
 
   /// No description provided for @restrictions.
   ///
-  /// In en, this message translates to:
-  /// **'Restrictions'**
+  /// In it, this message translates to:
+  /// **'Restrizioni'**
   String get restrictions;
 
   /// No description provided for @officialSource.
   ///
-  /// In en, this message translates to:
-  /// **'Official Source'**
+  /// In it, this message translates to:
+  /// **'Fonte Ufficiale'**
   String get officialSource;
 
   /// No description provided for @lastVerified.
   ///
-  /// In en, this message translates to:
-  /// **'Last Verified'**
+  /// In it, this message translates to:
+  /// **'Ultima Verifica'**
   String get lastVerified;
 
   /// No description provided for @disclaimer.
   ///
-  /// In en, this message translates to:
-  /// **'Informational result. Always verify official regulations.'**
+  /// In it, this message translates to:
+  /// **'Risultato informativo. Verifica sempre le regole ufficiali.'**
   String get disclaimer;
 
   /// No description provided for @car.
   ///
-  /// In en, this message translates to:
-  /// **'Car'**
+  /// In it, this message translates to:
+  /// **'Automobile'**
   String get car;
 
   /// No description provided for @van.
   ///
-  /// In en, this message translates to:
-  /// **'Van'**
+  /// In it, this message translates to:
+  /// **'Furgone'**
   String get van;
 
   /// No description provided for @truck.
   ///
-  /// In en, this message translates to:
-  /// **'Truck'**
+  /// In it, this message translates to:
+  /// **'Camion'**
   String get truck;
 
   /// No description provided for @camper.
   ///
-  /// In en, this message translates to:
+  /// In it, this message translates to:
   /// **'Camper'**
   String get camper;
 
   /// No description provided for @motorcycle.
   ///
-  /// In en, this message translates to:
-  /// **'Motorcycle'**
+  /// In it, this message translates to:
+  /// **'Motociclo'**
   String get motorcycle;
 
   /// No description provided for @diesel.
   ///
-  /// In en, this message translates to:
+  /// In it, this message translates to:
   /// **'Diesel'**
   String get diesel;
 
   /// No description provided for @petrol.
   ///
-  /// In en, this message translates to:
-  /// **'Petrol'**
+  /// In it, this message translates to:
+  /// **'Benzina'**
   String get petrol;
 
   /// No description provided for @lpg.
   ///
-  /// In en, this message translates to:
-  /// **'LPG'**
+  /// In it, this message translates to:
+  /// **'GPL'**
   String get lpg;
 
   /// No description provided for @hybrid.
   ///
-  /// In en, this message translates to:
-  /// **'Hybrid'**
+  /// In it, this message translates to:
+  /// **'Ibrido'**
   String get hybrid;
 
   /// No description provided for @electric.
   ///
-  /// In en, this message translates to:
-  /// **'Electric'**
+  /// In it, this message translates to:
+  /// **'Elettrico'**
   String get electric;
 
   /// No description provided for @speed.
   ///
-  /// In en, this message translates to:
-  /// **'Speed'**
+  /// In it, this message translates to:
+  /// **'Velocità'**
   String get speed;
 
   /// No description provided for @kmh.
   ///
-  /// In en, this message translates to:
+  /// In it, this message translates to:
   /// **'km/h'**
   String get kmh;
 
   /// No description provided for @meters.
   ///
-  /// In en, this message translates to:
+  /// In it, this message translates to:
   /// **'{count} m'**
   String meters(int count);
 
   /// No description provided for @kilometers.
   ///
-  /// In en, this message translates to:
+  /// In it, this message translates to:
   /// **'{count} km'**
   String kilometers(int count);
 
   /// No description provided for @environmentalZone.
   ///
-  /// In en, this message translates to:
-  /// **'Environmental Zone'**
+  /// In it, this message translates to:
+  /// **'Zona Ambientale'**
   String get environmentalZone;
 
   /// No description provided for @zeroEmissionZone.
   ///
-  /// In en, this message translates to:
-  /// **'Zero Emission Zone'**
+  /// In it, this message translates to:
+  /// **'Zona a Zero Emissioni'**
   String get zeroEmissionZone;
 
   /// No description provided for @noZonesNearby.
   ///
-  /// In en, this message translates to:
-  /// **'No zones nearby'**
+  /// In it, this message translates to:
+  /// **'Nessuna zona nelle vicinanze'**
   String get noZonesNearby;
 
   /// No description provided for @syncingZones.
   ///
-  /// In en, this message translates to:
-  /// **'Syncing zone data...'**
+  /// In it, this message translates to:
+  /// **'Sincronizzazione dati zone...'**
   String get syncingZones;
 
   /// No description provided for @syncComplete.
   ///
-  /// In en, this message translates to:
-  /// **'Zone data updated'**
+  /// In it, this message translates to:
+  /// **'Dati zone aggiornati'**
   String get syncComplete;
 
   /// No description provided for @syncError.
   ///
-  /// In en, this message translates to:
-  /// **'Failed to update zone data'**
+  /// In it, this message translates to:
+  /// **'Sincronizzazione fallita'**
   String get syncError;
 
   /// No description provided for @approachingZone.
   ///
-  /// In en, this message translates to:
-  /// **'Approaching {zoneName} - {distance}m'**
+  /// In it, this message translates to:
+  /// **'Avvicinamento a {zoneName} - {distance}m'**
   String approachingZone(String zoneName, int distance);
 
   /// No description provided for @insideZoneAuthorized.
   ///
-  /// In en, this message translates to:
-  /// **'Inside {zoneName} - Vehicle authorized'**
+  /// In it, this message translates to:
+  /// **'Dentro {zoneName} - Veicolo autorizzato'**
   String insideZoneAuthorized(String zoneName);
 
   /// No description provided for @insideZoneNotAuthorized.
   ///
-  /// In en, this message translates to:
-  /// **'⚠ Vehicle NOT authorized in {zoneName}'**
+  /// In it, this message translates to:
+  /// **'⚠ Veicolo NON autorizzato in {zoneName}'**
   String insideZoneNotAuthorized(String zoneName);
 
   /// No description provided for @loading.
   ///
-  /// In en, this message translates to:
-  /// **'Loading...'**
+  /// In it, this message translates to:
+  /// **'Caricamento...'**
   String get loading;
 
   /// No description provided for @error.
   ///
-  /// In en, this message translates to:
-  /// **'Error'**
+  /// In it, this message translates to:
+  /// **'Errore'**
   String get error;
 
   /// No description provided for @retry.
   ///
-  /// In en, this message translates to:
-  /// **'Retry'**
+  /// In it, this message translates to:
+  /// **'Riprova'**
   String get retry;
 
   /// No description provided for @cancel.
   ///
-  /// In en, this message translates to:
-  /// **'Cancel'**
+  /// In it, this message translates to:
+  /// **'Annulla'**
   String get cancel;
 
   /// No description provided for @ok.
   ///
-  /// In en, this message translates to:
+  /// In it, this message translates to:
   /// **'OK'**
   String get ok;
 
   /// No description provided for @appVersion.
   ///
-  /// In en, this message translates to:
+  /// In it, this message translates to:
   /// **'MilieuAlert v{version}'**
   String appVersion(String version);
 
   /// No description provided for @licensePlateHint.
   ///
-  /// In en, this message translates to:
-  /// **'e.g. AB-123-CD'**
+  /// In it, this message translates to:
+  /// **'es. AB-123-CD'**
   String get licensePlateHint;
 
   /// No description provided for @locationPermissionRequired.
   ///
-  /// In en, this message translates to:
-  /// **'Location permission is required for zone alerts'**
+  /// In it, this message translates to:
+  /// **'Il permesso di localizzazione è necessario per gli avvisi sulle zone'**
   String get locationPermissionRequired;
 
   /// No description provided for @notificationPermissionRequired.
   ///
-  /// In en, this message translates to:
-  /// **'Notification permission is required for zone alerts'**
+  /// In it, this message translates to:
+  /// **'Il permesso di notifica è necessario per gli avvisi sulle zone'**
   String get notificationPermissionRequired;
 
   /// No description provided for @backgroundLocationRequired.
   ///
-  /// In en, this message translates to:
-  /// **'Background location is needed to alert you while driving'**
+  /// In it, this message translates to:
+  /// **'La localizzazione in background è necessaria per avvisarti durante la guida'**
   String get backgroundLocationRequired;
 
   /// No description provided for @grantPermission.
   ///
-  /// In en, this message translates to:
-  /// **'Grant Permission'**
+  /// In it, this message translates to:
+  /// **'Concedi Permesso'**
   String get grantPermission;
+
+  /// No description provided for @paywallExpiredTitle.
+  ///
+  /// In it, this message translates to:
+  /// **'15 giorni scaduti'**
+  String get paywallExpiredTitle;
+
+  /// No description provided for @paywallExpiredBody.
+  ///
+  /// In it, this message translates to:
+  /// **'2,99 euro al mese per sbloccare tutto: milieuzone, autovelox, EcoEntry. Resta il navigatore base (mappa, percorso A-B, heading-up, metri).'**
+  String get paywallExpiredBody;
+
+  /// No description provided for @paywallUnlock.
+  ///
+  /// In it, this message translates to:
+  /// **'Sblocca tutto — 2,99 €/mese'**
+  String get paywallUnlock;
+
+  /// No description provided for @paywallTrialTitle.
+  ///
+  /// In it, this message translates to:
+  /// **'Prova 15 giorni'**
+  String get paywallTrialTitle;
+
+  /// No description provided for @paywallTrialDays.
+  ///
+  /// In it, this message translates to:
+  /// **'Prova: {days} giorni rimasti'**
+  String paywallTrialDays(int days);
+
+  /// No description provided for @paywallTrialHint.
+  ///
+  /// In it, this message translates to:
+  /// **'Poi 2,99 €/mese per milieuzone, autovelox, EcoEntry.'**
+  String get paywallTrialHint;
+
+  /// No description provided for @paywallRedeem.
+  ///
+  /// In it, this message translates to:
+  /// **'Ho un codice / licenza GS'**
+  String get paywallRedeem;
 
   /// No description provided for @euro.
   ///
-  /// In en, this message translates to:
+  /// In it, this message translates to:
   /// **'Euro {level}'**
   String euro(int level);
+
+  /// No description provided for @searchPlace.
+  ///
+  /// In it, this message translates to:
+  /// **'Cerca un luogo'**
+  String get searchPlace;
+
+  /// No description provided for @searchPlaceOrAddress.
+  ///
+  /// In it, this message translates to:
+  /// **'Cerca un luogo o un indirizzo'**
+  String get searchPlaceOrAddress;
+
+  /// No description provided for @fromMyLocation.
+  ///
+  /// In it, this message translates to:
+  /// **'Da: La mia posizione'**
+  String get fromMyLocation;
+
+  /// No description provided for @myLocation.
+  ///
+  /// In it, this message translates to:
+  /// **'La mia posizione'**
+  String get myLocation;
+
+  /// No description provided for @useMyLocation.
+  ///
+  /// In it, this message translates to:
+  /// **'Usa la mia posizione'**
+  String get useMyLocation;
+
+  /// No description provided for @swapOriginDestination.
+  ///
+  /// In it, this message translates to:
+  /// **'Inverti A e B'**
+  String get swapOriginDestination;
+
+  /// No description provided for @go.
+  ///
+  /// In it, this message translates to:
+  /// **'VAI'**
+  String get go;
+
+  /// No description provided for @calculating.
+  ///
+  /// In it, this message translates to:
+  /// **'Calcolo…'**
+  String get calculating;
+
+  /// No description provided for @goHint.
+  ///
+  /// In it, this message translates to:
+  /// **'Tocca VAI per partire'**
+  String get goHint;
+
+  /// No description provided for @goHintLez.
+  ///
+  /// In it, this message translates to:
+  /// **'Milieuzone sul percorso — tocca VAI'**
+  String get goHintLez;
+
+  /// No description provided for @travelCar.
+  ///
+  /// In it, this message translates to:
+  /// **'Auto'**
+  String get travelCar;
+
+  /// No description provided for @travelFoot.
+  ///
+  /// In it, this message translates to:
+  /// **'A piedi'**
+  String get travelFoot;
+
+  /// No description provided for @travelTransit.
+  ///
+  /// In it, this message translates to:
+  /// **'Mezzi'**
+  String get travelTransit;
+
+  /// No description provided for @noResultsNearby.
+  ///
+  /// In it, this message translates to:
+  /// **'Nessun risultato in zona'**
+  String get noResultsNearby;
+
+  /// No description provided for @noZones.
+  ///
+  /// In it, this message translates to:
+  /// **'Nessuna zona'**
+  String get noZones;
+
+  /// No description provided for @zonesOnRouteCount.
+  ///
+  /// In it, this message translates to:
+  /// **'{count} milieuzone'**
+  String zonesOnRouteCount(int count);
+
+  /// No description provided for @noSpeedCameras.
+  ///
+  /// In it, this message translates to:
+  /// **'Nessun autovelox'**
+  String get noSpeedCameras;
+
+  /// No description provided for @speedCamerasCount.
+  ///
+  /// In it, this message translates to:
+  /// **'{count} autovelox'**
+  String speedCamerasCount(int count);
+
+  /// No description provided for @lezOnRoute.
+  ///
+  /// In it, this message translates to:
+  /// **'Milieuzone sul percorso'**
+  String get lezOnRoute;
+
+  /// No description provided for @lezOnChosenRoute.
+  ///
+  /// In it, this message translates to:
+  /// **'Zona ambientale sul tragitto scelto'**
+  String get lezOnChosenRoute;
+
+  /// No description provided for @dropoffRecommended.
+  ///
+  /// In it, this message translates to:
+  /// **'Consigliato: sosta e a piedi'**
+  String get dropoffRecommended;
+
+  /// No description provided for @places.
+  ///
+  /// In it, this message translates to:
+  /// **'Luoghi'**
+  String get places;
+
+  /// No description provided for @recents.
+  ///
+  /// In it, this message translates to:
+  /// **'Recenti'**
+  String get recents;
+
+  /// No description provided for @itineraries.
+  ///
+  /// In it, this message translates to:
+  /// **'Itinerari'**
+  String get itineraries;
+
+  /// No description provided for @fromOrigin.
+  ///
+  /// In it, this message translates to:
+  /// **'Da {origin}'**
+  String fromOrigin(String origin);
+
+  /// No description provided for @environmentalZoneShort.
+  ///
+  /// In it, this message translates to:
+  /// **'Zona ambientale'**
+  String get environmentalZoneShort;
+
+  /// No description provided for @centered.
+  ///
+  /// In it, this message translates to:
+  /// **'Centrato'**
+  String get centered;
+
+  /// No description provided for @recenter.
+  ///
+  /// In it, this message translates to:
+  /// **'Ricentra'**
+  String get recenter;
+
+  /// No description provided for @overview.
+  ///
+  /// In it, this message translates to:
+  /// **'Panoramica'**
+  String get overview;
+
+  /// No description provided for @endNav.
+  ///
+  /// In it, this message translates to:
+  /// **'Fine'**
+  String get endNav;
+
+  /// No description provided for @noLezOnRoute.
+  ///
+  /// In it, this message translates to:
+  /// **'Nessuna milieuzone sul percorso'**
+  String get noLezOnRoute;
+
+  /// No description provided for @routeAvoidsLez.
+  ///
+  /// In it, this message translates to:
+  /// **'Il tragitto evita le LEZ evidenziate'**
+  String get routeAvoidsLez;
+
+  /// No description provided for @zonesCountEnvironmental.
+  ///
+  /// In it, this message translates to:
+  /// **'{count} zona/e ambientali'**
+  String zonesCountEnvironmental(int count);
+
+  /// No description provided for @walkLeg.
+  ///
+  /// In it, this message translates to:
+  /// **'Tratto a piedi'**
+  String get walkLeg;
+
+  /// No description provided for @walkTowards.
+  ///
+  /// In it, this message translates to:
+  /// **'Cammina verso {dest}'**
+  String walkTowards(String dest);
+
+  /// No description provided for @walkAfterStop.
+  ///
+  /// In it, this message translates to:
+  /// **'{distance} a piedi dopo la sosta'**
+  String walkAfterStop(String distance);
+
+  /// No description provided for @destinationGeneric.
+  ///
+  /// In it, this message translates to:
+  /// **'destinazione'**
+  String get destinationGeneric;
+
+  /// No description provided for @vehicleNotAuthorized.
+  ///
+  /// In it, this message translates to:
+  /// **'Veicolo non autorizzato'**
+  String get vehicleNotAuthorized;
+
+  /// No description provided for @vehicleAuthorized.
+  ///
+  /// In it, this message translates to:
+  /// **'Veicolo autorizzato'**
+  String get vehicleAuthorized;
+
+  /// No description provided for @nearbyEnvironmentalZone.
+  ///
+  /// In it, this message translates to:
+  /// **'Zona ambientale vicina'**
+  String get nearbyEnvironmentalZone;
+
+  /// No description provided for @speedCameraIn.
+  ///
+  /// In it, this message translates to:
+  /// **'Autovelox tra {distance}'**
+  String speedCameraIn(String distance);
+
+  /// No description provided for @speedLimitKmh.
+  ///
+  /// In it, this message translates to:
+  /// **'Limite {limit} km/h'**
+  String speedLimitKmh(String limit);
+
+  /// No description provided for @speedCheckOnRoute.
+  ///
+  /// In it, this message translates to:
+  /// **'Controllo velocità sul percorso'**
+  String get speedCheckOnRoute;
+
+  /// No description provided for @camerasOnRoute.
+  ///
+  /// In it, this message translates to:
+  /// **'{count} autovelox sul percorso'**
+  String camerasOnRoute(int count);
+
+  /// No description provided for @camerasAsPins.
+  ///
+  /// In it, this message translates to:
+  /// **'Mostrati come pin sulla mappa'**
+  String get camerasAsPins;
+
+  /// No description provided for @transitNoTransfers.
+  ///
+  /// In it, this message translates to:
+  /// **'Mezzi · senza cambi'**
+  String get transitNoTransfers;
+
+  /// No description provided for @transitTransfers.
+  ///
+  /// In it, this message translates to:
+  /// **'Mezzi · {count} cambio/i'**
+  String transitTransfers(int count);
+
+  /// No description provided for @approachingZoneMeters.
+  ///
+  /// In it, this message translates to:
+  /// **'Zona ambientale tra {distance} m'**
+  String approachingZoneMeters(int distance);
+
+  /// No description provided for @vehicleNotAuthorizedInZone.
+  ///
+  /// In it, this message translates to:
+  /// **'{zoneName} · veicolo non autorizzato'**
+  String vehicleNotAuthorizedInZone(String zoneName);
+
+  /// No description provided for @insideZoneName.
+  ///
+  /// In it, this message translates to:
+  /// **'Dentro {zoneName}'**
+  String insideZoneName(String zoneName);
+
+  /// No description provided for @askAi.
+  ///
+  /// In it, this message translates to:
+  /// **'Chiedi all\'AI'**
+  String get askAi;
+
+  /// No description provided for @close.
+  ///
+  /// In it, this message translates to:
+  /// **'Chiudi'**
+  String get close;
+
+  /// No description provided for @speedCheckApproaching.
+  ///
+  /// In it, this message translates to:
+  /// **'Controllo velocità in avvicinamento'**
+  String get speedCheckApproaching;
+
+  /// No description provided for @cameraCommunity.
+  ///
+  /// In it, this message translates to:
+  /// **'Non in mappa ufficiale · segnalato da un conducente'**
+  String get cameraCommunity;
+
+  /// No description provided for @cameraCommunityLimit.
+  ///
+  /// In it, this message translates to:
+  /// **'Limite {limit} km/h · segnalato da un conducente'**
+  String cameraCommunityLimit(String limit);
+
+  /// No description provided for @routeZonesCount.
+  ///
+  /// In it, this message translates to:
+  /// **'{count} zona/e: {names}'**
+  String routeZonesCount(int count, String names);
+
+  /// No description provided for @recalculatingRoute.
+  ///
+  /// In it, this message translates to:
+  /// **'Ricalcolo percorso'**
+  String get recalculatingRoute;
+
+  /// No description provided for @stopThenWalk.
+  ///
+  /// In it, this message translates to:
+  /// **'Sosta, poi {distance} a piedi'**
+  String stopThenWalk(String distance);
+
+  /// No description provided for @walkTowardsDestination.
+  ///
+  /// In it, this message translates to:
+  /// **'Cammina verso destinazione'**
+  String get walkTowardsDestination;
+
+  /// No description provided for @towardsDestination.
+  ///
+  /// In it, this message translates to:
+  /// **'Verso {dest}'**
+  String towardsDestination(String dest);
+
+  /// No description provided for @routeReady.
+  ///
+  /// In it, this message translates to:
+  /// **'Percorso pronto'**
+  String get routeReady;
+
+  /// No description provided for @noRoute.
+  ///
+  /// In it, this message translates to:
+  /// **'Nessun percorso'**
+  String get noRoute;
+
+  /// No description provided for @thenWalk.
+  ///
+  /// In it, this message translates to:
+  /// **'Poi {distance} a piedi'**
+  String thenWalk(String distance);
+
+  /// No description provided for @premiumActive.
+  ///
+  /// In it, this message translates to:
+  /// **'Premium attivo'**
+  String get premiumActive;
+
+  /// No description provided for @complimentaryAccount.
+  ///
+  /// In it, this message translates to:
+  /// **'Account omaggio — accesso completo'**
+  String get complimentaryAccount;
+
+  /// No description provided for @premiumUnlockedFeatures.
+  ///
+  /// In it, this message translates to:
+  /// **'Milieuzone, autovelox, EcoEntry sbloccati'**
+  String get premiumUnlockedFeatures;
+
+  /// No description provided for @paywallFeatureAlerts.
+  ///
+  /// In it, this message translates to:
+  /// **'Allerte milieuzone / LEZ / ZTL'**
+  String get paywallFeatureAlerts;
+
+  /// No description provided for @paywallFeatureCameras.
+  ///
+  /// In it, this message translates to:
+  /// **'Autovelox, flitsers e community'**
+  String get paywallFeatureCameras;
+
+  /// No description provided for @paywallFeatureEcoentry.
+  ///
+  /// In it, this message translates to:
+  /// **'EcoEntry, drop-off, AI, preferiti, POI'**
+  String get paywallFeatureEcoentry;
+
+  /// No description provided for @playBillingLine.
+  ///
+  /// In it, this message translates to:
+  /// **'Google Play: {productId} · {price} €/mese'**
+  String playBillingLine(String productId, String price);
+
+  /// No description provided for @paywallTrialHintShort.
+  ///
+  /// In it, this message translates to:
+  /// **'2,99 €/mese: milieuzone, autovelox, EcoEntry.'**
+  String get paywallTrialHintShort;
+
+  /// No description provided for @personalData.
+  ///
+  /// In it, this message translates to:
+  /// **'Dati personali'**
+  String get personalData;
+
+  /// No description provided for @name.
+  ///
+  /// In it, this message translates to:
+  /// **'Nome'**
+  String get name;
+
+  /// No description provided for @enterName.
+  ///
+  /// In it, this message translates to:
+  /// **'Inserisci il tuo nome'**
+  String get enterName;
+
+  /// No description provided for @email.
+  ///
+  /// In it, this message translates to:
+  /// **'Email'**
+  String get email;
+
+  /// No description provided for @enterValidEmail.
+  ///
+  /// In it, this message translates to:
+  /// **'Inserisci un\'email valida'**
+  String get enterValidEmail;
+
+  /// No description provided for @newPasswordOptional.
+  ///
+  /// In it, this message translates to:
+  /// **'Nuova password (facoltativa)'**
+  String get newPasswordOptional;
+
+  /// No description provided for @leaveBlankPassword.
+  ///
+  /// In it, this message translates to:
+  /// **'Lascia vuoto per mantenere quella attuale'**
+  String get leaveBlankPassword;
+
+  /// No description provided for @show.
+  ///
+  /// In it, this message translates to:
+  /// **'Mostra'**
+  String get show;
+
+  /// No description provided for @hide.
+  ///
+  /// In it, this message translates to:
+  /// **'Nascondi'**
+  String get hide;
+
+  /// No description provided for @atLeast8Chars.
+  ///
+  /// In it, this message translates to:
+  /// **'Almeno 8 caratteri'**
+  String get atLeast8Chars;
+
+  /// No description provided for @navVoice.
+  ///
+  /// In it, this message translates to:
+  /// **'Voce navigazione'**
+  String get navVoice;
+
+  /// No description provided for @voiceMale.
+  ///
+  /// In it, this message translates to:
+  /// **'Maschile'**
+  String get voiceMale;
+
+  /// No description provided for @voiceFemale.
+  ///
+  /// In it, this message translates to:
+  /// **'Femminile'**
+  String get voiceFemale;
+
+  /// No description provided for @yourCar.
+  ///
+  /// In it, this message translates to:
+  /// **'Il tuo veicolo'**
+  String get yourCar;
+
+  /// No description provided for @type.
+  ///
+  /// In it, this message translates to:
+  /// **'Tipo'**
+  String get type;
+
+  /// No description provided for @fuel.
+  ///
+  /// In it, this message translates to:
+  /// **'Alimentazione'**
+  String get fuel;
+
+  /// No description provided for @saving.
+  ///
+  /// In it, this message translates to:
+  /// **'Salvataggio…'**
+  String get saving;
+
+  /// No description provided for @savePersonalData.
+  ///
+  /// In it, this message translates to:
+  /// **'Salva dati personali'**
+  String get savePersonalData;
+
+  /// No description provided for @personalDataSaved.
+  ///
+  /// In it, this message translates to:
+  /// **'Dati personali salvati'**
+  String get personalDataSaved;
+
+  /// No description provided for @savedLocallyServerFailed.
+  ///
+  /// In it, this message translates to:
+  /// **'Salvato in locale. Impossibile aggiornare il server.'**
+  String get savedLocallyServerFailed;
+
+  /// No description provided for @aiAssistant.
+  ///
+  /// In it, this message translates to:
+  /// **'Assistente AI'**
+  String get aiAssistant;
+
+  /// No description provided for @aiAssistantSubtitle.
+  ///
+  /// In it, this message translates to:
+  /// **'Chiedi di zone, autovelox e percorso'**
+  String get aiAssistantSubtitle;
+
+  /// No description provided for @installOnPc.
+  ///
+  /// In it, this message translates to:
+  /// **'Installa su questo PC'**
+  String get installOnPc;
+
+  /// No description provided for @installOnPcBody.
+  ///
+  /// In it, this message translates to:
+  /// **'Aggiungi MilieuAlert come app sul desktop — nessuno store o SDK richiesto.'**
+  String get installOnPcBody;
+
+  /// No description provided for @signOut.
+  ///
+  /// In it, this message translates to:
+  /// **'Esci'**
+  String get signOut;
+
+  /// No description provided for @poiRestaurants.
+  ///
+  /// In it, this message translates to:
+  /// **'Ristoranti'**
+  String get poiRestaurants;
+
+  /// No description provided for @poiFuel.
+  ///
+  /// In it, this message translates to:
+  /// **'Pompe di benzina'**
+  String get poiFuel;
+
+  /// No description provided for @poiTobacco.
+  ///
+  /// In it, this message translates to:
+  /// **'Tabacchi'**
+  String get poiTobacco;
+
+  /// No description provided for @poiParking.
+  ///
+  /// In it, this message translates to:
+  /// **'Parcheggi'**
+  String get poiParking;
+
+  /// No description provided for @poiSupermarket.
+  ///
+  /// In it, this message translates to:
+  /// **'Supermercati'**
+  String get poiSupermarket;
+
+  /// No description provided for @poiCafe.
+  ///
+  /// In it, this message translates to:
+  /// **'Caffè'**
+  String get poiCafe;
+
+  /// No description provided for @poiPharmacy.
+  ///
+  /// In it, this message translates to:
+  /// **'Farmacie'**
+  String get poiPharmacy;
+
+  /// No description provided for @placeHome.
+  ///
+  /// In it, this message translates to:
+  /// **'Casa'**
+  String get placeHome;
+
+  /// No description provided for @placeWork.
+  ///
+  /// In it, this message translates to:
+  /// **'Lavoro'**
+  String get placeWork;
 }
 
 class _AppLocalizationsDelegate

@@ -3,14 +3,15 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../db/pool');
 const { authenticateToken } = require('../middleware/auth');
+const { computeEntitlement, serializeUser } = require('../services/entitlement');
+const {
+  PROFILE_COLUMNS,
+  attachEntitlement,
+  clientTrialHeader,
+} = require('../services/trialStore');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-me';
-
-const PROFILE_COLUMNS = `id, email, display_name, phone, preferred_language, country,
-              is_premium, subscription_plan, subscription_expires_at,
-              marketing_consent, data_processing_consent, created_at,
-              last_active_at, referral_code`;
 
 async function loadVehicles(userId) {
   const vehicles = await pool.query(
@@ -57,6 +58,11 @@ async function upsertVehicle(userId, vehicle) {
   );
 }
 
+function withEntitlement(user) {
+  const entitlement = computeEntitlement(user);
+  return { ...serializeUser(user, entitlement), entitlement, user: serializeUser(user, entitlement) };
+}
+
 async function getProfileHandler(req, res) {
   try {
     const result = await pool.query(
@@ -68,8 +74,9 @@ async function getProfileHandler(req, res) {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const user = await attachEntitlement(result.rows[0], clientTrialHeader(req));
     const vehicles = await loadVehicles(req.user.id);
-    res.json({ ...result.rows[0], vehicles });
+    res.json({ ...withEntitlement(user), vehicles });
   } catch (err) {
     console.error('Profile error:', err);
     res.status(500).json({ error: 'Failed to fetch profile' });
@@ -152,13 +159,13 @@ async function updateProfileHandler(req, res) {
       await upsertVehicle(userId, vehicle);
     }
 
-    const user = result.rows[0];
+    const user = await attachEntitlement(result.rows[0], clientTrialHeader(req));
     const vehicles = await loadVehicles(userId);
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+    const payload = withEntitlement(user);
 
     res.json({
-      ...user,
-      user,
+      ...payload,
       vehicles,
       token,
       password_updated: passwordChanged,
@@ -172,6 +179,9 @@ async function updateProfileHandler(req, res) {
 router.get('/profile', authenticateToken, getProfileHandler);
 router.put('/profile', authenticateToken, updateProfileHandler);
 router.patch('/profile', authenticateToken, updateProfileHandler);
+router.get('/me', authenticateToken, getProfileHandler);
+router.put('/me', authenticateToken, updateProfileHandler);
+router.patch('/me', authenticateToken, updateProfileHandler);
 
 router.getProfileHandler = getProfileHandler;
 router.updateProfileHandler = updateProfileHandler;

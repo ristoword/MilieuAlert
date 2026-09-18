@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/settings_provider.dart';
 import '../../core/widgets/install_app_button.dart';
+import '../../l10n/l10n_ext.dart';
 
 class LanguageScreen extends ConsumerWidget {
   const LanguageScreen({super.key});
@@ -19,6 +20,7 @@ class LanguageScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLocale = ref.watch(localeProvider);
     final theme = Theme.of(context);
+    final l10n = l10nOf(context);
 
     return Scaffold(
       body: SafeArea(
@@ -34,14 +36,14 @@ class LanguageScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Select Language',
+                l10n.onboardingLanguageTitle,
                 style: theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Choose your preferred language',
+                l10n.chooseLanguage,
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -98,10 +100,10 @@ class LanguageScreen extends ConsumerWidget {
                     foregroundColor: theme.colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text(
-                    'Next',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  child: Text(
+                    l10n.next,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),

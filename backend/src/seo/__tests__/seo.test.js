@@ -54,6 +54,7 @@ describe('MilieuAlert locale SEO', () => {
     assert.equal(app.name, 'MilieuAlert');
     assert.ok(app.alternateName.includes('milieurzone'));
     assert.equal(app.applicationCategory, 'TravelApplication');
+    assert.equal(app.offers.price, '2.99');
     const faq = ld['@graph'].find((n) => n['@type'] === 'FAQPage');
     assert.ok(faq.mainEntity.length >= 6);
   });

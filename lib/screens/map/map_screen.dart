@@ -16,6 +16,7 @@ import '../../models/zone_status.dart';
 import '../../models/saved_places.dart';
 import '../../models/hazard_report.dart';
 import '../../l10n/hazard_strings.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../providers/ai_assist_provider.dart';
 import '../../providers/favorites_provider.dart';
 import '../../providers/hazard_provider.dart';
@@ -26,6 +27,8 @@ import '../../providers/settings_provider.dart';
 import '../../providers/voice_guidance_provider.dart';
 import '../../providers/wake_lock_provider.dart';
 import '../../providers/zone_provider.dart';
+import '../../providers/entitlement_provider.dart';
+import '../../core/widgets/paywall.dart';
 import '../../services/geo_utils.dart';
 import '../../services/navigation_guidance.dart';
 import 'widgets/ai_assist_sheet.dart';
@@ -115,16 +118,21 @@ class _MapScreenState extends ConsumerState<MapScreen>
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _originCtrl.text = l10nOf(context).myLocation;
       final locN = ref.read(locationProvider.notifier);
       locN.startTracking();
       locN.setFollow(true);
       locN.liveFix.addListener(_onLiveFix);
       ref.read(liveHudProvider);
+      ref.read(entitlementProvider.notifier).refresh();
       final loc = ref.read(locationProvider);
-      ref.read(hazardProvider.notifier).start(
-            lat: loc.latitude,
-            lon: loc.longitude,
-          );
+      if (!ref.read(entitlementProvider).navigatorOnly) {
+        ref.read(hazardProvider.notifier).start(
+              lat: loc.latitude,
+              lon: loc.longitude,
+            );
+      }
       if (widget.openNavigation) _enterNavMode();
     });
   }
@@ -403,13 +411,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
   Widget _recenterButton(bool follow) {
     return _RoundMapButton(
       icon: follow ? Icons.gps_fixed : Icons.gps_not_fixed,
-      tooltip: follow ? 'Centrato' : 'Ricentra',
+      tooltip: follow ? l10nOf(context).centered : l10nOf(context).recenter,
       emphasized: !follow,
       onTap: _recenter,
     );
   }
 
-  Widget _sideMapButtons(bool follow) {
+  Widget _sideMapButtons(bool follow, bool premium) {
     final l10n = HazardStrings.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -433,7 +441,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
         _RoundMapButton(
           icon: Icons.campaign_outlined,
           tooltip: l10n.nearbyFeed,
-          onTap: () => showHazardFeedSheet(context),
+          onTap: () {
+            if (!premium) {
+              showPaywallSheet(context);
+              return;
+            }
+            showHazardFeedSheet(context);
+          },
         ),
         const SizedBox(height: 8),
         _recenterButton(follow),
@@ -444,11 +458,21 @@ class _MapScreenState extends ConsumerState<MapScreen>
           elevation: 3,
           child: InkWell(
             customBorder: const CircleBorder(),
-            onTap: () => showHazardReportSheet(context, ref),
-            child: const SizedBox(
+            onTap: () {
+              if (!premium) {
+                showPaywallSheet(context);
+                return;
+              }
+              showHazardReportSheet(context, ref);
+            },
+            child: SizedBox(
               width: 56,
               height: 56,
-              child: Icon(Icons.add, color: Colors.white, size: 32),
+              child: Icon(
+                premium ? Icons.add : Icons.lock_outline,
+                color: Colors.white,
+                size: 32,
+              ),
             ),
           ),
         ),
@@ -500,6 +524,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final follow = ref.watch(locationProvider.select((s) => s.follow));
     ref.watch(voiceGuidanceProvider);
     ref.watch(screenWakeLockProvider);
+    final entitlement = ref.watch(entitlementProvider);
+    final premium = entitlement.fullAccess;
     ref.listen(liveHudProvider, (_, __) {});
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final topPad = MediaQuery.of(context).padding.top;
@@ -508,7 +534,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       if (next.originIsMyLocation &&
           (prev == null || !prev.originIsMyLocation) &&
           !_originFocus.hasFocus) {
-        _originCtrl.text = 'La mia posizione';
+        _originCtrl.text = l10nOf(context).myLocation;
       } else if (!next.originIsMyLocation &&
           next.origin != null &&
           next.origin!.label != prev?.origin?.label &&
@@ -641,7 +667,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
               ),
               zonesAsync.when(
                 data: (zones) => PolygonLayer(
-                  polygons: _polygonsFor(zones, nav.zonesOnRoute),
+                  polygons: premium
+                      ? _polygonsFor(zones, nav.zonesOnRoute)
+                      : const <Polygon>[],
                 ),
                 loading: () => const PolygonLayer(polygons: <Polygon>[]),
                 error: (_, __) => const PolygonLayer(polygons: <Polygon>[]),
@@ -677,6 +705,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   ],
                 ),
               if (nav.usingDropOff &&
+                  premium &&
                   !nav.walkLegActive &&
                   nav.walkRoute.length >= 2)
                 PolylineLayer(
@@ -691,7 +720,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
               MarkerLayer(
                 rotate: true,
                 markers: [
-                if (!guiding)
+                if (!guiding && premium)
                   for (final poi in nav.nearbyResults)
                     Marker(
                       point: LatLng(poi.lat, poi.lon),
@@ -725,6 +754,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     ),
                   ),
                 if (nav.usingDropOff &&
+                    premium &&
                     !nav.walkLegActive &&
                     nav.dropOff != null)
                   Marker(
@@ -739,7 +769,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     ),
                   ),
               ]),
-              _HazardPinsLayer(onOpenHazard: showHazardDetailSheet),
+              if (premium)
+                _HazardPinsLayer(onOpenHazard: showHazardDetailSheet),
               _LivePuckLayer(headingUp: _headingUp),
               const RichAttributionWidget(
                 attributions: [
@@ -760,7 +791,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     alignment: Alignment.topRight,
                     child: _RoundMapButton(
                       icon: Icons.settings_outlined,
-                      tooltip: 'Impostazioni',
+                      tooltip: l10nOf(context).settings,
                       onTap: () => context.push('/settings'),
                     ),
                   ),
@@ -768,6 +799,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 _LiveAlertHost(
                   guiding: guiding,
                   onOpenAi: _openAi,
+                  premium: premium,
                 ),
                 if (guiding) ...[
                   const SizedBox(height: 8),
@@ -788,9 +820,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     alignment: Alignment.centerRight,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: _sideMapButtons(follow),
+                      child: _sideMapButtons(follow, premium),
                     ),
                   ),
+                  const PaywallBanner(),
                   ConstrainedBox(
                 constraints: BoxConstraints(
                   maxHeight: MediaQuery.sizeOf(context).height * 0.62,
@@ -804,9 +837,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 nav: nav,
                 expanded: _sheetExpanded,
                 highlighted: widget.openNavigation,
+                premiumUnlocked: premium,
+                onUpgrade: () => showPaywallSheet(context),
                 onToggleExpanded: _toggleSheet,
                 onOriginQuery: (q) {
-                  if (q.trim().toLowerCase() == 'la mia posizione') return;
+                  if (isMyLocationText(q, l10nOf(context))) return;
                   final lang = ref.read(localeProvider).languageCode;
                   ref.read(navigationProvider.notifier).search(
                         q,
@@ -835,7 +870,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   FocusScope.of(context).unfocus();
                 },
                 onUseMyLocation: () {
-                  _originCtrl.text = 'La mia posizione';
+                  _originCtrl.text = l10nOf(context).myLocation;
                   ref.read(navigationProvider.notifier).useMyLocationAsOrigin();
                   if (nav.destination != null) {
                     ref.read(navigationProvider.notifier).planRoute(
@@ -908,7 +943,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     alignment: Alignment.centerRight,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: _sideMapButtons(follow),
+                      child: _sideMapButtons(follow, premium),
                     ),
                   ),
                   _LiveEtaTray(
@@ -916,7 +951,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 onToggleExpanded: _toggleTray,
                 onStop: () {
                   ref.read(navigationProvider.notifier).stopNavigation();
-                  _originCtrl.text = 'La mia posizione';
+                  _originCtrl.text = l10nOf(context).myLocation;
                   _destCtrl.clear();
                 },
                 onOverview: _showOverview,
@@ -934,6 +969,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   Future<void> _onSelectCategory(PoiCategory category) async {
+    if (ref.read(entitlementProvider).navigatorOnly) {
+      showPaywallSheet(context);
+      return;
+    }
     setState(() => _sheetExpanded = true);
     FocusManager.instance.primaryFocus?.unfocus();
     final loc = ref.read(locationProvider);
@@ -991,7 +1030,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
         loc.latitude != null &&
         loc.longitude != null) {
       return PlaceHit(
-        label: 'La mia posizione',
+        label: l10nOf(context).myLocation,
         lat: loc.latitude!,
         lon: loc.longitude!,
       );
@@ -1000,6 +1039,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   void _openFavoritesHub({int tab = 0, String? prefillLabel}) {
+    if (ref.read(entitlementProvider).navigatorOnly) {
+      showPaywallSheet(context);
+      return;
+    }
     final nav = ref.read(navigationProvider);
     showFavoritesHub(
       context: context,
@@ -1013,10 +1056,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   void _openAi() {
+    if (ref.read(entitlementProvider).navigatorOnly) {
+      showPaywallSheet(context);
+      return;
+    }
     showAiAssistSheet(context);
   }
 
   Future<void> _onSavedPlaceTap(SavedPlace place) async {
+    if (ref.read(entitlementProvider).navigatorOnly) {
+      showPaywallSheet(context);
+      return;
+    }
     SearchField field;
     if (_originFocus.hasFocus) {
       field = SearchField.origin;
@@ -1212,16 +1263,21 @@ class _LiveAlertHost extends ConsumerWidget {
   const _LiveAlertHost({
     required this.guiding,
     required this.onOpenAi,
+    required this.premium,
   });
 
   final bool guiding;
   final VoidCallback onOpenAi;
+  final bool premium;
 
   bool _zoneAlertActive(ZoneProximity? zone) =>
       zone != null && zone.status != ZoneStatus.safe;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!premium) {
+      return const TransientAlertSlot(candidates: []);
+    }
     final hud = ref.watch(liveHudProvider);
     final nav = ref.watch(navigationProvider);
     final hazards = ref.watch(hazardProvider);

@@ -20,7 +20,7 @@ class LocaleNotifier extends StateNotifier<Locale> {
   final SharedPreferences _prefs;
 
   LocaleNotifier(this._prefs)
-      : super(Locale(_prefs.getString('locale') ?? 'en'));
+      : super(Locale(_prefs.getString('locale') ?? 'it'));
 
   Future<void> setLocale(String languageCode) async {
     state = Locale(languageCode);

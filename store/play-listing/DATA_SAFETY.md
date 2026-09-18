@@ -31,8 +31,8 @@ Privacy URL: https://milieualert-production.up.railway.app/privacy
 
 ## Permessi Android da dichiarare in linea
 
-`INTERNET`, `ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`, `FOREGROUND_SERVICE` / `_LOCATION`, `POST_NOTIFICATIONS`, `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED`.
+`INTERNET`, `ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`, `FOREGROUND_SERVICE` / `_LOCATION`, `POST_NOTIFICATIONS`, `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED`, `com.android.vending.BILLING` (abbonamento 2,99 €/mese).
 
 Altri permessi uniti dai plugin (non usati per ads): `ACCESS_NETWORK_STATE`, `VIBRATE`, `ACTIVITY_RECOGNITION` (migliora il GPS in guida, non fitness), `SCHEDULE_EXACT_ALARM` / ignore-battery per avvisi. In Data safety, se il questionario chiede **attività fisica**: sì, raccolta per funzionalità app, non condivisa, non venduta.
 
-AAB verificato: `applicationId=com.milieuzone.milieu_alert`, `versionCode=1`, `versionName=1.0.0`, `minSdk=26`, `targetSdk=35`, `usesCleartextTraffic=false`.
+AAB verificato: `applicationId=com.milieuzone.milieu_alert`, `versionCode=2`, `versionName=1.0.1`, `minSdk=26`, `targetSdk=35`, `usesCleartextTraffic=false`.

@@ -18,7 +18,7 @@ const PAGES = {
     lead:
       'MilieuAlert is a GPS navigator with EcoEntry: it matches your vehicle (Euro 2, Euro 3, Euro 4, Euro 5) to the milieuzone, LEZ or clean air zone ahead — then speaks before you enter.',
     cta: 'Open the GPS navigator',
-    ctaHint: 'Free for 15 days, then €3.99/month. Install as a PWA.',
+    ctaHint: 'Free for 15 days, then €2.99/month. Install as a PWA.',
     navApp: 'Open app',
     breadcrumb: 'GPS navigator',
     sections: [
@@ -70,7 +70,7 @@ const PAGES = {
       ],
       [
         'How much does it cost?',
-        '15 days after registration, then €3.99 per month. Open the PWA to start. Sold via Gestione Semplificata.'
+        '15 days after registration, then €2.99 per month. Open the PWA to start. Sold via Gestione Semplificata / Google Play.',
       ],
       [
         'Does this replace Google Maps or Waze?',
@@ -91,7 +91,7 @@ const PAGES = {
     lead:
       'MilieuAlert is een GPS-navigator met EcoEntry: hij legt jouw voertuig (Euro 2, Euro 3, Euro 4, Euro 5) naast de milieuzone of LEZ op de route en waarschuwt vóór je inrijdt.',
     cta: 'Open de GPS-navigator',
-    ctaHint: '15 dagen gratis, daarna €3,99/maand. Installeer als PWA.',
+    ctaHint: '15 dagen gratis, daarna €2,99/maand. Installeer als PWA.',
     navApp: 'Open app',
     breadcrumb: 'GPS-navigator',
     sections: [
@@ -143,7 +143,7 @@ const PAGES = {
       ],
       [
         'Wat kost het?',
-        '15 dagen na registratie, daarna €3,99 per maand. Open de PWA. Verkoop via Gestione Semplificata.'
+        '15 dagen na registratie, daarna €2,99 per maand. Open de PWA. Verkoop via Gestione Semplificata / Google Play.'
       ],
       [
         'Vervangt dit Google Maps of Waze?',
@@ -164,7 +164,7 @@ const PAGES = {
     lead:
       'MilieuAlert è un navigatore GPS con EcoEntry: confronta il veicolo (Euro 2, Euro 3, Euro 4, Euro 5) con la milieuzone, la ZTL ambientale o la LEZ sul percorso e avvisa prima dell’ingresso.',
     cta: 'Apri il navigatore GPS',
-    ctaHint: '15 giorni gratis, poi 3,99€/mese. Installala come PWA.',
+    ctaHint: '15 giorni gratis, poi 2,99€/mese. Installala come PWA.',
     navApp: 'Apri l’app',
     breadcrumb: 'Navigatore GPS',
     sections: [
@@ -216,7 +216,7 @@ const PAGES = {
       ],
       [
         'Quanto costa?',
-        '15 giorni dopo la registrazione, poi 3,99€ al mese. Apri la PWA. Vendita tramite Gestione Semplificata.'
+        '15 giorni dopo la registrazione, poi 2,99€ al mese. Apri la PWA. Vendita tramite Gestione Semplificata / Google Play.'
       ],
       [
         'Sostituisce Google Maps o Waze?',

@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const pool = require('../db/pool');
 const { authenticateToken } = require('../middleware/auth');
 const userRoutes = require('./users');
+const { computeEntitlement, addDays, pickTrialStart } = require('../services/entitlement');
+const { attachEntitlement, clientTrialHeader } = require('../services/trialStore');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-me';
@@ -23,17 +25,37 @@ router.post('/register', async (req, res) => {
 
     const password_hash = await bcrypt.hash(password, 12);
     const referral_code = 'MA' + Math.random().toString(36).substring(2, 10).toUpperCase();
+    const trialStart = pickTrialStart({
+      clientStartedAt: req.body?.trial_started_at,
+      now: new Date(),
+    });
+    const trialEnds = addDays(trialStart, 15);
 
     const result = await pool.query(
-      `INSERT INTO users (email, password_hash, display_name, preferred_language, country, referral_code)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, display_name, preferred_language`,
-      [email, password_hash, display_name || null, preferred_language || 'en', country || null, referral_code]
+      `INSERT INTO users (
+         email, password_hash, display_name, preferred_language, country, referral_code,
+         trial_started_at, trial_ends_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, email, display_name, preferred_language, country,
+                 is_premium, subscription_plan, trial_started_at, trial_ends_at, created_at`,
+      [
+        email,
+        password_hash,
+        display_name || null,
+        preferred_language || 'en',
+        country || null,
+        referral_code,
+        trialStart,
+        trialEnds,
+      ]
     );
 
     const user = result.rows[0];
+    const entitlement = computeEntitlement(user);
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
 
-    res.status(201).json({ user, token });
+    res.status(201).json({ user: { ...user, entitlement }, token, entitlement });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ error: 'Registration failed' });
@@ -60,20 +82,26 @@ router.post('/login', async (req, res) => {
     }
 
     await pool.query('UPDATE users SET last_active_at = NOW() WHERE id = $1', [user.id]);
+    const withTrial = await attachEntitlement(user, clientTrialHeader(req));
+    const entitlement = computeEntitlement(withTrial);
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
 
     res.json({
       user: {
-        id: user.id,
-        email: user.email,
-        display_name: user.display_name,
-        preferred_language: user.preferred_language,
-        country: user.country,
-        is_premium: user.is_premium,
-        subscription_plan: user.subscription_plan,
+        id: withTrial.id,
+        email: withTrial.email,
+        display_name: withTrial.display_name,
+        preferred_language: withTrial.preferred_language,
+        country: withTrial.country,
+        is_premium: withTrial.is_premium,
+        subscription_plan: withTrial.subscription_plan,
+        trial_started_at: withTrial.trial_started_at,
+        trial_ends_at: withTrial.trial_ends_at,
+        entitlement,
       },
       token,
+      entitlement,
     });
   } catch (err) {
     console.error('Login error:', err);

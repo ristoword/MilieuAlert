@@ -27,7 +27,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   final _passwordCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
 
-  String _selectedLanguage = 'EN';
+  String _selectedLanguage = 'IT';
   String _selectedCountry = 'NL';
 
   late final AnimationController _borderAnimCtrl;

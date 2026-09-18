@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme.dart';
+import '../../../l10n/l10n_ext.dart';
 import '../../../models/emission_zone.dart';
 import '../../../models/navigation_models.dart';
 import '../../../models/zone_status.dart';
@@ -70,14 +71,14 @@ class IncidentBanner extends StatelessWidget {
             ),
             if (onAskAi != null)
               IconButton(
-                tooltip: 'Chiedi all\'AI',
+                tooltip: l10nOf(context).askAi,
                 onPressed: onAskAi,
                 icon: Icon(Icons.auto_awesome, color: color, size: 18),
                 visualDensity: VisualDensity.compact,
               ),
             if (onDismiss != null)
               IconButton(
-                tooltip: 'Chiudi',
+                tooltip: l10nOf(context).close,
                 onPressed: onDismiss,
                 icon: Icon(
                   Icons.close,
@@ -153,8 +154,11 @@ class RouteZoneBanner extends StatelessWidget {
     return IncidentBanner(
       icon: Icons.shield_outlined,
       color: MapsColors.lezOnRouteBorder,
-      title: 'Milieuzone sul percorso',
-      subtitle: '${zones.length} zona/e: ${zones.map((z) => z.name).take(3).join(' · ')}',
+      title: l10nOf(context).lezOnRoute,
+      subtitle: l10nOf(context).routeZonesCount(
+        zones.length,
+        zones.map((z) => z.name).take(3).join(' · '),
+      ),
     );
   }
 }
@@ -173,17 +177,18 @@ class CameraIncidentBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nOf(context);
     return IncidentBanner(
       icon: community ? Icons.videocam_outlined : Icons.videocam_outlined,
       color: community ? const Color(0xFFFF3B30) : const Color(0xFFFF9F0A),
-      title: 'Autovelox tra ${formatDistance(meters)}',
+      title: l10n.speedCameraIn(formatDistance(meters)),
       subtitle: community
           ? (maxspeed != null
-              ? 'Limite $maxspeed km/h · segnalato da un conducente'
-              : 'Non in mappa ufficiale · segnalato da un conducente')
+              ? l10n.cameraCommunityLimit(maxspeed!)
+              : l10n.cameraCommunity)
           : (maxspeed != null
-              ? 'Limite $maxspeed km/h'
-              : 'Controllo velocità in avvicinamento'),
+              ? l10n.speedLimitKmh(maxspeed!)
+              : l10n.speedCheckApproaching),
     );
   }
 }

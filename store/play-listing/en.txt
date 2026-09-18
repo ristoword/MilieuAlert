@@ -5,10 +5,10 @@ title:
 MilieuAlert
 
 short_description:
-GPS navigator for milieuzone and LEZ. Your car, your zone, your access.
+GPS for low emission zones (milieuzone, LEZ). EcoEntry: your car, your zone.
 
 full_description:
-MilieuAlert is a GPS navigator for environmental zones: milieuzone, lage-emissiezone, Umweltzone, ZTL ambientale, LEZ and clean air zones.
+MilieuAlert is a GPS navigator for low emission zones: milieuzone, lage-emissiezone, Umweltzone, ZTL ambientale, LEZ and clean air zones.
 
 EcoEntry matches your vehicle (Euro 2, Euro 3, Euro 4, Euro 5 and fuel) to the zone ahead and speaks before you enter. The line is simple: your car, your zone, your access.
 

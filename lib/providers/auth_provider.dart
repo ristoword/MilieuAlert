@@ -68,7 +68,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
           headers: {'Content-Type': 'application/json'},
         )),
         super(const AuthState()) {
+    _ensureTrialStart();
     _loadSavedAuth();
+  }
+
+  void _ensureTrialStart() {
+    if (_prefs.getString('trial_started_at') != null) return;
+    _prefs.setString(
+      'trial_started_at',
+      DateTime.now().toUtc().toIso8601String(),
+    );
   }
 
   void _loadSavedAuth() {
@@ -96,6 +105,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       headers: {
         'Content-Type': 'application/json',
         if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        if (_prefs.getString('trial_started_at') != null)
+          'X-Trial-Started-At': _prefs.getString('trial_started_at'),
       },
     );
   }
@@ -194,6 +205,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
           'display_name': displayName,
           'preferred_language': preferredLanguage.toLowerCase(),
           'country': country,
+          if (_prefs.getString('trial_started_at') != null)
+            'trial_started_at': _prefs.getString('trial_started_at'),
         },
       );
 
@@ -247,7 +260,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (state.token == null || state.token!.isEmpty) return false;
     try {
       final response = await _dio.get(
-        '/api/users/profile',
+        '/api/users/me',
         options: _authOptions(),
       );
       final data = response.data is Map

@@ -15,6 +15,7 @@ import 'location_provider.dart';
 import 'settings_provider.dart';
 import 'vehicle_provider.dart';
 import 'zone_provider.dart';
+import 'entitlement_provider.dart';
 
 enum SearchField { origin, destination }
 
@@ -284,6 +285,12 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
   double _progressAlong = 0;
   int _headingOffStreak = 0;
 
+  bool get _navigatorOnly => _ref.read(entitlementProvider).navigatorOnly;
+
+  List<EmissionZone> get _loadedZones => _navigatorOnly
+      ? const <EmissionZone>[]
+      : (_ref.read(zonesProvider).valueOrNull ?? const <EmissionZone>[]);
+
   void setActiveField(SearchField field) {
     if (state.activeField == field) return;
     state = state.copyWith(activeField: field, suggestions: const []);
@@ -405,7 +412,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
         lat: useLat,
         lon: useLon,
       );
-      final zones = _ref.read(zonesProvider).valueOrNull ?? const <EmissionZone>[];
+      final zones = _loadedZones;
       final tagged = hits
           .map((hit) {
             EmissionZone? zone;
@@ -601,7 +608,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       ];
     }
 
-    if (mode == TravelMode.car) {
+    if (mode == TravelMode.car && !_navigatorOnly) {
       plans = await _withDropOffOptions(
         from: from,
         dest: dest,
@@ -656,7 +663,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
 
     var cameras = const <SpeedCamera>[];
     var limits = const <SpeedLimitPoint>[];
-    if (plan.mode.isCar) {
+    if (plan.mode.isCar && !_navigatorOnly) {
       try {
         final hazards = await _service.hazards(
           minLat: minLat,
@@ -674,7 +681,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       } catch (_) {}
     }
 
-    final zones = _ref.read(zonesProvider).valueOrNull ?? const <EmissionZone>[];
+    final zones = _loadedZones;
     final onRoute = <EmissionZone>[];
     final seen = <String>{};
     final step = polyline.length < 80 ? 1 : (polyline.length / 80).ceil();
@@ -812,7 +819,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     required PlaceHit dest,
     required List<RoutePlan> plans,
   }) async {
-    final zones = _ref.read(zonesProvider).valueOrNull ?? const <EmissionZone>[];
+    final zones = _loadedZones;
     final vehicle = _ref.read(vehicleProvider).valueOrNull;
     final denying = denyingZonesAt(
       lat: dest.lat,
@@ -1070,7 +1077,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
         } catch (_) {}
       }
 
-      final zones = _ref.read(zonesProvider).valueOrNull ?? const <EmissionZone>[];
+      final zones = _loadedZones;
       final onRoute = <EmissionZone>[];
       final seen = <String>{};
       final step = polyline.length < 80 ? 1 : (polyline.length / 80).ceil();
@@ -1596,7 +1603,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       }
     }
 
-    final zones = _ref.read(zonesProvider).valueOrNull ?? const <EmissionZone>[];
+    final zones = _loadedZones;
     EmissionZone? currentZone;
     for (final zone in zones) {
       if (isInsideZone(lat, lon, zone)) {

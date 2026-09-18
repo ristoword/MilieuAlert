@@ -147,7 +147,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get disclaimer =>
-      'Informatives Ergebnis. Ueberpruefen Sie immer die offiziellen Vorschriften.';
+      'Informatives Ergebnis. Verifizieren Sie immer die offiziellen Vorschriften.';
 
   @override
   String get car => 'PKW';
@@ -267,7 +267,392 @@ class AppLocalizationsDe extends AppLocalizations {
   String get grantPermission => 'Berechtigung erteilen';
 
   @override
+  String get paywallExpiredTitle => '15 Tage abgelaufen';
+
+  @override
+  String get paywallExpiredBody =>
+      '2,99 € pro Monat schaltet alles frei: Milieuzone, Blitzer, EcoEntry. Basis-Navigator bleibt (Karte, A-B, Heading-up, Meter).';
+
+  @override
+  String get paywallUnlock => 'Alles freischalten — 2,99 €/Monat';
+
+  @override
+  String get paywallTrialTitle => '15 Tage voller Test';
+
+  @override
+  String paywallTrialDays(int days) {
+    return 'Test: noch $days Tage';
+  }
+
+  @override
+  String get paywallTrialHint =>
+      'Danach 2,99 €/Monat für Milieuzone, Blitzer und EcoEntry.';
+
+  @override
+  String get paywallRedeem => 'Ich habe einen Code / GS-Lizenz';
+
+  @override
   String euro(int level) {
     return 'Euro $level';
   }
+
+  @override
+  String get searchPlace => 'Ort suchen';
+
+  @override
+  String get searchPlaceOrAddress => 'Ort oder Adresse suchen';
+
+  @override
+  String get fromMyLocation => 'Von: Mein Standort';
+
+  @override
+  String get myLocation => 'Mein Standort';
+
+  @override
+  String get useMyLocation => 'Meinen Standort verwenden';
+
+  @override
+  String get swapOriginDestination => 'A und B tauschen';
+
+  @override
+  String get go => 'LOS';
+
+  @override
+  String get calculating => 'Berechnung…';
+
+  @override
+  String get goHint => 'LOS tippen zum Starten';
+
+  @override
+  String get goHintLez => 'Milieuzone auf der Route — LOS tippen';
+
+  @override
+  String get travelCar => 'Auto';
+
+  @override
+  String get travelFoot => 'Zu Fuss';
+
+  @override
+  String get travelTransit => 'ÖPNV';
+
+  @override
+  String get noResultsNearby => 'Keine Ergebnisse in der Nähe';
+
+  @override
+  String get noZones => 'Keine Zonen';
+
+  @override
+  String zonesOnRouteCount(int count) {
+    return '$count Milieuzone';
+  }
+
+  @override
+  String get noSpeedCameras => 'Keine Blitzer';
+
+  @override
+  String speedCamerasCount(int count) {
+    return '$count Blitzer';
+  }
+
+  @override
+  String get lezOnRoute => 'Milieuzone auf der Route';
+
+  @override
+  String get lezOnChosenRoute => 'Umweltzone auf der gewählten Strecke';
+
+  @override
+  String get dropoffRecommended => 'Empfohlen: parken und zu Fuss';
+
+  @override
+  String get places => 'Orte';
+
+  @override
+  String get recents => 'Zuletzt';
+
+  @override
+  String get itineraries => 'Routen';
+
+  @override
+  String fromOrigin(String origin) {
+    return 'Von $origin';
+  }
+
+  @override
+  String get environmentalZoneShort => 'Umweltzone';
+
+  @override
+  String get centered => 'Zentriert';
+
+  @override
+  String get recenter => 'Zentrieren';
+
+  @override
+  String get overview => 'Übersicht';
+
+  @override
+  String get endNav => 'Ende';
+
+  @override
+  String get noLezOnRoute => 'Keine Milieuzone auf der Route';
+
+  @override
+  String get routeAvoidsLez => 'Die Route meidet markierte LEZ';
+
+  @override
+  String zonesCountEnvironmental(int count) {
+    return '$count Umweltzone(n)';
+  }
+
+  @override
+  String get walkLeg => 'Fussweg';
+
+  @override
+  String walkTowards(String dest) {
+    return 'Zu Fuss nach $dest';
+  }
+
+  @override
+  String walkAfterStop(String distance) {
+    return '$distance zu Fuss nach dem Halt';
+  }
+
+  @override
+  String get destinationGeneric => 'Ziel';
+
+  @override
+  String get vehicleNotAuthorized => 'Fahrzeug nicht zugelassen';
+
+  @override
+  String get vehicleAuthorized => 'Fahrzeug zugelassen';
+
+  @override
+  String get nearbyEnvironmentalZone => 'Umweltzone in der Nähe';
+
+  @override
+  String speedCameraIn(String distance) {
+    return 'Blitzer in $distance';
+  }
+
+  @override
+  String speedLimitKmh(String limit) {
+    return 'Limit $limit km/h';
+  }
+
+  @override
+  String get speedCheckOnRoute =>
+      'Geschwindigkeitskontrolle auf der Reststrecke';
+
+  @override
+  String camerasOnRoute(int count) {
+    return '$count Blitzer auf der Route';
+  }
+
+  @override
+  String get camerasAsPins => 'Als Pins auf der Karte';
+
+  @override
+  String get transitNoTransfers => 'ÖPNV · ohne Umstieg';
+
+  @override
+  String transitTransfers(int count) {
+    return 'ÖPNV · $count Umstieg/e';
+  }
+
+  @override
+  String approachingZoneMeters(int distance) {
+    return 'Umweltzone in $distance m';
+  }
+
+  @override
+  String vehicleNotAuthorizedInZone(String zoneName) {
+    return '$zoneName · Fahrzeug nicht zugelassen';
+  }
+
+  @override
+  String insideZoneName(String zoneName) {
+    return 'In $zoneName';
+  }
+
+  @override
+  String get askAi => 'KI fragen';
+
+  @override
+  String get close => 'Schliessen';
+
+  @override
+  String get speedCheckApproaching => 'Geschwindigkeitskontrolle voraus';
+
+  @override
+  String get cameraCommunity =>
+      'Nicht auf der offiziellen Karte · von Fahrern gemeldet';
+
+  @override
+  String cameraCommunityLimit(String limit) {
+    return 'Limit $limit km/h · von Fahrern gemeldet';
+  }
+
+  @override
+  String routeZonesCount(int count, String names) {
+    return '$count Zone(n): $names';
+  }
+
+  @override
+  String get recalculatingRoute => 'Route neu berechnen';
+
+  @override
+  String stopThenWalk(String distance) {
+    return 'Halten, dann $distance zu Fuss';
+  }
+
+  @override
+  String get walkTowardsDestination => 'Zu Fuss zum Ziel';
+
+  @override
+  String towardsDestination(String dest) {
+    return 'Richtung $dest';
+  }
+
+  @override
+  String get routeReady => 'Route bereit';
+
+  @override
+  String get noRoute => 'Keine Route';
+
+  @override
+  String thenWalk(String distance) {
+    return 'Dann $distance zu Fuss';
+  }
+
+  @override
+  String get premiumActive => 'Premium aktiv';
+
+  @override
+  String get complimentaryAccount => 'Gratis-Konto — voller Zugriff';
+
+  @override
+  String get premiumUnlockedFeatures =>
+      'Milieuzone, Blitzer und EcoEntry freigeschaltet';
+
+  @override
+  String get paywallFeatureAlerts => 'Warnungen Milieuzone / LEZ / ZTL';
+
+  @override
+  String get paywallFeatureCameras => 'Blitzer, Autovelox und Community';
+
+  @override
+  String get paywallFeatureEcoentry => 'EcoEntry, Drop-off, KI, Favoriten, POI';
+
+  @override
+  String playBillingLine(String productId, String price) {
+    return 'Google Play: $productId · $price €/Monat';
+  }
+
+  @override
+  String get paywallTrialHintShort =>
+      '2,99 €/Monat: Milieuzone, Blitzer, EcoEntry.';
+
+  @override
+  String get personalData => 'Persönliche Daten';
+
+  @override
+  String get name => 'Name';
+
+  @override
+  String get enterName => 'Namen eingeben';
+
+  @override
+  String get email => 'E-Mail';
+
+  @override
+  String get enterValidEmail => 'Gültige E-Mail eingeben';
+
+  @override
+  String get newPasswordOptional => 'Neues Passwort (optional)';
+
+  @override
+  String get leaveBlankPassword =>
+      'Leer lassen, um das aktuelle Passwort zu behalten';
+
+  @override
+  String get show => 'Zeigen';
+
+  @override
+  String get hide => 'Verbergen';
+
+  @override
+  String get atLeast8Chars => 'Mindestens 8 Zeichen';
+
+  @override
+  String get navVoice => 'Navigationsstimme';
+
+  @override
+  String get voiceMale => 'Männlich';
+
+  @override
+  String get voiceFemale => 'Weiblich';
+
+  @override
+  String get yourCar => 'Ihr Fahrzeug';
+
+  @override
+  String get type => 'Typ';
+
+  @override
+  String get fuel => 'Kraftstoff';
+
+  @override
+  String get saving => 'Speichern…';
+
+  @override
+  String get savePersonalData => 'Persönliche Daten speichern';
+
+  @override
+  String get personalDataSaved => 'Persönliche Daten gespeichert';
+
+  @override
+  String get savedLocallyServerFailed =>
+      'Lokal gespeichert. Server-Update fehlgeschlagen.';
+
+  @override
+  String get aiAssistant => 'KI-Assistent';
+
+  @override
+  String get aiAssistantSubtitle => 'Fragen zu Zonen, Blitzern und der Route';
+
+  @override
+  String get installOnPc => 'Auf diesem PC installieren';
+
+  @override
+  String get installOnPcBody =>
+      'MilieuAlert als App auf dem Desktop — kein Store oder SDK nötig.';
+
+  @override
+  String get signOut => 'Abmelden';
+
+  @override
+  String get poiRestaurants => 'Restaurants';
+
+  @override
+  String get poiFuel => 'Tankstellen';
+
+  @override
+  String get poiTobacco => 'Tabak';
+
+  @override
+  String get poiParking => 'Parken';
+
+  @override
+  String get poiSupermarket => 'Supermärkte';
+
+  @override
+  String get poiCafe => 'Cafés';
+
+  @override
+  String get poiPharmacy => 'Apotheken';
+
+  @override
+  String get placeHome => 'Zuhause';
+
+  @override
+  String get placeWork => 'Arbeit';
 }

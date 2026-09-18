@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme.dart';
+import '../../../l10n/l10n_ext.dart';
 import '../../../models/navigation_models.dart';
 import '../../../models/zone_status.dart';
 import '../../../providers/location_provider.dart';
@@ -135,6 +136,7 @@ class AppleEtaTray extends StatelessWidget {
 
   Widget _expanded(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = l10nOf(context);
     final remainingM = live?.remainingMeters ?? nav.routeDistanceMeters;
     final remainingS = live?.remainingSeconds ?? nav.routeDurationSeconds;
     final zone = location.nearestZone;
@@ -197,10 +199,10 @@ class AppleEtaTray extends StatelessWidget {
                 ? MapsColors.accent
                 : MapsColors.lezOnRouteBorder,
             title: nav.zonesOnRoute.isEmpty
-                ? 'Nessuna milieuzone sul percorso'
-                : '${nav.zonesOnRoute.length} zona/e ambientali',
+                ? l10n.noLezOnRoute
+                : l10n.zonesCountEnvironmental(nav.zonesOnRoute.length),
             subtitle: nav.zonesOnRoute.isEmpty
-                ? 'Il tragitto evita le LEZ evidenziate'
+                ? l10n.routeAvoidsLez
                 : nav.zonesOnRoute.map((z) => z.name).take(3).join(' · '),
           ),
           if (nav.usingDropOff) ...[
@@ -209,11 +211,12 @@ class AppleEtaTray extends StatelessWidget {
               icon: Icons.directions_walk_rounded,
               color: MapsColors.accent,
               title: nav.walkLegActive
-                  ? 'Tratto a piedi'
-                  : 'Consigliato: sosta e a piedi',
+                  ? l10n.walkLeg
+                  : l10n.dropoffRecommended,
               subtitle: nav.walkLegActive
-                  ? 'Cammina verso ${nav.destination?.label ?? 'destinazione'}'
-                  : '${formatDistance(nav.walkMeters)} a piedi dopo la sosta',
+                  ? l10n.walkTowards(
+                      nav.destination?.label ?? l10n.destinationGeneric)
+                  : l10n.walkAfterStop(formatDistance(nav.walkMeters)),
             ),
           ],
           if (nav.mode.isTransit) ...[
@@ -228,8 +231,8 @@ class AppleEtaTray extends StatelessWidget {
                   ? MapsColors.endRed
                   : MapsColors.lezOnRouteBorder,
               title: zone.isVehicleAllowed == false
-                  ? 'Veicolo non autorizzato'
-                  : 'Zona ambientale vicina',
+                  ? l10n.vehicleNotAuthorized
+                  : l10n.nearbyEnvironmentalZone,
               subtitle:
                   '${zone.zoneName} · ${formatDistance(zone.distanceMeters)}',
             ),
@@ -240,10 +243,10 @@ class AppleEtaTray extends StatelessWidget {
               icon: Icons.videocam_outlined,
               color: const Color(0xFFFF9F0A),
               title:
-                  'Autovelox tra ${formatDistance(live!.nextCameraMeters)}',
+                  l10n.speedCameraIn(formatDistance(live!.nextCameraMeters)),
               subtitle: live!.nextCamera!.maxspeed != null
-                  ? 'Limite ${live!.nextCamera!.maxspeed} km/h'
-                  : 'Controllo velocità sul percorso',
+                  ? l10n.speedLimitKmh('${live!.nextCamera!.maxspeed}')
+                  : l10n.speedCheckOnRoute,
             ),
           ],
           if (nav.mode.isCar &&
@@ -253,8 +256,8 @@ class AppleEtaTray extends StatelessWidget {
             _DetailRow(
               icon: Icons.videocam_outlined,
               color: const Color(0xFFFF9F0A),
-              title: '${nav.cameras.length} autovelox sul percorso',
-              subtitle: 'Mostrati come pin sulla mappa',
+              title: l10n.camerasOnRoute(nav.cameras.length),
+              subtitle: l10n.camerasAsPins,
             ),
           ],
           if (nav.alternatives.length > 1) ...[
@@ -296,7 +299,7 @@ class AppleEtaTray extends StatelessWidget {
               Expanded(
                 child: _TrayAction(
                   icon: tracking ? Icons.gps_fixed : Icons.explore_outlined,
-                  label: tracking ? 'Centrato' : 'Ricentra',
+                  label: tracking ? l10n.centered : l10n.recenter,
                   onTap: onRecenter,
                 ),
               ),
@@ -304,7 +307,7 @@ class AppleEtaTray extends StatelessWidget {
               Expanded(
                 child: _TrayAction(
                   icon: Icons.map_outlined,
-                  label: 'Panoramica',
+                  label: l10n.overview,
                   onTap: onOverview,
                 ),
               ),
@@ -345,8 +348,8 @@ class _TransitLegsList extends StatelessWidget {
       children: [
         Text(
           itinerary!.transfers == 0
-              ? 'Mezzi · senza cambi'
-              : 'Mezzi · ${itinerary.transfers} cambio/i',
+              ? l10nOf(context).transitNoTransfers
+              : l10nOf(context).transitTransfers(itinerary.transfers),
           style: GoogleFonts.inter(
             fontWeight: FontWeight.w700,
             fontSize: 12,
@@ -389,7 +392,7 @@ class _EndButton extends StatelessWidget {
         elevation: 0,
       ),
       child: Text(
-        'Fine',
+        l10nOf(context).endNav,
         style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15),
       ),
     );

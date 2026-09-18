@@ -268,7 +268,392 @@ class AppLocalizationsFr extends AppLocalizations {
   String get grantPermission => 'Accorder l\'autorisation';
 
   @override
+  String get paywallExpiredTitle => '15 jours expirés';
+
+  @override
+  String get paywallExpiredBody =>
+      '2,99 € par mois pour tout débloquer : milieuzone, autovelox, EcoEntry. Le navigateur de base reste (carte, A-B, heading-up, mètres).';
+
+  @override
+  String get paywallUnlock => 'Tout débloquer — 2,99 €/mois';
+
+  @override
+  String get paywallTrialTitle => 'Essai 15 jours';
+
+  @override
+  String paywallTrialDays(int days) {
+    return 'Essai : $days jours restants';
+  }
+
+  @override
+  String get paywallTrialHint =>
+      'Puis 2,99 €/mois pour milieuzone, autovelox et EcoEntry.';
+
+  @override
+  String get paywallRedeem => 'J’ai un code / licence GS';
+
+  @override
   String euro(int level) {
     return 'Euro $level';
   }
+
+  @override
+  String get searchPlace => 'Rechercher un lieu';
+
+  @override
+  String get searchPlaceOrAddress => 'Rechercher un lieu ou une adresse';
+
+  @override
+  String get fromMyLocation => 'De : Ma position';
+
+  @override
+  String get myLocation => 'Ma position';
+
+  @override
+  String get useMyLocation => 'Utiliser ma position';
+
+  @override
+  String get swapOriginDestination => 'Inverser A et B';
+
+  @override
+  String get go => 'GO';
+
+  @override
+  String get calculating => 'Calcul…';
+
+  @override
+  String get goHint => 'Touchez GO pour partir';
+
+  @override
+  String get goHintLez => 'Milieuzone sur l’itinéraire — touchez GO';
+
+  @override
+  String get travelCar => 'Voiture';
+
+  @override
+  String get travelFoot => 'À pied';
+
+  @override
+  String get travelTransit => 'Transports';
+
+  @override
+  String get noResultsNearby => 'Aucun résultat à proximité';
+
+  @override
+  String get noZones => 'Aucune zone';
+
+  @override
+  String zonesOnRouteCount(int count) {
+    return '$count milieuzone';
+  }
+
+  @override
+  String get noSpeedCameras => 'Aucun radar';
+
+  @override
+  String speedCamerasCount(int count) {
+    return '$count radars';
+  }
+
+  @override
+  String get lezOnRoute => 'Milieuzone sur l’itinéraire';
+
+  @override
+  String get lezOnChosenRoute => 'Zone environnementale sur le trajet choisi';
+
+  @override
+  String get dropoffRecommended => 'Conseillé : stationner puis marcher';
+
+  @override
+  String get places => 'Lieux';
+
+  @override
+  String get recents => 'Récents';
+
+  @override
+  String get itineraries => 'Itinéraires';
+
+  @override
+  String fromOrigin(String origin) {
+    return 'De $origin';
+  }
+
+  @override
+  String get environmentalZoneShort => 'Zone environnementale';
+
+  @override
+  String get centered => 'Centré';
+
+  @override
+  String get recenter => 'Recentrer';
+
+  @override
+  String get overview => 'Aperçu';
+
+  @override
+  String get endNav => 'Fin';
+
+  @override
+  String get noLezOnRoute => 'Aucune milieuzone sur l’itinéraire';
+
+  @override
+  String get routeAvoidsLez => 'L’itinéraire évite les LEZ signalées';
+
+  @override
+  String zonesCountEnvironmental(int count) {
+    return '$count zone(s) environnementale(s)';
+  }
+
+  @override
+  String get walkLeg => 'Tronçon à pied';
+
+  @override
+  String walkTowards(String dest) {
+    return 'Marcher vers $dest';
+  }
+
+  @override
+  String walkAfterStop(String distance) {
+    return '$distance à pied après l’arrêt';
+  }
+
+  @override
+  String get destinationGeneric => 'destination';
+
+  @override
+  String get vehicleNotAuthorized => 'Véhicule non autorisé';
+
+  @override
+  String get vehicleAuthorized => 'Véhicule autorisé';
+
+  @override
+  String get nearbyEnvironmentalZone => 'Zone environnementale proche';
+
+  @override
+  String speedCameraIn(String distance) {
+    return 'Radar dans $distance';
+  }
+
+  @override
+  String speedLimitKmh(String limit) {
+    return 'Limite $limit km/h';
+  }
+
+  @override
+  String get speedCheckOnRoute => 'Contrôle de vitesse sur le trajet restant';
+
+  @override
+  String camerasOnRoute(int count) {
+    return '$count radars sur l’itinéraire';
+  }
+
+  @override
+  String get camerasAsPins => 'Affichés comme épingles sur la carte';
+
+  @override
+  String get transitNoTransfers => 'Transports · sans correspondance';
+
+  @override
+  String transitTransfers(int count) {
+    return 'Transports · $count correspondance(s)';
+  }
+
+  @override
+  String approachingZoneMeters(int distance) {
+    return 'Zone environnementale dans $distance m';
+  }
+
+  @override
+  String vehicleNotAuthorizedInZone(String zoneName) {
+    return '$zoneName · véhicule non autorisé';
+  }
+
+  @override
+  String insideZoneName(String zoneName) {
+    return 'Dans $zoneName';
+  }
+
+  @override
+  String get askAi => 'Demander à l’IA';
+
+  @override
+  String get close => 'Fermer';
+
+  @override
+  String get speedCheckApproaching => 'Contrôle de vitesse en approche';
+
+  @override
+  String get cameraCommunity =>
+      'Hors carte officielle · signalé par un conducteur';
+
+  @override
+  String cameraCommunityLimit(String limit) {
+    return 'Limite $limit km/h · signalé par un conducteur';
+  }
+
+  @override
+  String routeZonesCount(int count, String names) {
+    return '$count zone(s) : $names';
+  }
+
+  @override
+  String get recalculatingRoute => 'Recalcul de l’itinéraire';
+
+  @override
+  String stopThenWalk(String distance) {
+    return 'Arrêt, puis $distance à pied';
+  }
+
+  @override
+  String get walkTowardsDestination => 'Marcher vers la destination';
+
+  @override
+  String towardsDestination(String dest) {
+    return 'Vers $dest';
+  }
+
+  @override
+  String get routeReady => 'Itinéraire prêt';
+
+  @override
+  String get noRoute => 'Aucun itinéraire';
+
+  @override
+  String thenWalk(String distance) {
+    return 'Puis $distance à pied';
+  }
+
+  @override
+  String get premiumActive => 'Premium actif';
+
+  @override
+  String get complimentaryAccount => 'Compte offert — accès complet';
+
+  @override
+  String get premiumUnlockedFeatures =>
+      'Milieuzone, autovelox et EcoEntry débloqués';
+
+  @override
+  String get paywallFeatureAlerts => 'Alertes milieuzone / LEZ / ZTL';
+
+  @override
+  String get paywallFeatureCameras => 'Autovelox, flitsers et communauté';
+
+  @override
+  String get paywallFeatureEcoentry => 'EcoEntry, drop-off, IA, favoris, POI';
+
+  @override
+  String playBillingLine(String productId, String price) {
+    return 'Google Play : $productId · $price €/mois';
+  }
+
+  @override
+  String get paywallTrialHintShort =>
+      '2,99 €/mois : milieuzone, autovelox, EcoEntry.';
+
+  @override
+  String get personalData => 'Données personnelles';
+
+  @override
+  String get name => 'Nom';
+
+  @override
+  String get enterName => 'Saisissez votre nom';
+
+  @override
+  String get email => 'E-mail';
+
+  @override
+  String get enterValidEmail => 'Saisissez un e-mail valide';
+
+  @override
+  String get newPasswordOptional => 'Nouveau mot de passe (facultatif)';
+
+  @override
+  String get leaveBlankPassword =>
+      'Laisser vide pour conserver le mot de passe actuel';
+
+  @override
+  String get show => 'Afficher';
+
+  @override
+  String get hide => 'Masquer';
+
+  @override
+  String get atLeast8Chars => 'Au moins 8 caractères';
+
+  @override
+  String get navVoice => 'Voix de navigation';
+
+  @override
+  String get voiceMale => 'Masculine';
+
+  @override
+  String get voiceFemale => 'Féminine';
+
+  @override
+  String get yourCar => 'Votre véhicule';
+
+  @override
+  String get type => 'Type';
+
+  @override
+  String get fuel => 'Carburant';
+
+  @override
+  String get saving => 'Enregistrement…';
+
+  @override
+  String get savePersonalData => 'Enregistrer les données personnelles';
+
+  @override
+  String get personalDataSaved => 'Données personnelles enregistrées';
+
+  @override
+  String get savedLocallyServerFailed =>
+      'Enregistré en local. Impossible de mettre à jour le serveur.';
+
+  @override
+  String get aiAssistant => 'Assistant IA';
+
+  @override
+  String get aiAssistantSubtitle =>
+      'Questions sur les zones, radars et l’itinéraire';
+
+  @override
+  String get installOnPc => 'Installer sur ce PC';
+
+  @override
+  String get installOnPcBody =>
+      'Ajoutez MilieuAlert comme application bureau — aucun store ni SDK.';
+
+  @override
+  String get signOut => 'Déconnexion';
+
+  @override
+  String get poiRestaurants => 'Restaurants';
+
+  @override
+  String get poiFuel => 'Stations-service';
+
+  @override
+  String get poiTobacco => 'Tabacs';
+
+  @override
+  String get poiParking => 'Parkings';
+
+  @override
+  String get poiSupermarket => 'Supermarchés';
+
+  @override
+  String get poiCafe => 'Cafés';
+
+  @override
+  String get poiPharmacy => 'Pharmacies';
+
+  @override
+  String get placeHome => 'Maison';
+
+  @override
+  String get placeWork => 'Travail';
 }

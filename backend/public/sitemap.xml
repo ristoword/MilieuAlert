@@ -41,4 +41,44 @@
     <xhtml:link rel="alternate" hreflang="it" href="https://milieualert-production.up.railway.app/it"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://milieualert-production.up.railway.app/en"/>
   </url>
+  <url>
+    <loc>https://milieualert-production.up.railway.app/privacy</loc>
+    <lastmod>2026-09-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="it" href="https://milieualert-production.up.railway.app/privacy/it"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://milieualert-production.up.railway.app/privacy/nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://milieualert-production.up.railway.app/privacy/en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://milieualert-production.up.railway.app/privacy"/>
+  </url>
+  <url>
+    <loc>https://milieualert-production.up.railway.app/privacy/en</loc>
+    <lastmod>2026-09-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="it" href="https://milieualert-production.up.railway.app/privacy/it"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://milieualert-production.up.railway.app/privacy/nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://milieualert-production.up.railway.app/privacy/en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://milieualert-production.up.railway.app/privacy"/>
+  </url>
+  <url>
+    <loc>https://milieualert-production.up.railway.app/privacy/nl</loc>
+    <lastmod>2026-09-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="it" href="https://milieualert-production.up.railway.app/privacy/it"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://milieualert-production.up.railway.app/privacy/nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://milieualert-production.up.railway.app/privacy/en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://milieualert-production.up.railway.app/privacy"/>
+  </url>
+  <url>
+    <loc>https://milieualert-production.up.railway.app/privacy/it</loc>
+    <lastmod>2026-09-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="it" href="https://milieualert-production.up.railway.app/privacy/it"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://milieualert-production.up.railway.app/privacy/nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://milieualert-production.up.railway.app/privacy/en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://milieualert-production.up.railway.app/privacy"/>
+  </url>
 </urlset>
