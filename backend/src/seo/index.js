@@ -7,7 +7,7 @@ const { renderPrivacy, privacyPath, privacyUrl, privacyHreflangMap } = require('
 
 function sendHtml(res, html) {
   res
-    .type('html; charset=utf-8')
+    .set('Content-Type', 'text/html; charset=utf-8')
     .set('Cache-Control', 'public, max-age=300, must-revalidate')
     .send(html);
 }

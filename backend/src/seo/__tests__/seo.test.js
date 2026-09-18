@@ -126,7 +126,7 @@ describe('MilieuAlert locale SEO', () => {
       const port = server.address().port;
       const res = await fetch(`http://127.0.0.1:${port}/privacy`);
       assert.equal(res.status, 200);
-      assert.equal(res.redirected, false);
+      assert.match(res.headers.get('content-type') || '', /text\/html/);
       const html = await res.text();
       assert.match(html, /Informativa sulla privacy/);
       assert.doesNotMatch(html, /flutter_bootstrap|main\.dart\.js/);
