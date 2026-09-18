@@ -41,6 +41,24 @@ import 'widgets/report_sheet.dart';
 import 'widgets/search_sheet.dart';
 import 'widgets/transient_alert.dart';
 
+/// True when the camera change came from a pan, pinch, or two-finger rotate.
+/// Programmatic GPS/follow moves must not match, or heading-up is paused.
+bool isUserMapCameraGesture(MapEventSource source) {
+  switch (source) {
+    case MapEventSource.onDrag:
+    case MapEventSource.dragStart:
+    case MapEventSource.dragEnd:
+    case MapEventSource.onMultiFinger:
+    case MapEventSource.multiFingerGestureStart:
+    case MapEventSource.multiFingerEnd:
+    case MapEventSource.cursorKeyboardRotation:
+    case MapEventSource.flingAnimationController:
+      return true;
+    default:
+      return false;
+  }
+}
+
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key, this.openNavigation = false});
 
@@ -67,8 +85,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _tilt3d = false;
   bool _userSetMapMode = false;
   bool _headingUp = false;
+  bool _mapReady = false;
+  bool _applyingCamera = false;
   double _lastAutoRotation = 0;
   LatLng? _lastAutoCenter;
+  double? _pendingZoom;
   static const _puckScreenOffset = Offset(0, 118);
 
   @override
@@ -146,6 +167,30 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
   }
 
+  void _applyLiveCamera({double? zoom}) {
+    final fix = ref.read(locationProvider.notifier).liveFix.value;
+    if (fix != null) {
+      _moveToUser(fix.lat, fix.lon, zoom: zoom, headingHint: fix.heading);
+      return;
+    }
+    final loc = ref.read(locationProvider);
+    if (loc.latitude != null && loc.longitude != null) {
+      _moveToUser(loc.latitude!, loc.longitude!, zoom: zoom);
+    }
+  }
+
+  bool _wantsCourseUp(NavigationState nav) {
+    return nav.navigating && nav.mode != TravelMode.transit;
+  }
+
+  void _startCourseUp({double? zoom}) {
+    if (!_headingUp) {
+      setState(() => _headingUp = true);
+    }
+    ref.read(locationProvider.notifier).setFollow(true);
+    _applyLiveCamera(zoom: zoom);
+  }
+
   void _toggleSheet() {
     setState(() {
       _sheetExpanded = !_sheetExpanded;
@@ -175,7 +220,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   void _fitRoute(List<LatLng> route) {
     if (route.length < 2) return;
-    try {
+    _withProgrammaticCamera(() {
       _mapController.fitCamera(
         CameraFit.coordinates(
           coordinates: route,
@@ -188,7 +233,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
           maxZoom: 15,
         ),
       );
-    } catch (_) {}
+    });
   }
 
   double? _courseForFix(double lat, double lon, {double? headingHint}) {
@@ -201,25 +246,43 @@ class _MapScreenState extends ConsumerState<MapScreen>
     );
   }
 
-  void _moveToUser(double lat, double lon, {double? zoom, double? headingHint}) {
+  void _withProgrammaticCamera(void Function() fn) {
+    _applyingCamera = true;
     try {
+      fn();
+    } catch (_) {
+    } finally {
+      _applyingCamera = false;
+      try {
+        _lastAutoCenter = _mapController.camera.center;
+        _lastAutoRotation = _mapController.camera.rotation;
+      } catch (_) {}
+    }
+  }
+
+  void _moveToUser(double lat, double lon, {double? zoom, double? headingHint}) {
+    if (!_mapReady) {
+      _pendingZoom = zoom ?? _pendingZoom ?? 16;
+      return;
+    }
+    _withProgrammaticCamera(() {
       final z = zoom ?? _mapController.camera.zoom;
       final follow = ref.read(locationProvider).follow;
-      final headingUp = _headingUp && follow;
       final target = LatLng(lat, lon);
-      if (headingUp) {
-        var bearing =
-            _courseForFix(lat, lon, headingHint: headingHint);
+      // Course-up is independent of the 2D/3D tilt overlay.
+      if (_headingUp && follow) {
+        var bearing = _courseForFix(lat, lon, headingHint: headingHint);
         bearing ??= _lastAutoRotation;
         bearing = (bearing % 360 + 360) % 360;
-        _lastAutoRotation = bearing;
+        // Rotate around the puck first, then offset so the road ahead
+        // fills the screen. Re-assert rotation so a following move()
+        // cannot leave the camera north-up.
         _mapController.moveAndRotate(target, z, bearing);
-        _mapController.move(
-          target,
-          z,
-          offset: _puckScreenOffset,
-        );
-        _lastAutoCenter = _mapController.camera.center;
+        _mapController.move(target, z, offset: _puckScreenOffset);
+        if (headingDeltaDeg(_mapController.camera.rotation, bearing) > 0.2) {
+          _mapController.rotate(bearing);
+        }
+        _lastAutoRotation = _mapController.camera.rotation;
         return;
       }
       if (!_headingUp && _mapController.camera.rotation.abs() > 0.4) {
@@ -231,8 +294,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       } else {
         _mapController.move(target, z);
       }
-      _lastAutoCenter = _mapController.camera.center;
-    } catch (_) {}
+    });
   }
 
   void _toggle3d() {
@@ -240,33 +302,36 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _userSetMapMode = true;
       _tilt3d = !_tilt3d;
     });
-    final loc = ref.read(locationProvider);
-    if (loc.latitude != null && loc.longitude != null) {
-      _moveToUser(loc.latitude!, loc.longitude!);
-    }
+    _applyLiveCamera();
   }
 
   void _onCompassTap() {
     final follow = ref.read(locationProvider).follow;
     if (!follow) {
-      setState(() => _headingUp = true);
-      _recenter();
+      _startCourseUp();
       return;
     }
     setState(() => _headingUp = !_headingUp);
-    final loc = ref.read(locationProvider);
     if (!_headingUp) {
-      try {
+      _withProgrammaticCamera(() {
         _mapController.rotate(0);
         _lastAutoRotation = 0;
-      } catch (_) {}
+      });
     }
-    if (loc.latitude != null && loc.longitude != null) {
-      _moveToUser(loc.latitude!, loc.longitude!);
-    }
+    _applyLiveCamera();
   }
 
-  void _pauseFollowIfUserPanned(MapCamera camera) {
+  void _onUserMapEvent(MapEvent event) {
+    if (_applyingCamera || !_mapReady) return;
+    if (!isUserMapCameraGesture(event.source)) return;
+    _pauseFollowIfUserPanned(event.camera, source: event.source);
+  }
+
+  void _pauseFollowIfUserPanned(
+    MapCamera camera, {
+    MapEventSource? source,
+  }) {
+    if (_applyingCamera) return;
     final loc = ref.read(locationProvider);
     if (!loc.follow) return;
     var paused = false;
@@ -282,7 +347,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
       );
       if (meters > 28) paused = true;
     }
-    if (headingDeltaDeg(camera.rotation, _lastAutoRotation) > 7) {
+    final rotated = source == null ||
+        source == MapEventSource.onMultiFinger ||
+        source == MapEventSource.multiFingerGestureStart ||
+        source == MapEventSource.multiFingerEnd ||
+        source == MapEventSource.cursorKeyboardRotation;
+    if (rotated && headingDeltaDeg(camera.rotation, _lastAutoRotation) > 7) {
       paused = true;
     }
     if (paused) {
@@ -353,7 +423,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     if (location.latitude != null && location.longitude != null) {
       pts.add(LatLng(location.latitude!, location.longitude!));
     }
-    try {
+    _withProgrammaticCamera(() {
       _mapController.fitCamera(
         CameraFit.coordinates(
           coordinates: pts,
@@ -361,7 +431,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
           maxZoom: 15,
         ),
       );
-    } catch (_) {}
+    });
   }
 
   void _showOverview() {
@@ -372,19 +442,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   void _recenter() {
-    final loc = ref.read(locationProvider);
+    final nav = ref.read(navigationProvider);
     ref.read(locationProvider.notifier).setFollow(true);
     ref.read(locationProvider.notifier).startTracking();
-    final nav = ref.read(navigationProvider);
-    final driving = nav.navigating &&
-        nav.hasRoute &&
-        nav.mode != TravelMode.transit;
-    if (driving) {
+    if (_wantsCourseUp(nav)) {
       setState(() => _headingUp = true);
     }
-    if (loc.latitude != null && loc.longitude != null) {
-      _moveToUser(loc.latitude!, loc.longitude!, zoom: 16);
-    }
+    _applyLiveCamera(zoom: 16);
   }
 
   @override
@@ -421,11 +485,20 @@ class _MapScreenState extends ConsumerState<MapScreen>
           if (mounted) _fitPois(next.nearbyResults, ref.read(locationProvider));
         });
       }
+      final startedGuiding = next.navigating && prev?.navigating != true;
+      final gotRouteWhileGuiding =
+          next.navigating && next.hasRoute && prev?.hasRoute != true;
+      if ((startedGuiding || gotRouteWhileGuiding) && _wantsCourseUp(next)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _startCourseUp(zoom: 16);
+        });
+      }
       if (!next.hasRoute) return;
       final routeChanged = prev?.selectedRoute != next.selectedRoute ||
           prev?.routeDistanceMeters != next.routeDistanceMeters ||
           prev?.destination?.label != next.destination?.label;
-      if (routeChanged && !(next.navigating && prev?.hasRoute == true)) {
+      if (routeChanged && !next.navigating) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _fitRoute(next.route);
         });
@@ -459,18 +532,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
               _sheetExpanded = false;
               _trayExpanded = false;
               FocusManager.instance.primaryFocus?.unfocus();
-              if (!_userSetMapMode) _tilt3d = true;
-              _headingUp = nav.mode != TravelMode.transit && nav.hasRoute;
+              _headingUp = nav.mode != TravelMode.transit;
             } else {
               // Full map when driving without a destination.
               _sheetExpanded = nav.destination != null;
               _trayExpanded = false;
               if (!_userSetMapMode) _tilt3d = false;
               _headingUp = false;
-              try {
+              _withProgrammaticCamera(() {
                 _mapController.rotate(0);
                 _lastAutoRotation = 0;
-              } catch (_) {}
+              });
             }
           }
           if (nav.suggestions.isNotEmpty) {
@@ -483,7 +555,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
             loc.latitude != null &&
             loc.longitude != null) {
           ref.read(locationProvider.notifier).setFollow(true);
-          _moveToUser(loc.latitude!, loc.longitude!);
+          _moveToUser(loc.latitude!, loc.longitude!, zoom: 16);
         }
       });
     }
@@ -508,10 +580,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all,
               ),
-              onTap: (_, __) => FocusScope.of(context).unfocus(),
-              onPositionChanged: (pos, hasGesture) {
-                if (hasGesture) _pauseFollowIfUserPanned(pos);
+              onMapReady: () {
+                _mapReady = true;
+                final zoom = _pendingZoom;
+                _pendingZoom = null;
+                _applyLiveCamera(zoom: zoom);
               },
+              onTap: (_, __) => FocusScope.of(context).unfocus(),
+              onMapEvent: _onUserMapEvent,
             ),
             children: [
               TileLayer(
@@ -752,6 +828,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   } else {
                     ref.read(navigationProvider.notifier).beginGuidance();
                   }
+                  if (!mounted) return;
+                  n = ref.read(navigationProvider);
+                  if (_wantsCourseUp(n)) _startCourseUp(zoom: 16);
                 },
                 onSelectAlternative: (i) {
                   ref.read(navigationProvider.notifier).selectAlternative(i);
