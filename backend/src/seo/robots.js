@@ -7,6 +7,10 @@ Allow: /
 Allow: /en
 Allow: /nl
 Allow: /it
+Allow: /privacy
+Allow: /privacy/it
+Allow: /privacy/nl
+Allow: /privacy/en
 Disallow: /api/
 
 Sitemap: ${base}/sitemap.xml

@@ -223,7 +223,7 @@ ${faqs}
     <p><a class="cta" href="/">${escapeHtml(page.cta)}</a></p>
   </main>
   <footer>
-    <p>MilieuAlert · EcoEntry · ${escapeHtml(page.navApp)}: <a href="/">${base}/</a></p>
+    <p>MilieuAlert · EcoEntry · ${escapeHtml(page.navApp)}: <a href="/">${base}/</a> · <a href="/privacy">Privacy</a></p>
   </footer>
 </body>
 </html>

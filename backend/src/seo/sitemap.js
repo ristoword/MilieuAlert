@@ -1,5 +1,6 @@
 const { getBaseUrl, LOCALES, DEFAULT_LOCALE } = require('./config');
 const { localeUrl, hreflangMap } = require('./landing');
+const { privacyUrl, privacyHreflangMap } = require('./privacy');
 
 function xmlEscape(value) {
   return String(value || '')
@@ -36,6 +37,15 @@ function buildSitemapXml(now) {
   LOCALES.forEach((lang) => {
     const priority = lang === DEFAULT_LOCALE ? '1.0' : '0.95';
     chunks.push(urlEntry(localeUrl(lang, base), lastmod, priority, 'weekly', links));
+  });
+
+  const privacyMap = privacyHreflangMap(base);
+  const privacyLinks = Object.keys(privacyMap)
+    .map((code) => `    <xhtml:link rel="alternate" hreflang="${xmlEscape(code)}" href="${xmlEscape(privacyMap[code])}"/>`)
+    .join('\n');
+  chunks.push(urlEntry(privacyUrl(null, base), lastmod, '0.7', 'monthly', privacyLinks));
+  LOCALES.forEach((lang) => {
+    chunks.push(urlEntry(privacyUrl(lang, base), lastmod, '0.7', 'monthly', privacyLinks));
   });
 
   return `<?xml version="1.0" encoding="UTF-8"?>

@@ -3,6 +3,14 @@ const { renderLanding, jsonLd, localeUrl, hreflangMap } = require('./landing');
 const { getPage } = require('./content');
 const { buildSitemapXml } = require('./sitemap');
 const { buildRobotsTxt } = require('./robots');
+const { renderPrivacy, privacyPath, privacyUrl, privacyHreflangMap } = require('./privacy');
+
+function sendHtml(res, html) {
+  res
+    .type('html; charset=utf-8')
+    .set('Cache-Control', 'public, max-age=300, must-revalidate')
+    .send(html);
+}
 
 function mount(app) {
   app.get('/robots.txt', (_req, res) => {
@@ -19,16 +27,21 @@ function mount(app) {
       .send(buildSitemapXml());
   });
 
+  // GDPR pages — registered before static / SPA so Flutter index.html cannot win.
+  app.get('/privacy/', (_req, res) => res.redirect(301, '/privacy'));
+  app.get('/privacy', (_req, res) => sendHtml(res, renderPrivacy(null)));
+  LOCALES.forEach((lang) => {
+    app.get(`/privacy/${lang}/`, (_req, res) => {
+      res.redirect(301, `/privacy/${lang}`);
+    });
+    app.get(`/privacy/${lang}`, (_req, res) => sendHtml(res, renderPrivacy(lang)));
+  });
+
   LOCALES.forEach((lang) => {
     app.get(`/${lang}/`, (_req, res) => {
       res.redirect(301, `/${lang}`);
     });
-    app.get(`/${lang}`, (_req, res) => {
-      res
-        .type('html; charset=utf-8')
-        .set('Cache-Control', 'public, max-age=300, must-revalidate')
-        .send(renderLanding(lang));
-    });
+    app.get(`/${lang}`, (_req, res) => sendHtml(res, renderLanding(lang)));
   });
 }
 
@@ -42,5 +55,9 @@ module.exports = {
   hreflangMap,
   getPage,
   buildSitemapXml,
-  buildRobotsTxt
+  buildRobotsTxt,
+  renderPrivacy,
+  privacyPath,
+  privacyUrl,
+  privacyHreflangMap
 };

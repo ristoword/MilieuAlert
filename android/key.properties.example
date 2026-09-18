@@ -1,0 +1,6 @@
+# Copia questo file come android/key.properties (NON committare).
+# Punta al keystore di UPLOAD di MilieuAlert, non a quello di IoChef.
+storePassword=INSERISCI_PASSWORD
+keyPassword=INSERISCI_PASSWORD
+keyAlias=milieualert
+storeFile=C:/Users/PC/AppData/Local/MilieuAlert/milieualert-upload.jks

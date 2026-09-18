@@ -100,9 +100,10 @@ app.use('/api/zones', zoneRoutes);
 app.use('/api/geo', geoRoutes);
 app.use('/api/hazards', hazardRoutes);
 
-// SPA fallback - Flutter app at / and client routes. Locale landings stay on Express.
+// SPA fallback - Flutter app at / and client routes. Locale + privacy stay on Express.
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
+  if (req.path === '/privacy' || req.path.startsWith('/privacy/')) return next();
   if (['/en', '/nl', '/it', '/robots.txt', '/sitemap.xml'].includes(req.path)) return next();
   res.sendFile(path.join(webBuildPath, 'index.html'));
 });
