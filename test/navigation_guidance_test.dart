@@ -102,6 +102,175 @@ void main() {
     expect(off.offRoute, isTrue);
   });
 
+  test('lateral 25m with matching heading stays on-route', () {
+    final mPerDegLon = mPerDeg * 0.6157;
+    final beside = computeGuidance(
+      lat: startLat + 200 / mPerDeg,
+      lon: lon + 25 / mPerDegLon,
+      heading: 0,
+      route: route,
+      steps: steps,
+    );
+    expect(beside.offRouteMeters, lessThan(40));
+    expect(beside.offRoute, isFalse);
+  });
+
+  test('fires off-route near 50m beside the polyline', () {
+    final mPerDegLon = mPerDeg * 0.6157;
+    final off = computeGuidance(
+      lat: startLat + 200 / mPerDeg,
+      lon: lon + 55 / mPerDegLon,
+      heading: 0,
+      route: route,
+      steps: steps,
+    );
+    expect(off.offRouteMeters, greaterThan(50));
+    expect(off.offRoute, isTrue);
+  });
+
+  test('heading >50° off plus ~30m offset is off-route', () {
+    final mPerDegLon = mPerDeg * 0.6157;
+    final off = computeGuidance(
+      lat: startLat + 200 / mPerDeg,
+      lon: lon + 30 / mPerDegLon,
+      heading: 90,
+      route: route,
+      steps: steps,
+    );
+    expect(off.headingDiverged, isTrue);
+    expect(off.offRouteMeters, greaterThan(28));
+    expect(off.offRoute, isTrue);
+  });
+
+  test('heading off plus growing offset fires before 50m', () {
+    final mPerDegLon = mPerDeg * 0.6157;
+    final growing = computeGuidance(
+      lat: startLat + 200 / mPerDeg,
+      lon: lon + 16 / mPerDegLon,
+      heading: 90,
+      route: route,
+      steps: steps,
+      previousOffset: 10,
+    );
+    expect(growing.headingDiverged, isTrue);
+    expect(growing.offRouteMeters, lessThan(50));
+    expect(growing.offRoute, isTrue);
+  });
+
+  test('going straight past a right turn flags off-route within ~40m', () {
+    final mPerDegLon = mPerDeg * 0.6157;
+    final cornerLat = startLat + 500 / mPerDeg;
+    final bent = [
+      LatLng(startLat, lon),
+      LatLng(cornerLat, lon),
+      LatLng(cornerLat, lon + 400 / mPerDegLon),
+    ];
+    final turnSteps = [
+      NavStep(
+        type: 'depart',
+        modifier: '',
+        name: '',
+        distanceMeters: 500,
+        lat: startLat,
+        lon: lon,
+      ),
+      NavStep(
+        type: 'turn',
+        modifier: 'right',
+        name: 'Via Roma',
+        distanceMeters: 400,
+        lat: cornerLat,
+        lon: lon,
+      ),
+      NavStep(
+        type: 'arrive',
+        modifier: '',
+        name: 'Destinazione',
+        distanceMeters: 0,
+        lat: cornerLat,
+        lon: lon + 400 / mPerDegLon,
+      ),
+    ];
+    final missed = computeGuidance(
+      lat: cornerLat + 40 / mPerDeg,
+      lon: lon,
+      heading: 0,
+      route: bent,
+      steps: turnSteps,
+    );
+    expect(missed.offRouteMeters, lessThan(90));
+    expect(missed.offRoute, isTrue);
+
+    final onOutgoing = computeGuidance(
+      lat: cornerLat,
+      lon: lon + 40 / mPerDegLon,
+      heading: 90,
+      route: bent,
+      steps: turnSteps,
+    );
+    expect(onOutgoing.offRoute, isFalse);
+  });
+
+  test('snap behind a passed maneuver is off-route', () {
+    final mPerDegLon = mPerDeg * 0.6157;
+    final cornerLat = startLat + 500 / mPerDeg;
+    final bent = [
+      LatLng(startLat, lon),
+      LatLng(cornerLat, lon),
+      LatLng(cornerLat, lon + 400 / mPerDegLon),
+    ];
+    final turnSteps = [
+      NavStep(
+        type: 'depart',
+        modifier: '',
+        name: '',
+        distanceMeters: 500,
+        lat: startLat,
+        lon: lon,
+      ),
+      NavStep(
+        type: 'turn',
+        modifier: 'right',
+        name: 'Via Roma',
+        distanceMeters: 400,
+        lat: cornerLat,
+        lon: lon,
+      ),
+      NavStep(
+        type: 'arrive',
+        modifier: '',
+        name: 'Destinazione',
+        distanceMeters: 0,
+        lat: cornerLat,
+        lon: lon + 400 / mPerDegLon,
+      ),
+    ];
+    final behind = computeGuidance(
+      lat: startLat + 200 / mPerDeg,
+      lon: lon,
+      heading: 0,
+      route: bent,
+      steps: turnSteps,
+      progressAlong: 530,
+    );
+    expect(behind.offRoute, isTrue);
+  });
+
+  test('noisy accuracy does not block off-route but blocks false arrival', () {
+    expect(
+      shouldAnnounceArrival(offRoute: false, crowToTarget: 25, accuracy: 20),
+      isTrue,
+    );
+    expect(
+      shouldAnnounceArrival(offRoute: false, crowToTarget: 60, accuracy: 65),
+      isFalse,
+    );
+    expect(
+      shouldAnnounceArrival(offRoute: true, crowToTarget: 20, accuracy: 15),
+      isFalse,
+    );
+  });
+
   test('does not treat a missed turn near the destination as arrival', () {
     final end = route.last;
     final besideEnd = computeGuidance(

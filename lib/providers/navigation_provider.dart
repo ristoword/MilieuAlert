@@ -194,6 +194,7 @@ class LiveNavInfo {
   final EmissionZone? currentZone;
   final double offRouteMeters;
   final bool offRoute;
+  final bool headingDiverged;
 
   const LiveNavInfo({
     this.currentStep,
@@ -208,6 +209,7 @@ class LiveNavInfo {
     this.currentZone,
     this.offRouteMeters = 0,
     this.offRoute = false,
+    this.headingDiverged = false,
   });
 
   bool get speeding {
@@ -230,6 +232,7 @@ class LiveNavInfo {
     EmissionZone? currentZone,
     double? offRouteMeters,
     bool? offRoute,
+    bool? headingDiverged,
   }) {
     return LiveNavInfo(
       currentStep: currentStep ?? this.currentStep,
@@ -244,6 +247,7 @@ class LiveNavInfo {
       currentZone: currentZone ?? this.currentZone,
       offRouteMeters: offRouteMeters ?? this.offRouteMeters,
       offRoute: offRoute ?? this.offRoute,
+      headingDiverged: headingDiverged ?? this.headingDiverged,
     );
   }
 }
@@ -275,6 +279,10 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
   RouteMetrics? _metrics;
   List<LatLng> _metricsRoute = const [];
   List<NavStep> _metricsSteps = const [];
+  DateTime? _offRouteSince;
+  double? _lastGuidanceOffset;
+  double _progressAlong = 0;
+  int _headingOffStreak = 0;
 
   void setActiveField(SearchField field) {
     if (state.activeField == field) return;
@@ -438,6 +446,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     if (!state.hasRoute) return;
     state = state.copyWith(navigating: true, clearNearby: true, suggestions: const []);
     _ref.read(locationProvider.notifier).setFollow(true);
+    _resetDeviationTrackers();
     _lastRerouteAt = null;
   }
 
@@ -688,6 +697,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       zones: onRoute,
     );
     _invalidateMetrics();
+    _resetDeviationTrackers();
     final navigating = startFollowing || state.navigating;
     final isDrop = plan.isDropOff;
     final walkPts = plan.walkPoints
@@ -932,6 +942,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     }
     if (walk.length < 2) return;
     _invalidateMetrics();
+    _resetDeviationTrackers();
     state = state.copyWith(
       route: walk,
       steps: steps,
@@ -954,6 +965,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     _monitor = null;
     _watchedAt = null;
     _lastRerouteAt = null;
+    _resetDeviationTrackers();
     _watchedDuration = null;
     _watchedDistance = null;
     _watchedCameras = {};
@@ -1096,7 +1108,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
 
       // Periodic traffic check must not rewrite the live polyline — that
       // resets step progress and stalls HUD ticks while OSRM/Overpass run.
-      // Off-route reroute (8s) handles deviation; apply a new plan only
+      // Off-route reroute (~1.5s) handles deviation; apply a new plan only
       // when delay/detour/faster is actually detected.
       final applyLive = changed;
       if (applyLive) {
@@ -1294,6 +1306,13 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     _metricsSteps = const [];
   }
 
+  void _resetDeviationTrackers() {
+    _offRouteSince = null;
+    _lastGuidanceOffset = null;
+    _progressAlong = 0;
+    _headingOffStreak = 0;
+  }
+
   RouteMetrics? _routeMetrics() {
     if (!state.hasRoute) return null;
     if (_metrics != null &&
@@ -1324,7 +1343,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
         return;
       }
     }
-    if (state.routing) return;
+    if (state.routing || state.recalculating) return;
     final info = liveInfo(
       loc.latitude!,
       loc.longitude!,
@@ -1332,7 +1351,27 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       accuracy: loc.accuracy,
       speedMps: loc.speed,
     );
-    if (!info.offRoute) return;
+    _lastGuidanceOffset = info.offRouteMeters;
+    if (!info.offRoute) {
+      _offRouteSince = null;
+      _headingOffStreak = 0;
+      return;
+    }
+    if (info.headingDiverged) {
+      _headingOffStreak += 1;
+    } else {
+      _headingOffStreak = 0;
+    }
+    final now = DateTime.now();
+    _offRouteSince ??= now;
+    final waited = now.difference(_offRouteSince!);
+    final headingConfirmed = _headingOffStreak >= 2;
+    if (!headingConfirmed && waited < const Duration(milliseconds: 1200)) {
+      return;
+    }
+    if (waited < const Duration(milliseconds: 800)) {
+      return;
+    }
     unawaited(_rerouteFromLiveGps());
   }
 
@@ -1342,7 +1381,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     if (dest == null) return;
     final now = DateTime.now();
     if (_lastRerouteAt != null &&
-        now.difference(_lastRerouteAt!) < const Duration(seconds: 4)) {
+        now.difference(_lastRerouteAt!) < const Duration(milliseconds: 1500)) {
       return;
     }
     final loc = _ref.read(locationProvider);
@@ -1452,10 +1491,6 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     }
 
     final metrics = _routeMetrics();
-    final acc = accuracy ?? 0;
-    final threshold = acc > 40
-        ? (acc * 0.55 + 45).clamp(90.0, 180.0).toDouble()
-        : kOffRouteMeters;
     final fix = computeGuidance(
       lat: lat,
       lon: lon,
@@ -1463,7 +1498,9 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       route: state.route,
       steps: state.steps,
       metrics: metrics,
-      offRouteThreshold: threshold,
+      offRouteThreshold: kOffRouteMeters,
+      previousOffset: _lastGuidanceOffset,
+      progressAlong: _progressAlong,
     );
 
     final target = _rerouteTarget;
@@ -1473,6 +1510,11 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     var offRoute = fix.offRoute;
     if (crowToTarget > 80 && fix.remainingMeters < 40) {
       offRoute = true;
+    }
+    if (!offRoute && fix.offRouteMeters < 30 && !fix.headingDiverged) {
+      if (fix.alongMeters > _progressAlong) {
+        _progressAlong = fix.alongMeters;
+      }
     }
 
     var remainingMeters = offRoute ? crowToTarget : fix.remainingMeters;
@@ -1487,6 +1529,21 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
         modifier: '',
         name: 'Ricalcolo percorso',
         distanceMeters: 0,
+      );
+    } else if (step?.type == 'arrive' &&
+        !shouldAnnounceArrival(
+          offRoute: offRoute,
+          crowToTarget: crowToTarget,
+          accuracy: accuracy,
+        )) {
+      remainingMeters = crowToTarget > remainingMeters
+          ? crowToTarget
+          : remainingMeters;
+      step = NavStep(
+        type: 'continue',
+        modifier: '',
+        name: state.destination?.label ?? '',
+        distanceMeters: remainingMeters,
       );
     }
 
@@ -1560,8 +1617,11 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     return LiveNavInfo(
       currentStep: step,
       stepIndex: fix.stepIndex,
-      metersToManeuver:
-          offRoute || state.recalculating ? remainingMeters : fix.metersToManeuver,
+      metersToManeuver: offRoute ||
+              state.recalculating ||
+              (step?.type != 'arrive' && fix.currentStep?.type == 'arrive')
+          ? remainingMeters
+          : fix.metersToManeuver,
       remainingMeters: remainingMeters,
       remainingSeconds: remainingSeconds,
       speedLimitKmh: limit,
@@ -1571,6 +1631,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       currentZone: currentZone,
       offRouteMeters: fix.offRouteMeters,
       offRoute: offRoute,
+      headingDiverged: fix.headingDiverged,
     );
   }
 

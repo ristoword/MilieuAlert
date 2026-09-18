@@ -5,10 +5,15 @@ import 'package:latlong2/latlong.dart';
 import '../models/navigation_models.dart';
 import 'geo_utils.dart';
 
-const double kOffRouteMeters = 90;
+const double kOffRouteMeters = 50;
+const double kOffRouteHeadingMeters = 28;
+const double kWrongHeadingDegrees = 50;
+const double kMissedTurnMeters = 20;
 const double kPassManeuverMeters = 32;
 const double kHeadingAdvanceCone = 35;
 const double kHeadingAdvanceWindow = 40;
+const double kArriveAccuracyMeters = 50;
+const double kArriveCrowMeters = 40;
 
 /// Precomputed lengths used to snap GPS onto a route every fix.
 class RouteMetrics {
@@ -64,6 +69,7 @@ class GuidanceFix {
   final double alongMeters;
   final double offRouteMeters;
   final bool offRoute;
+  final bool headingDiverged;
   final int segmentIndex;
 
   const GuidanceFix({
@@ -74,6 +80,7 @@ class GuidanceFix {
     required this.alongMeters,
     required this.offRouteMeters,
     required this.offRoute,
+    this.headingDiverged = false,
     this.segmentIndex = 0,
   });
 }
@@ -259,12 +266,19 @@ double? courseUpBearing({
   if (distances.length != route.length) return fallback;
   final snap = projectOntoPolyline(lat, lon, route, distances);
   if (snap == null || snap.offsetMeters > offRouteMeters) return fallback;
-  return bearingAlongRoute(
+  final tangent = bearingAlongRoute(
     route,
     distances,
     snap.alongMeters,
     lookAheadMeters: lookAheadMeters,
   );
+  // Don't glue heading-up to the old polyline while the user is turning away.
+  if (fallback != null &&
+      snap.offsetMeters >= 12 &&
+      headingDelta(fallback, tangent) > kWrongHeadingDegrees) {
+    return fallback;
+  }
+  return tangent;
 }
 
 double headingDelta(double a, double b) {
@@ -336,6 +350,63 @@ int? currentSpeedLimitKmh({
   return snapLegalLimitKmh(mps <= 80 ? mps * 3.6 : mps);
 }
 
+/// True when the puck is close enough, with a trustworthy fix, to say "arrived".
+/// Noisy web GPS must not announce arrival; it must not delay off-route.
+bool shouldAnnounceArrival({
+  required bool offRoute,
+  required double crowToTarget,
+  double? accuracy,
+}) {
+  if (offRoute) return false;
+  if (crowToTarget > 80) return false;
+  final acc = accuracy ?? 0;
+  if (acc >= kArriveAccuracyMeters && crowToTarget > kArriveCrowMeters) {
+    return false;
+  }
+  return true;
+}
+
+bool _missedManeuver({
+  required double along,
+  required double offset,
+  required double? course,
+  required List<NavStep> steps,
+  required RouteMetrics m,
+}) {
+  if (course == null) return false;
+  for (var i = 0; i < steps.length; i++) {
+    final step = steps[i];
+    if (!step.isManeuver || step.type == 'arrive') continue;
+    final at = i < m.stepAlong.length ? m.stepAlong[i] : m.totalMeters;
+    if (along > at + 40) continue;
+    if (along < at - 55) break;
+    final incoming = bearingAlongRoute(m.route, m.cum, max(0, at - 18));
+    final outgoing = bearingAlongRoute(m.route, m.cum, at);
+    final keptIncoming = headingDelta(course, incoming) <= 28;
+    final notOutgoing = headingDelta(course, outgoing) > kWrongHeadingDegrees;
+    if (keptIncoming && notOutgoing && offset >= kMissedTurnMeters) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool _snapBehindPassedManeuver({
+  required double along,
+  required double progressAlong,
+  required List<NavStep> steps,
+  required RouteMetrics m,
+}) {
+  for (var i = 0; i < steps.length; i++) {
+    final step = steps[i];
+    if (!step.isManeuver || step.type == 'arrive') continue;
+    if (i >= m.stepAlong.length) continue;
+    final at = m.stepAlong[i];
+    if (progressAlong >= at + 15 && along < at - 35) return true;
+  }
+  return false;
+}
+
 /// Remaining along-route meters to the next instruction, rebuilt every GPS fix.
 GuidanceFix computeGuidance({
   required double lat,
@@ -346,6 +417,8 @@ GuidanceFix computeGuidance({
   RouteMetrics? metrics,
   double offRouteThreshold = kOffRouteMeters,
   double passManeuverMeters = kPassManeuverMeters,
+  double? previousOffset,
+  double? progressAlong,
 }) {
   if (route.length < 2) {
     return const GuidanceFix(
@@ -399,6 +472,31 @@ GuidanceFix computeGuidance({
     metersToManeuver = remaining;
   }
 
+  final tangent = bearingAlongRoute(m.route, m.cum, along);
+  final course = _usableCourseHeading(heading);
+  final headingDiverged = course != null &&
+      headingDelta(course, tangent) > kWrongHeadingDegrees;
+  final offsetGrowing = previousOffset != null && offset > previousOffset + 2;
+  final missedTurn = _missedManeuver(
+    along: along,
+    offset: offset,
+    course: course,
+    steps: steps,
+    m: m,
+  );
+  final snapBehind = progressAlong != null &&
+      _snapBehindPassedManeuver(
+        along: along,
+        progressAlong: progressAlong,
+        steps: steps,
+        m: m,
+      );
+  final offRoute = offset > offRouteThreshold ||
+      (headingDiverged && offset >= kOffRouteHeadingMeters) ||
+      (headingDiverged && offsetGrowing && offset >= 12) ||
+      missedTurn ||
+      snapBehind;
+
   return GuidanceFix(
     stepIndex: stepIndex < 0 ? 0 : stepIndex,
     currentStep: step,
@@ -406,7 +504,8 @@ GuidanceFix computeGuidance({
     remainingMeters: remaining,
     alongMeters: along,
     offRouteMeters: offset,
-    offRoute: offset > offRouteThreshold,
+    offRoute: offRoute,
+    headingDiverged: headingDiverged,
     segmentIndex: snap?.segmentIndex ?? 0,
   );
 }
