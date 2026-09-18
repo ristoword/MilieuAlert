@@ -32,7 +32,7 @@ const PAGES = {
       },
       {
         h2: 'Cities drivers actually search',
-        p: `${CITIES}. Coverage follows official zone data where we ingest it (Netherlands milieuzone, Belgian LEZ, Italian ZTL ambientale such as Milano Area B, French ZFE, London ULEZ). Open the navigator for the live map, not a static PDF.`
+        p: `${CITIES}. Coverage is Europe-wide LEZ / milieuzone / Umweltzone / ZFE / ZTL / ULEZ / ZBE (EU plus UK, Switzerland and Norway), using official GeoJSON where published. Open the navigator for the live map, not a static PDF.`
       },
       {
         h2: 'Autovelox and flitsers on the route',
@@ -105,7 +105,7 @@ const PAGES = {
       },
       {
         h2: 'Steden waarnaar je écht navigeert',
-        p: `${CITIES}. Data volgt officiële bronnen waar we die inladen (Nederlandse milieuzone, Belgische LEZ, Italiaanse ZTL zoals Milano Area B, Franse ZFE, London ULEZ). De live kaart zit in de navigator, niet in een PDF.`
+        p: `${CITIES}. Dekking is Europa-breed: milieuzone, LEZ, Umweltzone, ZFE, ZTL, ULEZ en ZBE (EU plus VK, Zwitserland en Noorwegen), met officiële GeoJSON waar die bestaat. De live kaart zit in de navigator, niet in een PDF.`
       },
       {
         h2: 'Flitsers en autovelox op het traject',
@@ -178,7 +178,7 @@ const PAGES = {
       },
       {
         h2: 'Città che i conducenti cercano davvero',
-        p: `${CITIES}. I poligoni seguono fonti ufficiali dove le importiamo (milieuzone NL, LEZ belga, ZTL come Milano Area B, ZFE francese, ULEZ a Londra). La mappa viva è nel navigatore, non in un PDF.`
+        p: `${CITIES}. Copertura europea: milieuzone, LEZ, Umweltzone, ZFE, ZTL, ULEZ e ZBE (UE più Regno Unito, Svizzera e Norvegia), con GeoJSON ufficiali dove esistono. La mappa viva è nel navigatore, non in un PDF.`
       },
       {
         h2: 'Autovelox e flitsers sul percorso',

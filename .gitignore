@@ -47,6 +47,11 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Play upload signing — never commit
+/android/key.properties
+**/*.jks
+**/*.keystore
+
 # Platform build directories
 /android/.gradle/
 /ios/Pods/
@@ -58,5 +63,6 @@ app.*.map.json
 
 # Backend node_modules
 backend/node_modules/
+backend/data/tmp/
 
 # NOTE: Do NOT ignore lib/l10n/ - generated localization files are needed

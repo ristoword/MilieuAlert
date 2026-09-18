@@ -75,6 +75,8 @@ app.get('/api/status', (req, res) => {
       'POST /api/trips/log',
       'GET /api/trips/history',
       'GET /api/zones/sync',
+      'GET /api/zones/data',
+      'GET /api/zones/coverage',
       'GET /api/geo/cameras',
       'POST /api/hazards/report',
       'GET /api/hazards/nearby',
