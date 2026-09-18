@@ -268,6 +268,19 @@ class AppLocalizationsFr extends AppLocalizations {
   String get grantPermission => 'Accorder l\'autorisation';
 
   @override
+  String get locationDisclosureTitle => 'Position';
+
+  @override
+  String get locationDisclosureBody =>
+      'MilieuAlert utilise votre position pour naviguer et vous avertir des milieuzones, y compris en arrière-plan ou lorsque l\'application n\'est pas utilisée. Vous pouvez refuser.';
+
+  @override
+  String get locationDisclosureContinue => 'Continuer';
+
+  @override
+  String get locationDisclosureDeny => 'Refuser';
+
+  @override
   String get paywallExpiredTitle => '15 jours expirés';
 
   @override

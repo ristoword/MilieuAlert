@@ -572,6 +572,30 @@ abstract class AppLocalizations {
   /// **'Concedi Permesso'**
   String get grantPermission;
 
+  /// No description provided for @locationDisclosureTitle.
+  ///
+  /// In it, this message translates to:
+  /// **'Posizione'**
+  String get locationDisclosureTitle;
+
+  /// No description provided for @locationDisclosureBody.
+  ///
+  /// In it, this message translates to:
+  /// **'MilieuAlert usa la tua posizione per navigare e avvisarti delle milieuzone, anche quando l\'app è in background o non in uso. Puoi rifiutare.'**
+  String get locationDisclosureBody;
+
+  /// No description provided for @locationDisclosureContinue.
+  ///
+  /// In it, this message translates to:
+  /// **'Continua'**
+  String get locationDisclosureContinue;
+
+  /// No description provided for @locationDisclosureDeny.
+  ///
+  /// In it, this message translates to:
+  /// **'Nega'**
+  String get locationDisclosureDeny;
+
   /// No description provided for @paywallExpiredTitle.
   ///
   /// In it, this message translates to:

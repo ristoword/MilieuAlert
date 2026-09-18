@@ -267,6 +267,19 @@ class AppLocalizationsNl extends AppLocalizations {
   String get grantPermission => 'Toestemming geven';
 
   @override
+  String get locationDisclosureTitle => 'Locatie';
+
+  @override
+  String get locationDisclosureBody =>
+      'MilieuAlert gebruikt je locatie om te navigeren en je te waarschuwen voor milieuzones, ook op de achtergrond of wanneer de app niet in gebruik is. Je kunt weigeren.';
+
+  @override
+  String get locationDisclosureContinue => 'Doorgaan';
+
+  @override
+  String get locationDisclosureDeny => 'Weigeren';
+
+  @override
   String get paywallExpiredTitle => '15 dagen verlopen';
 
   @override

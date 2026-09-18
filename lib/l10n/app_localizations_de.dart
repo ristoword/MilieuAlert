@@ -267,6 +267,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get grantPermission => 'Berechtigung erteilen';
 
   @override
+  String get locationDisclosureTitle => 'Standort';
+
+  @override
+  String get locationDisclosureBody =>
+      'MilieuAlert verwendet Ihren Standort zur Navigation und um Sie vor Umweltzonen (Milieuzones) zu warnen, auch im Hintergrund oder wenn die App nicht verwendet wird. Sie können ablehnen.';
+
+  @override
+  String get locationDisclosureContinue => 'Weiter';
+
+  @override
+  String get locationDisclosureDeny => 'Ablehnen';
+
+  @override
   String get paywallExpiredTitle => '15 Tage abgelaufen';
 
   @override

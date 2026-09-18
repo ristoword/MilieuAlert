@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../core/app_navigator.dart';
+import '../core/location_disclosure.dart';
 import '../models/emission_zone.dart';
 import '../models/zone_status.dart';
 import '../services/geo_utils.dart';
@@ -98,6 +100,8 @@ class LocationNotifier extends StateNotifier<LocationState> {
   DateTime? _lastFixAt;
   Future<void>? _startInFlight;
   LiveGpsFix? _lastRaw;
+  bool _disclosureDeclined = false;
+  bool _disclosureInFlight = false;
   final ValueNotifier<LiveGpsFix?> liveFix = ValueNotifier(null);
 
   LocationSettings get _streamSettings {
@@ -169,7 +173,35 @@ class LocationNotifier extends StateNotifier<LocationState> {
       }
 
       var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.deniedForever) {
+        state = state.copyWith(error: 'Location permission denied');
+        return;
+      }
       if (permission == LocationPermission.denied) {
+        if (_disclosureDeclined) {
+          state = state.copyWith(error: 'Location permission denied');
+          return;
+        }
+        if (_disclosureInFlight) {
+          return;
+        }
+        final ctx = rootNavigatorKey.currentContext;
+        if (ctx == null || !ctx.mounted) {
+          return;
+        }
+        _disclosureInFlight = true;
+        try {
+          final accepted = await showLocationDisclosure(ctx);
+          if (!accepted) {
+            _disclosureDeclined = true;
+            if (mounted) {
+              state = state.copyWith(error: 'Location permission denied');
+            }
+            return;
+          }
+        } finally {
+          _disclosureInFlight = false;
+        }
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied ||

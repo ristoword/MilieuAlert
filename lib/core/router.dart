@@ -9,6 +9,7 @@ import '../screens/settings/settings_screen.dart';
 import '../screens/zone_detail/zone_detail_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/settings_provider.dart';
+import 'app_navigator.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
@@ -23,6 +24,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 
   final router = GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/auth',
     refreshListenable: refresh,
     redirect: (context, state) {

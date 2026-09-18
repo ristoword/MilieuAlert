@@ -267,6 +267,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get grantPermission => 'Grant permission';
 
   @override
+  String get locationDisclosureTitle => 'Location';
+
+  @override
+  String get locationDisclosureBody =>
+      'MilieuAlert uses your location to navigate and warn you about milieuzones, including in the background or when the app is not in use. You can deny.';
+
+  @override
+  String get locationDisclosureContinue => 'Continue';
+
+  @override
+  String get locationDisclosureDeny => 'Deny';
+
+  @override
   String get paywallExpiredTitle => '15-day trial ended';
 
   @override
