@@ -114,6 +114,30 @@ describe('MilieuAlert locale SEO', () => {
     );
   });
 
+  it('GET /privacy returns GDPR HTML without a redirect loop', async () => {
+    const express = require('express');
+    const { mount } = require('../index');
+    const app = express();
+    mount(app);
+    const server = await new Promise((resolve) => {
+      const s = app.listen(0, '127.0.0.1', () => resolve(s));
+    });
+    try {
+      const port = server.address().port;
+      const res = await fetch(`http://127.0.0.1:${port}/privacy`);
+      assert.equal(res.status, 200);
+      assert.equal(res.redirected, false);
+      const html = await res.text();
+      assert.match(html, /Informativa sulla privacy/);
+      assert.doesNotMatch(html, /flutter_bootstrap|main\.dart\.js/);
+      const en = await fetch(`http://127.0.0.1:${port}/privacy/en`);
+      assert.equal(en.status, 200);
+      assert.match(await en.text(), /Privacy policy/);
+    } finally {
+      await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
+    }
+  });
+
   it('hreflang map and locale URLs stay on the public origin', () => {
     const base = 'https://milieualert-production.up.railway.app';
     assert.equal(localeUrl('nl', base), `${base}/nl`);

@@ -28,12 +28,10 @@ function mount(app) {
   });
 
   // GDPR pages — registered before static / SPA so Flutter index.html cannot win.
-  app.get('/privacy/', (_req, res) => res.redirect(301, '/privacy'));
+  // Do not add a '/privacy/' redirect: Express treats /privacy and /privacy/ as
+  // the same route and that redirect would loop.
   app.get('/privacy', (_req, res) => sendHtml(res, renderPrivacy(null)));
   LOCALES.forEach((lang) => {
-    app.get(`/privacy/${lang}/`, (_req, res) => {
-      res.redirect(301, `/privacy/${lang}`);
-    });
     app.get(`/privacy/${lang}`, (_req, res) => sendHtml(res, renderPrivacy(lang)));
   });
 
