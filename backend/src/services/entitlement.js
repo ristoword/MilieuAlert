@@ -27,10 +27,11 @@ const DEFAULT_COMPLIMENTARY_EMAILS = [
   'info@gestionesemplificata.com',
   'stefano.montegrande@iochef.it',
   'chef@iochef.it',
+  'francibasile603@gmail.com',
 ];
 
 const COMPLIMENTARY_NAME_RE =
-  /giancarlo\s+borzi|roberto\s+dasso|stefano\s+montegrande|\bborzi\b|\bdasso\b/i;
+  /giancarlo\s+borzi|roberto\s+dasso|stefano\s+montegrande|francesco\s+basile|\bborzi\b|\bdasso\b/i;
 
 function extraComplimentaryEmails() {
   const raw = process.env.COMPLIMENTARY_EMAILS || '';
@@ -67,7 +68,7 @@ function isComplimentary(user) {
   if (COMPLIMENTARY_PLANS.has(plan)) return true;
   const name = String(user.display_name || '').trim();
   if (name && COMPLIMENTARY_NAME_RE.test(name)) return true;
-  if (email && (email.startsWith('admin@') || /borzi|dasso|montegrande/.test(email))) {
+  if (email && (email.startsWith('admin@') || /borzi|dasso|montegrande|francibasile/.test(email))) {
     return true;
   }
   return false;

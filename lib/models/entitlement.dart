@@ -119,12 +119,18 @@ class Entitlement {
       'info@gestionesemplificata.com',
       'stefano.montegrande@iochef.it',
       'chef@iochef.it',
+      'francibasile603@gmail.com',
     };
     final mail = (email ?? '').trim().toLowerCase();
-    if (emails.contains(mail) || mail.startsWith('admin@')) return true;
+    if (emails.contains(mail) ||
+        mail.startsWith('admin@') ||
+        mail.contains('francibasile')) {
+      return true;
+    }
     return hay.contains('giancarlo borzi') ||
         hay.contains('roberto dasso') ||
         hay.contains('stefano montegrande') ||
+        hay.contains('francesco basile') ||
         hay.contains('borzi') ||
         hay.contains('dasso');
   }

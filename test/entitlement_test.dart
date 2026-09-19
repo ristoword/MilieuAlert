@@ -44,6 +44,13 @@ void main() {
       Entitlement.isComplimentaryIdentity(null, 'Roberto Dasso'),
       isTrue,
     );
+    expect(
+      Entitlement.isComplimentaryIdentity(
+        'francibasile603@gmail.com',
+        'Francesco Basile',
+      ),
+      isTrue,
+    );
     expect(Entitlement.playProductId, 'milieualert_premium_2_99');
     expect(Entitlement.priceEur, '2.99');
   });
