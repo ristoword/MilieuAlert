@@ -3,7 +3,7 @@
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://milieualert-production.up.railway.app/</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://milieualert-production.up.railway.app/en"/>
@@ -13,7 +13,7 @@
   </url>
   <url>
     <loc>https://milieualert-production.up.railway.app/en</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://milieualert-production.up.railway.app/en"/>
@@ -23,7 +23,7 @@
   </url>
   <url>
     <loc>https://milieualert-production.up.railway.app/nl</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.95</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://milieualert-production.up.railway.app/en"/>
@@ -33,7 +33,7 @@
   </url>
   <url>
     <loc>https://milieualert-production.up.railway.app/it</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.95</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://milieualert-production.up.railway.app/en"/>
@@ -43,7 +43,7 @@
   </url>
   <url>
     <loc>https://milieualert-production.up.railway.app/privacy</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="it" href="https://milieualert-production.up.railway.app/privacy/it"/>
@@ -53,7 +53,7 @@
   </url>
   <url>
     <loc>https://milieualert-production.up.railway.app/privacy/en</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="it" href="https://milieualert-production.up.railway.app/privacy/it"/>
@@ -63,7 +63,7 @@
   </url>
   <url>
     <loc>https://milieualert-production.up.railway.app/privacy/nl</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="it" href="https://milieualert-production.up.railway.app/privacy/it"/>
@@ -73,7 +73,7 @@
   </url>
   <url>
     <loc>https://milieualert-production.up.railway.app/privacy/it</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="it" href="https://milieualert-production.up.railway.app/privacy/it"/>
