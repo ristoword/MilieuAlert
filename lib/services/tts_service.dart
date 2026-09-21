@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'speech_engine_stub.dart'
     if (dart.library.js_interop) 'speech_engine_web.dart' as engine;
 import 'speech_types.dart';
@@ -37,8 +39,18 @@ class TtsService {
     final lang = bcp47(languageCode);
     final voices = await engine.engineListVoices();
     final picked = pickVoice(voices, lang: lang, gender: gender);
-    final pitch = gender == NavVoiceGender.female ? 1.14 : 0.84;
-    final rate = gender == NavVoiceGender.female ? 0.98 : 0.9;
+    _debugLogVoices(voices, picked, gender, lang);
+
+    final double pitch;
+    final double rate;
+    if (gender == NavVoiceGender.female) {
+      pitch = 1.14;
+      rate = 0.98;
+    } else {
+      // Never pitch-shift a female/cloud voice into "male" — use a real male-named voice at natural pitch.
+      pitch = 1.0;
+      rate = 0.92;
+    }
 
     await engine.engineSpeak(
       text: trimmed,
@@ -46,6 +58,7 @@ class TtsService {
       voiceName: picked?.name,
       pitch: pitch,
       rate: rate,
+      skipLangFallback: gender == NavVoiceGender.male,
     );
   }
 
@@ -56,11 +69,41 @@ class TtsService {
   }) {
     if (voices.isEmpty) return null;
     final prefix = lang.split('-').first.toLowerCase();
-    final ranked = [...voices]..sort((a, b) {
-        return _score(b, lang, prefix, gender)
-            .compareTo(_score(a, lang, prefix, gender));
-      });
+
+    if (gender == NavVoiceGender.female) {
+      final ranked = [...voices]
+        ..sort(
+          (a, b) => _score(b, lang, prefix, gender)
+              .compareTo(_score(a, lang, prefix, gender)),
+        );
+      return ranked.first;
+    }
+
+    final maleVoices = voices
+        .where((v) => inferGender(v.genderHint) == NavVoiceGender.male)
+        .toList();
+    if (maleVoices.isEmpty) return null;
+
+    final ranked = [...maleVoices]
+      ..sort(
+        (a, b) =>
+            _scoreMale(b, lang, prefix).compareTo(_scoreMale(a, lang, prefix)),
+      );
     return ranked.first;
+  }
+
+  static int _scoreMale(VoiceInfo v, String lang, String prefix) {
+    var s = 0;
+    final vLang = v.lang.toLowerCase();
+    if (vLang == lang.toLowerCase()) {
+      s += 80;
+    } else if (vLang.startsWith(prefix)) {
+      s += 50;
+    } else {
+      s += 8;
+    }
+    if (v.localService) s += 35;
+    return s;
   }
 
   static int _score(
@@ -76,7 +119,8 @@ class TtsService {
     } else if (vLang.startsWith(prefix)) {
       s += 50;
     }
-    final g = inferGender(v.name);
+    if (v.localService) s += 20;
+    final g = inferGender(v.genderHint);
     if (g == gender) s += 40;
     if (g != null && g != gender) s -= 25;
     return s;
@@ -92,7 +136,9 @@ class TtsService {
       'woman',
       'girl',
       'femminile',
+      'feminine',
       'vrouw',
+      'vrouwelijk',
       'zira',
       'samantha',
       'karen',
@@ -123,13 +169,19 @@ class TtsService {
       'jenny',
       'aria',
       'sonia',
+      'elsie',
+      'moira',
+      'tessa',
+      'veena',
     ];
     const male = [
       'male',
       'man',
+      'uomo',
+      'maschile',
+      'mannelijk',
       'guy',
       'boy',
-      'maschile',
       'david',
       'mark',
       'daniel',
@@ -141,6 +193,9 @@ class TtsService {
       'stefano',
       'luca',
       'giorgio',
+      'cosimo',
+      'matteo',
+      'francesco',
       'marco',
       'paolo',
       'diego',
@@ -156,6 +211,12 @@ class TtsService {
       'brian',
       'christopher',
       'fred',
+      'aaron',
+      'maarten',
+      'ruben',
+      'xander',
+      'coen',
+      'sem',
     ];
     final hasF = has(female);
     final hasM = has(male);
@@ -177,5 +238,22 @@ class TtsService {
       default:
         return 'en-US';
     }
+  }
+
+  static void _debugLogVoices(
+    List<VoiceInfo> voices,
+    VoiceInfo? picked,
+    NavVoiceGender gender,
+    String lang,
+  ) {
+    if (!kDebugMode) return;
+    final sample = voices.take(12).map((v) {
+      final g = inferGender(v.genderHint)?.name ?? '?';
+      return '${v.name} (${v.lang}, local=${v.localService}, g=$g)';
+    }).join('; ');
+    debugPrint(
+      'TTS pick gender=${gender.name} lang=$lang picked=${picked?.name ?? "none"} '
+      'of ${voices.length}: $sample',
+    );
   }
 }

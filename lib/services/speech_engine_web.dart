@@ -21,6 +21,8 @@ extension type SpeechSynthesisUtterance._(JSObject _) implements JSObject {
 extension type SpeechSynthesisVoice._(JSObject _) implements JSObject {
   external String get name;
   external String get lang;
+  external String get voiceURI;
+  external bool get localService;
 }
 
 extension type SpeechSynthesis._(JSObject _) implements JSObject {
@@ -28,6 +30,7 @@ extension type SpeechSynthesis._(JSObject _) implements JSObject {
   external void speak(SpeechSynthesisUtterance utterance);
   external void cancel();
   external bool get speaking;
+  external set onvoiceschanged(JSFunction? value);
 }
 
 Future<void> engineInit() async {
@@ -38,20 +41,56 @@ Future<List<VoiceInfo>> engineListVoices() async {
   try {
     var voices = _readVoices();
     if (voices.isNotEmpty) return voices;
-    for (var i = 0; i < 12; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 120));
-      voices = _readVoices();
-      if (voices.isNotEmpty) return voices;
+
+    final completer = Completer<List<VoiceInfo>>();
+
+    void tryFinish() {
+      final v = _readVoices();
+      if (v.isNotEmpty && !completer.isCompleted) {
+        completer.complete(v);
+      }
     }
-  } catch (_) {}
-  return const [];
+
+    try {
+      _synth.onvoiceschanged = (() => tryFinish()).toJS;
+    } catch (_) {}
+
+    tryFinish();
+
+    for (var i = 0; i < 25; i++) {
+      voices = _readVoices();
+      if (voices.isNotEmpty) {
+        tryFinish();
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+    }
+
+    if (!completer.isCompleted) {
+      completer.complete(_readVoices());
+    }
+
+    final result = await completer.future;
+    return result;
+  } catch (_) {
+    return const [];
+  } finally {
+    try {
+      _synth.onvoiceschanged = null;
+    } catch (_) {}
+  }
 }
 
 List<VoiceInfo> _readVoices() {
   final raw = _synth.getVoices().toDart;
   return [
     for (final v in raw)
-      VoiceInfo(name: v.name, lang: v.lang),
+      VoiceInfo(
+        name: v.name,
+        lang: v.lang,
+        voiceUri: v.voiceURI,
+        localService: v.localService,
+      ),
   ];
 }
 
@@ -75,6 +114,7 @@ Future<void> engineSpeak({
   String? voiceName,
   required double pitch,
   required double rate,
+  bool skipLangFallback = false,
 }) async {
   SpeechSynthesisVoice? selected;
   try {
@@ -87,9 +127,11 @@ Future<void> engineSpeak({
         }
       }
     }
-    if (selected == null) {
+    if (selected == null && !skipLangFallback) {
       for (final v in raw) {
-        if (v.lang.toLowerCase().startsWith(lang.split('-').first.toLowerCase())) {
+        if (v.lang
+            .toLowerCase()
+            .startsWith(lang.split('-').first.toLowerCase())) {
           selected = v;
           break;
         }

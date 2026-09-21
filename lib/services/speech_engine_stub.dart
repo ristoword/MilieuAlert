@@ -50,6 +50,7 @@ Future<void> engineSpeak({
   String? voiceName,
   required double pitch,
   required double rate,
+  bool skipLangFallback = false,
 }) async {
   await engineInit();
   try {
