@@ -398,9 +398,20 @@ void main() {
         lat: startLat,
         lon: lon + 0.02,
         gpsHeading: 180,
+        speedMps: 3,
         route: bent,
       ),
       closeTo(180, 1),
+    );
+    expect(
+      courseUpBearing(
+        lat: startLat + 40 / mPerDeg,
+        lon: lon,
+        gpsHeading: 270,
+        speedMps: 0,
+        route: bent,
+      ),
+      closeTo(0, 8),
     );
     expect(
       courseUpBearing(

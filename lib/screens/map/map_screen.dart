@@ -92,10 +92,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _headingUp = false;
   bool _mapReady = false;
   bool _applyingCamera = false;
+  int _programmaticCameraEpoch = 0;
   double _lastAutoRotation = 0;
+  double? _lastRouteBearing;
   LatLng? _lastAutoCenter;
   double? _pendingZoom;
   Timer? _northUpPeek;
+  Timer? _followResume;
+  static const _followResumeDelay = Duration(seconds: 5);
   static const _puckScreenOffset = Offset(0, 118);
 
   @override
@@ -199,6 +203,27 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _northUpPeek = null;
   }
 
+  void _cancelFollowResume() {
+    _followResume?.cancel();
+    _followResume = null;
+  }
+
+  void _scheduleFollowResume() {
+    _cancelFollowResume();
+    _followResume = Timer(_followResumeDelay, () {
+      if (!mounted) return;
+      final nav = ref.read(navigationProvider);
+      if (!nav.navigating) return;
+      if (ref.read(locationProvider).follow) return;
+      if (_wantsCourseUp(nav)) {
+        _startCourseUp();
+      } else {
+        ref.read(locationProvider.notifier).setFollow(true);
+        _applyLiveCamera();
+      }
+    });
+  }
+
   void _scheduleCourseUpResume() {
     _cancelNorthUpPeek();
     _northUpPeek = Timer(kNorthUpPeekDuration, () {
@@ -235,6 +260,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   @override
   void dispose() {
     _cancelNorthUpPeek();
+    _cancelFollowResume();
     WidgetsBinding.instance.removeObserver(this);
     try {
       ref.read(locationProvider.notifier).liveFix.removeListener(_onLiveFix);
@@ -267,25 +293,34 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   double? _courseForFix(double lat, double lon, {double? headingHint}) {
     final nav = ref.read(navigationProvider);
+    final loc = ref.read(locationProvider);
+    final fix = ref.read(locationProvider.notifier).liveFix.value;
     return courseUpBearing(
       lat: lat,
       lon: lon,
-      gpsHeading: headingHint ?? ref.read(locationProvider).heading,
+      gpsHeading: headingHint ?? loc.heading,
+      speedMps: fix?.speedMps ?? loc.speed,
+      accuracyMeters: fix?.accuracy ?? loc.accuracy,
+      lastRouteBearing: _lastRouteBearing,
       route: nav.hasRoute ? nav.route : const [],
     );
   }
 
   void _withProgrammaticCamera(void Function() fn) {
     _applyingCamera = true;
+    final epoch = ++_programmaticCameraEpoch;
     try {
       fn();
     } catch (_) {
     } finally {
-      _applyingCamera = false;
       try {
         _lastAutoCenter = _mapController.camera.center;
         _lastAutoRotation = _mapController.camera.rotation;
       } catch (_) {}
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || epoch != _programmaticCameraEpoch) return;
+        _applyingCamera = false;
+      });
     }
   }
 
@@ -301,6 +336,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
       // Course-up is independent of the 2D/3D tilt overlay.
       if (_headingUp && follow) {
         var bearing = _courseForFix(lat, lon, headingHint: headingHint);
+        bearing ??= _lastRouteBearing ?? _lastAutoRotation;
+        if (bearing != null) {
+          _lastRouteBearing = bearing;
+          bearing = smoothCourseUpBearing(bearing, _lastAutoRotation);
+        }
         bearing ??= _lastAutoRotation;
         bearing = (bearing % 360 + 360) % 360;
         // Rotate around the puck first, then offset so the road ahead
@@ -370,6 +410,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   void _onUserMapEvent(MapEvent event) {
     if (_applyingCamera || !_mapReady) return;
+    if (event.source == MapEventSource.mapController ||
+        event.source == MapEventSource.fitCamera) {
+      return;
+    }
     if (!isUserMapCameraGesture(event.source)) return;
     _pauseFollowIfUserPanned(event.camera, source: event.source);
   }
@@ -405,6 +449,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
     if (paused) {
       _cancelNorthUpPeek();
       ref.read(locationProvider.notifier).setFollow(false);
+      if (_wantsCourseUp(ref.read(navigationProvider))) {
+        _scheduleFollowResume();
+      }
     }
   }
 
@@ -506,6 +553,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   void _recenter() {
+    _cancelFollowResume();
     final nav = ref.read(navigationProvider);
     ref.read(locationProvider.notifier).setFollow(true);
     ref.read(locationProvider.notifier).startTracking();
@@ -606,7 +654,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
               _trayExpanded = false;
               if (!_userSetMapMode) _tilt3d = false;
               _headingUp = false;
+              _lastRouteBearing = null;
               _cancelNorthUpPeek();
+              _cancelFollowResume();
               _withProgrammaticCamera(() {
                 _mapController.rotate(0);
                 _lastAutoRotation = 0;

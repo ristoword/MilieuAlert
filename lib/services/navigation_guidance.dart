@@ -8,6 +8,13 @@ import 'geo_utils.dart';
 const double kOffRouteMeters = 50;
 const double kOffRouteHeadingMeters = 28;
 const double kWrongHeadingDegrees = 50;
+/// Lookahead on the route polyline for heading-up map rotation (m).
+const double kCourseUpLookAheadMeters = 55;
+/// Below this speed, GPS course/heading is too noisy for map rotation (km/h).
+const double kMinGpsSpeedForCourseHeadingKmh = 8;
+const double kMinGpsSpeedForCourseHeadingMps =
+    kMinGpsSpeedForCourseHeadingKmh / 3.6;
+const double kMaxGpsAccuracyForCourseHeadingM = 40;
 const double kMissedTurnMeters = 20;
 const double kPassManeuverMeters = 32;
 const double kHeadingAdvanceCone = 35;
@@ -215,13 +222,59 @@ List<double> locateSteps(
   return along;
 }
 
+LatLng? latLngAtAlongMeters(
+  List<LatLng> route,
+  List<double> cum,
+  double alongMeters,
+) {
+  if (route.isEmpty || cum.length != route.length) return null;
+  final total = cum.last;
+  if (total <= 0) return route.first;
+  final along = alongMeters.clamp(0, total).toDouble();
+  for (var i = 0; i < route.length - 1; i++) {
+    final segEnd = cum[i + 1];
+    if (segEnd < along - 0.01 && i < route.length - 2) continue;
+    final segStart = cum[i];
+    final segLen = segEnd - segStart;
+    if (segLen < 0.01) return route[i];
+    final t = ((along - segStart) / segLen).clamp(0.0, 1.0);
+    return LatLng(
+      route[i].latitude + (route[i + 1].latitude - route[i].latitude) * t,
+      route[i].longitude + (route[i + 1].longitude - route[i].longitude) * t,
+    );
+  }
+  return route.last;
+}
+
 double bearingAlongRoute(
   List<LatLng> route,
   List<double> cum,
   double alongMeters, {
-  double lookAheadMeters = 18,
+  double lookAheadMeters = kCourseUpLookAheadMeters,
 }) {
   if (route.length < 2 || cum.length != route.length) return 0;
+  final from = latLngAtAlongMeters(route, cum, alongMeters);
+  final to = latLngAtAlongMeters(
+    route,
+    cum,
+    alongMeters + lookAheadMeters,
+  );
+  if (from != null && to != null) {
+    final span = haversineMeters(
+      from.latitude,
+      from.longitude,
+      to.latitude,
+      to.longitude,
+    );
+    if (span >= 4) {
+      return bearingDegrees(
+        from.latitude,
+        from.longitude,
+        to.latitude,
+        to.longitude,
+      );
+    }
+  }
   final target = alongMeters + lookAheadMeters;
   final total = cum.last;
   final at = target.clamp(0, total).toDouble();
@@ -242,6 +295,33 @@ double bearingAlongRoute(
   );
 }
 
+bool gpsHeadingUsableForMapRotation({
+  double? speedMps,
+  double? accuracyMeters,
+}) {
+  final speed = speedMps ?? 0;
+  if (!speed.isFinite || speed < kMinGpsSpeedForCourseHeadingMps) return false;
+  if (accuracyMeters != null &&
+      accuracyMeters.isFinite &&
+      accuracyMeters > kMaxGpsAccuracyForCourseHeadingM) {
+    return false;
+  }
+  return true;
+}
+
+/// Limit how fast the map bearing can change per camera tick (reduces jitter).
+double smoothCourseUpBearing(double targetDeg, double previousDeg,
+    {double maxStepDeg = 14}) {
+  var target = (targetDeg % 360 + 360) % 360;
+  var prev = (previousDeg % 360 + 360) % 360;
+  var diff = target - prev;
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  if (diff.abs() <= maxStepDeg) return target;
+  final next = prev + diff.sign * maxStepDeg;
+  return (next % 360 + 360) % 360;
+}
+
 double? _usableCourseHeading(double? heading) {
   if (heading == null || !heading.isFinite) return null;
   if (heading < 0 || heading > 360) return null;
@@ -255,25 +335,35 @@ double? courseUpBearing({
   required double lat,
   required double lon,
   double? gpsHeading,
+  double? speedMps,
+  double? accuracyMeters,
+  double? lastRouteBearing,
   required List<LatLng> route,
   List<double>? cum,
   double offRouteMeters = kOffRouteMeters,
-  double lookAheadMeters = 16,
+  double lookAheadMeters = kCourseUpLookAheadMeters,
 }) {
-  final fallback = _usableCourseHeading(gpsHeading);
-  if (route.length < 2) return fallback;
+  final gpsOk = gpsHeadingUsableForMapRotation(
+    speedMps: speedMps,
+    accuracyMeters: accuracyMeters,
+  );
+  final fallback = gpsOk ? _usableCourseHeading(gpsHeading) : null;
+  if (route.length < 2) return fallback ?? lastRouteBearing;
   final distances = cum ?? cumulativeDistances(route);
-  if (distances.length != route.length) return fallback;
+  if (distances.length != route.length) return fallback ?? lastRouteBearing;
   final snap = projectOntoPolyline(lat, lon, route, distances);
-  if (snap == null || snap.offsetMeters > offRouteMeters) return fallback;
+  if (snap == null || snap.offsetMeters > offRouteMeters) {
+    return fallback ?? lastRouteBearing;
+  }
   final tangent = bearingAlongRoute(
     route,
     distances,
     snap.alongMeters,
     lookAheadMeters: lookAheadMeters,
   );
-  // Don't glue heading-up to the old polyline while the user is turning away.
-  if (fallback != null &&
+  // Only trust GPS over the polyline when moving fast and clearly off the line.
+  if (gpsOk &&
+      fallback != null &&
       snap.offsetMeters >= 12 &&
       headingDelta(fallback, tangent) > kWrongHeadingDegrees) {
     return fallback;
