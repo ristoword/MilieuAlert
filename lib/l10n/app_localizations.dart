@@ -368,6 +368,15 @@ abstract class AppLocalizations {
   /// **'Risultato informativo. Verifica sempre le regole ufficiali.'**
   String get disclaimer;
 
+  /// No description provided for @notGovernmentDisclaimer.
+  String get notGovernmentDisclaimer;
+
+  /// No description provided for @aboutSection.
+  String get aboutSection;
+
+  /// No description provided for @officialSourcesSection.
+  String get officialSourcesSection;
+
   /// No description provided for @car.
   ///
   /// In it, this message translates to:

@@ -150,6 +150,16 @@ class AppLocalizationsNl extends AppLocalizations {
       'Alleen ter informatie. Controleer altijd de officiële regels.';
 
   @override
+  String get notGovernmentDisclaimer =>
+      'MilieuAlert is geen overheidsinstantie en is niet gelieerd aan of geautoriseerd door enige overheid of gemeente. Milieuzone/ZTL/LEZ-informatie is een samenvatting uit openbare bronnen; controleer altijd op de website van de bevoegde instantie.';
+
+  @override
+  String get aboutSection => 'Over';
+
+  @override
+  String get officialSourcesSection => 'Officiële bronnen';
+
+  @override
   String get car => 'Personenauto';
 
   @override

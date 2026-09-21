@@ -150,6 +150,16 @@ class AppLocalizationsDe extends AppLocalizations {
       'Informatives Ergebnis. Verifizieren Sie immer die offiziellen Vorschriften.';
 
   @override
+  String get notGovernmentDisclaimer =>
+      'MilieuAlert ist keine Behörde und weder mit einer Regierung noch mit einer Gemeinde verbunden oder von diesen autorisiert. Milieuzone-/LEZ-Informationen sind Zusammenfassungen aus öffentlichen Quellen; prüfen Sie immer die Website der zuständigen Behörde.';
+
+  @override
+  String get aboutSection => 'Info';
+
+  @override
+  String get officialSourcesSection => 'Offizielle Quellen';
+
+  @override
   String get car => 'PKW';
 
   @override

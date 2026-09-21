@@ -47,4 +47,14 @@ class AppConstants {
 
   // OpenAI config (used by backend, not directly in app)
   static const String aiModel = 'gpt-4o-mini';
+
+  /// Public authorities and reference sites for LEZ / milieuzone rules (Play listing + in-app About).
+  static const List<({String label, String url})> officialLezSources = [
+    (label: 'Urban Access Regulations (EU)', url: 'https://urbanaccessregulations.eu'),
+    (label: 'Milieuzones.nl', url: 'https://www.milieuzones.nl'),
+    (label: 'Rijksoverheid.nl', url: 'https://www.rijksoverheid.nl'),
+    (label: 'MIT (Italia)', url: 'https://www.mit.gov.it'),
+    (label: 'Ministère Écologie (France)', url: 'https://www.ecologie.gouv.fr'),
+    (label: 'Umweltbundesamt (Deutschland)', url: 'https://www.umweltbundesamt.de'),
+  ];
 }

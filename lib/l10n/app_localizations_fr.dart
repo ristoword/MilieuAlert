@@ -151,6 +151,16 @@ class AppLocalizationsFr extends AppLocalizations {
       'Resultat informatif. Verifiez toujours les reglementations officielles.';
 
   @override
+  String get notGovernmentDisclaimer =>
+      'MilieuAlert n\'est pas une entité gouvernementale et n\'est ni affiliée ni autorisée par un gouvernement ou une commune. Les infos milieuzone/ZTL/LEZ sont des résumés de sources publiques ; vérifiez toujours sur le site de l\'autorité compétente.';
+
+  @override
+  String get aboutSection => 'À propos';
+
+  @override
+  String get officialSourcesSection => 'Sources officielles';
+
+  @override
   String get car => 'Voiture';
 
   @override

@@ -8,6 +8,17 @@ short_description:
 GPS-navigator voor milieuzone en LEZ. Jouw auto, jouw zone, jouw toegang.
 
 full_description:
+MELDING — GEEN OVERHEIDSINSTANTIE
+MilieuAlert is geen overheidsinstantie en is niet gelieerd aan of geautoriseerd door enige overheid of gemeente. Milieuzone/ZTL/LEZ-informatie is een samenvatting uit openbare bronnen; controleer altijd op de website van de bevoegde instantie.
+
+OFFICIËLE BRONNEN (autoriteiten en referenties)
+https://urbanaccessregulations.eu
+https://www.milieuzones.nl
+https://www.rijksoverheid.nl
+https://www.mit.gov.it
+https://www.ecologie.gouv.fr
+https://www.umweltbundesamt.de
+
 MilieuAlert is een GPS-navigator voor milieuzones: milieuzone, lage-emissiezone, Umweltzone, ZTL ambientale, LEZ en clean air zone.
 
 EcoEntry legt jouw voertuig (Euro 2 tot Euro 5 en brandstof) naast de zone op de route en waarschuwt vóór je inrijdt. De regel is kort: jouw auto, jouw zone, jouw toegang.
@@ -19,7 +30,7 @@ Wat de app doet
 • Steden waarnaar bestuurders écht navigeren: Amsterdam, Rotterdam, Utrecht, Antwerpen, Brussel, Milano Area B, Paris ZFE, London ULEZ
 • Optioneel account om voertuig en voorkeuren te bewaren
 
-Dit vervangt de verkeerswet of Google Maps niet. Het is een waarschuwingslaag zodat je kunt omrijden vóór een boete. Zone­regels wijzigen: check altijd officiële bronnen.
+Dit vervangt de verkeerswet of Google Maps niet. Het is een waarschuwingslaag zodat je kunt omrijden vóór een boete. Zone­regels wijzigen: check altijd de officiële bronnen hierboven en in Instellingen → Over.
 
 Privacy: https://milieualert-production.up.railway.app/privacy/nl
 Verkoop: Gestione Semplificata (dezelfde ontwikkelaar als IoChef).
