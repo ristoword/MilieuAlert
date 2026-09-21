@@ -8,7 +8,7 @@ const ANTWERPEN_URL =
 const BRUSSELS_URL =
   'https://gis.brussels.be/geoserver/bm_network/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=bm_network:lez_zone&outputFormat=application/json&srsName=EPSG:4326';
 const GENT_URL =
-  'https://data.stad.gent/api/explore/v2.1/catalog/datasets/lage-emissiezone-gent/exports/geojson';
+  'https://data.stad.gent/api/v2/catalog/datasets/lage-emissie-zone-gent/exports/geojson';
 const FR_ZFE_URL =
   'https://www.data.gouv.fr/api/1/datasets/r/673a16bf-49ec-4645-9da2-cf975d0aa0ea';
 const TYREMAP_CSV_URL = 'https://tyremap.com/data/lez-zones.csv';
@@ -529,6 +529,14 @@ function attachBetterPolygons(catalog, donors) {
   return catalog;
 }
 
+function shortNetworkError(err, url) {
+  if (err && err.name === 'AbortError') return `${url} -> timeout`;
+  const code = err && err.cause && err.cause.code;
+  if (code) return `${url} -> ${code}`;
+  const msg = String((err && err.message) || err);
+  return msg.includes('->') ? msg : `${url} -> ${msg.slice(0, 100)}`;
+}
+
 async function fetchJson(url, timeoutMs = 28000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -537,11 +545,14 @@ async function fetchJson(url, timeoutMs = 28000) {
       headers: { Accept: 'application/geo+json, application/json, text/csv, */*' },
       signal: ctrl.signal,
     });
-    if (!res.ok) throw new Error(`${url} -> ${res.status}`);
+    if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
     const ct = res.headers.get('content-type') || '';
     if (ct.includes('json')) return res.json();
     const text = await res.text();
     try { return JSON.parse(text); } catch { return text; }
+  } catch (err) {
+    if (String(err.message || '').includes('->')) throw err;
+    throw new Error(shortNetworkError(err, url));
   } finally {
     clearTimeout(timer);
   }
@@ -576,10 +587,15 @@ async function fetchOverpass(query, timeoutMs = 55000) {
         await new Promise((r) => setTimeout(r, 12000));
         continue;
       }
-      if (!res.ok) throw new Error(`${url} -> ${res.status}`);
+      if (!res.ok) {
+        lastErr = new Error(`overpass ${res.status} (${new URL(url).hostname})`);
+        continue;
+      }
       return await res.json();
     } catch (err) {
-      lastErr = err;
+      lastErr = err.name === 'AbortError'
+        ? new Error(`overpass timeout (${new URL(url).hostname})`)
+        : err;
     } finally {
       clearTimeout(timer);
     }
@@ -656,21 +672,28 @@ async function fetchLiveNational() {
         geometrySource: 'be',
       }));
     }).catch((err) => console.error('Antwerpen fetch failed:', err.message)),
-    fetchJson(BRUSSELS_URL).then((data) => {
+    fetchJson(BRUSSELS_URL, 35000).then((data) => {
       lists.push(fromGeoJsonFeatures(data.features, {
         country: 'BE', city: 'Brussels', name: 'Brussels LEZ',
         idPrefix: 'brussels_', source: 'https://lez.brussels/',
         geometrySource: 'be',
         nameFrom: (p) => p.name_en || p.name_fr || p.name || 'Brussels LEZ',
       }));
-    }).catch((err) => console.error('Brussels fetch failed:', err.message)),
+    }).catch((err) => console.warn('Brussels LEZ fetch skipped:', err.message)),
     fetchJson(GENT_URL).then((data) => {
       lists.push(fromGeoJsonFeatures(data.features, {
         country: 'BE', city: 'Gent', name: 'Gent LEZ',
         idPrefix: 'gent_', source: 'https://stad.gent/lez',
         geometrySource: 'be',
       }));
-    }).catch((err) => console.error('Gent fetch failed:', err.message)),
+    }).catch((err) => {
+      const msg = err.message || '';
+      if (msg.includes('404')) {
+        console.warn('Gent LEZ fetch skipped: dataset export not found (bundled/OSM data kept)');
+      } else {
+        console.warn('Gent LEZ fetch skipped:', msg);
+      }
+    }),
     fetchJson(FR_ZFE_URL, 45000).then((data) => {
       lists.push(fromGeoJsonFeatures(data.features, {
         country: 'FR', city: 'France', name: 'ZFE',

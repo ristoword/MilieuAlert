@@ -49,20 +49,64 @@ router.get('/tiles/:z/:x/:file', tileLimiter, async (req, res) => {
 });
 
 
-async function fetchJson(url, options = {}) {
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'User-Agent': USER_AGENT,
-      Accept: 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${res.status} ${url} ${text.slice(0, 180)}`);
+const OVERPASS_CAMERA_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+];
+
+function overpassHttpError(status, host) {
+  if (status === 504) return `overpass 504 gateway timeout (${host})`;
+  if (status === 429) return `overpass 429 rate limited (${host})`;
+  return `overpass HTTP ${status} (${host})`;
+}
+
+async function fetchJson(url, options = {}, timeoutMs = 25000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: ctrl.signal,
+      headers: {
+        'User-Agent': USER_AGENT,
+        Accept: 'application/json',
+        ...(options.headers || {}),
+      },
+    });
+    if (!res.ok) {
+      const host = new URL(url).hostname;
+      throw new Error(overpassHttpError(res.status, host));
+    }
+    return res.json();
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      const host = new URL(url).hostname;
+      throw new Error(`overpass timeout (${host})`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
-  return res.json();
+}
+
+async function fetchOverpassJson(query, timeoutMs = 25000) {
+  let lastErr;
+  for (const endpoint of OVERPASS_CAMERA_ENDPOINTS) {
+    try {
+      return await fetchJson(
+        endpoint,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: query,
+        },
+        timeoutMs,
+      );
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error('overpass failed');
 }
 
 function haversineMeters(lat1, lon1, lat2, lon2) {
@@ -179,11 +223,7 @@ async function overpassNearby(category, lat, lon, radius) {
     )
     .join('\n');
   const query = `[out:json][timeout:20];\n(\n${clauses}\n);\nout body center 40;`;
-  const data = await fetchJson('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: query,
-  });
+  const data = await fetchOverpassJson(query, 22000);
   const seen = new Set();
   const results = [];
   for (const el of data.elements || []) {
@@ -431,11 +471,7 @@ router.get('/cameras', async (req, res) => {
 );
 out body center;`;
     }
-    const data = await fetchJson('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: query,
-    });
+    const data = await fetchOverpassJson(query, 22000);
 
     const cameraIds = new Set();
     for (const el of data.elements || []) {

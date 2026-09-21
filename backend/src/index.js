@@ -17,6 +17,8 @@ const billingRoutes = require('./routes/billing');
 const seo = require('./seo');
 
 const app = express();
+// Railway/nginx: one reverse-proxy hop (required for express-rate-limit + X-Forwarded-For).
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 app.use(helmet({
