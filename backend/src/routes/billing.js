@@ -9,6 +9,7 @@ const {
   serializeUser,
 } = require('../services/entitlement');
 const { attachEntitlement } = require('../services/trialStore');
+const { requireBillingAdminKey } = require('../middleware/billingAdmin');
 
 const router = express.Router();
 
@@ -114,12 +115,8 @@ router.post('/redeem', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/grant', async (req, res) => {
+router.post('/grant', requireBillingAdminKey, async (req, res) => {
   try {
-    const key = req.headers['x-billing-admin-key'] || req.body?.adminKey;
-    if (!process.env.BILLING_ADMIN_KEY || key !== process.env.BILLING_ADMIN_KEY) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (!email) return res.status(400).json({ error: 'Email required' });
     const found = await pool.query(

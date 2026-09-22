@@ -14,6 +14,7 @@ const zoneRoutes = require('./routes/zones');
 const geoRoutes = require('./routes/geo');
 const hazardRoutes = require('./routes/hazards');
 const billingRoutes = require('./routes/billing');
+const adminRoutes = require('./routes/admin');
 const seo = require('./seo');
 
 const app = express();
@@ -77,6 +78,7 @@ app.get('/api/status', (req, res) => {
       'GET /api/billing/catalog',
       'POST /api/billing/play',
       'POST /api/billing/redeem',
+      'GET /api/admin/users (x-billing-admin-key)',
       'POST /api/ai/chat',
       'POST /api/ai/assist',
       'POST /api/ai/zone-check',
@@ -103,6 +105,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/zones', zoneRoutes);
