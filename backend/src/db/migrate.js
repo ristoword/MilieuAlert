@@ -34,11 +34,9 @@ async function runMigrations() {
             'admin@gestionesemplificata.com',
             'assistenza@gestionesemplificata.com',
             'info@gestionesemplificata.com',
-            'stefano.montegrande@iochef.it',
-            'chef@iochef.it',
             'francibasile603@gmail.com'
           )
-          OR LOWER(COALESCE(display_name, '')) ~ 'giancarlo[[:space:]]+borzi|roberto[[:space:]]+dasso|stefano[[:space:]]+montegrande|francesco[[:space:]]+basile'
+          OR LOWER(COALESCE(display_name, '')) ~ 'giancarlo[[:space:]]+borzi|roberto[[:space:]]+dasso|francesco[[:space:]]+basile'
           OR LOWER(email) LIKE 'admin@%'
           OR LOWER(COALESCE(subscription_plan, '')) IN ('staff', 'comp', 'complimentary', 'admin')
         )
