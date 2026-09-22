@@ -10,6 +10,7 @@ const {
 } = require('../services/entitlement');
 const { attachEntitlement } = require('../services/trialStore');
 const { requireBillingAdminKey } = require('../middleware/billingAdmin');
+const { notifyPremium } = require('../services/gsSync');
 
 const router = express.Router();
 
@@ -47,6 +48,13 @@ async function grantPremium(userId, { plan = 'pro', days = 31, source } = {}) {
      WHERE id = $3`,
     [plan, expires, userId]
   );
+  const user = await loadUser(userId);
+  if (user) {
+    notifyPremium(user, {
+      complimentary: plan === 'comp',
+      source: source || 'premium',
+    });
+  }
   return { expires, source, plan };
 }
 

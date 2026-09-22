@@ -6,6 +6,7 @@ const { authenticateToken } = require('../middleware/auth');
 const userRoutes = require('./users');
 const { computeEntitlement, addDays, pickTrialStart } = require('../services/entitlement');
 const { attachEntitlement, clientTrialHeader } = require('../services/trialStore');
+const { notifyRegistration } = require('../services/gsSync');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-me';
@@ -52,6 +53,7 @@ router.post('/register', async (req, res) => {
     );
 
     const user = result.rows[0];
+    notifyRegistration(user);
     const entitlement = computeEntitlement(user);
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
 
