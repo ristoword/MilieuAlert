@@ -291,7 +291,6 @@ class AiAssistNotifier extends StateNotifier<AiAssistState> {
       await _ref.read(ttsServiceProvider).speak(
             text,
             languageCode: _lang,
-            gender: _ref.read(navVoiceProvider),
           );
     } catch (_) {}
   }

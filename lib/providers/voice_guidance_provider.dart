@@ -37,8 +37,6 @@ class VoiceGuidance {
 
   TtsService get _tts => _ref.read(ttsServiceProvider);
   String get _lang => _ref.read(localeProvider).languageCode;
-  NavVoiceGender get _gender => _ref.read(navVoiceProvider);
-
   void dispose() {
     _tts.stop();
   }
@@ -305,21 +303,14 @@ class VoiceGuidance {
   }
 
   Future<void> preview() {
-    final sample = _gender == NavVoiceGender.female
-        ? _t(
-            it: 'Voce femminile. Gira a destra tra 200 metri',
-            nl: 'Vrouwelijke stem. Over 200 meter rechtsaf',
-            en: 'Female voice. Turn right in 200 meters',
-          )
-        : _t(
-            it: 'Voce maschile. Gira a destra tra 200 metri',
-            nl: 'Mannelijke stem. Over 200 meter rechtsaf',
-            en: 'Male voice. Turn right in 200 meters',
-          );
+    final sample = _t(
+      it: 'Gira a destra tra 200 metri',
+      nl: 'Over 200 meter rechtsaf',
+      en: 'Turn right in 200 meters',
+    );
     return _tts.speak(
       sample,
       languageCode: _lang,
-      gender: _gender,
       critical: true,
     );
   }
@@ -347,7 +338,6 @@ class VoiceGuidance {
     await _tts.speak(
       text,
       languageCode: _lang,
-      gender: _gender,
       critical: critical,
     );
   }

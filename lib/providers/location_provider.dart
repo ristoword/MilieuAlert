@@ -276,7 +276,7 @@ class LocationNotifier extends StateNotifier<LocationState> {
 
   void _startInterp() {
     _interp?.cancel();
-    _interp = Timer.periodic(const Duration(milliseconds: 280), (_) {
+    _interp = Timer.periodic(const Duration(milliseconds: 120), (_) {
       _emitInterpolated();
     });
   }
@@ -287,13 +287,14 @@ class LocationNotifier extends StateNotifier<LocationState> {
     if (last == null) return;
     final now = DateTime.now();
     final dt = now.difference(last.at).inMilliseconds / 1000.0;
-    if (dt < 0.18) return;
+    if (dt < 0.08) return;
     if (dt > 3.5) return;
     final heading = last.heading;
+    if (heading == null || heading < 0) return;
     final speed = last.speedMps ?? 0;
-    if (heading == null || heading < 0 || speed < 0.5) return;
+    if (speed < 0.12) return;
     final moved = speed * dt;
-    if (moved < 0.4) return;
+    if (moved < 0.15) return;
     final dest = destinationPoint(last.lat, last.lon, heading, moved);
     liveFix.value = LiveGpsFix(
       lat: dest.lat,

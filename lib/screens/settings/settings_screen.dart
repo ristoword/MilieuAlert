@@ -387,28 +387,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      SegmentedButton<NavVoiceGender>(
-                        segments: [
-                          ButtonSegment(
-                            value: NavVoiceGender.male,
-                            label: Text(l10n.voiceMale),
-                            icon: const Icon(Icons.man_outlined),
-                          ),
-                          ButtonSegment(
-                            value: NavVoiceGender.female,
-                            label: Text(l10n.voiceFemale),
-                            icon: const Icon(Icons.woman_outlined),
-                          ),
-                        ],
-                        selected: {ref.watch(navVoiceProvider)},
-                        onSelectionChanged: (selected) async {
-                          if (selected.isEmpty) return;
-                          await ref
-                              .read(navVoiceProvider.notifier)
-                              .setGender(selected.first);
-                          await ref.read(voiceGuidanceProvider).preview();
-                        },
+                      const SizedBox(height: 8),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.woman_outlined),
+                        title: Text(l10n.voiceFemale),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.volume_up_outlined),
+                          tooltip: l10n.navVoice,
+                          onPressed: () =>
+                              ref.read(voiceGuidanceProvider).preview(),
+                        ),
                       ),
                     ],
                   ),

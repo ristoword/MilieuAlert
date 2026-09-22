@@ -12,6 +12,8 @@ const double kWrongHeadingDegrees = 50;
 const double kCourseUpLookAheadMeters = 55;
 /// Below this speed, GPS course/heading is too noisy for map rotation (km/h).
 const double kMinGpsSpeedForCourseHeadingKmh = 8;
+/// When moving faster than this, blend GPS course with the route if they agree.
+const double kBlendGpsWithRouteMinKmh = 5;
 const double kMinGpsSpeedForCourseHeadingMps =
     kMinGpsSpeedForCourseHeadingKmh / 3.6;
 const double kMaxGpsAccuracyForCourseHeadingM = 40;
@@ -309,6 +311,21 @@ bool gpsHeadingUsableForMapRotation({
   return true;
 }
 
+/// Weighted blend of two bearings (degrees), shortest arc.
+double blendBearings(
+  double primaryDeg,
+  double secondaryDeg, {
+  double secondaryWeight = 0.3,
+}) {
+  var primary = (primaryDeg % 360 + 360) % 360;
+  var secondary = (secondaryDeg % 360 + 360) % 360;
+  var diff = secondary - primary;
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  final w = secondaryWeight.clamp(0.0, 1.0);
+  return (primary + diff * w) % 360;
+}
+
 /// Limit how fast the map bearing can change per camera tick (reduces jitter).
 double smoothCourseUpBearing(double targetDeg, double previousDeg,
     {double maxStepDeg = 14}) {
@@ -343,16 +360,25 @@ double? courseUpBearing({
   double offRouteMeters = kOffRouteMeters,
   double lookAheadMeters = kCourseUpLookAheadMeters,
 }) {
+  final speedKmh = (speedMps ?? 0) * 3.6;
   final gpsOk = gpsHeadingUsableForMapRotation(
     speedMps: speedMps,
     accuracyMeters: accuracyMeters,
   );
   final fallback = gpsOk ? _usableCourseHeading(gpsHeading) : null;
-  if (route.length < 2) return fallback ?? lastRouteBearing;
+  if (route.length < 2) {
+    final headingOnly = _usableCourseHeading(gpsHeading);
+    if (!gpsOk) return lastRouteBearing ?? headingOnly;
+    return fallback ?? lastRouteBearing ?? headingOnly;
+  }
   final distances = cum ?? cumulativeDistances(route);
-  if (distances.length != route.length) return fallback ?? lastRouteBearing;
+  if (distances.length != route.length) {
+    if (!gpsOk) return lastRouteBearing ?? fallback;
+    return fallback ?? lastRouteBearing;
+  }
   final snap = projectOntoPolyline(lat, lon, route, distances);
   if (snap == null || snap.offsetMeters > offRouteMeters) {
+    if (!gpsOk) return lastRouteBearing ?? fallback;
     return fallback ?? lastRouteBearing;
   }
   final tangent = bearingAlongRoute(
@@ -361,9 +387,17 @@ double? courseUpBearing({
     snap.alongMeters,
     lookAheadMeters: lookAheadMeters,
   );
-  // Only trust GPS over the polyline when moving fast and clearly off the line.
-  if (gpsOk &&
+  // Almost stopped: hold the last stable bearing so the map does not spin.
+  if (!gpsOk) {
+    return lastRouteBearing ?? tangent;
+  }
+  if (speedKmh >= kBlendGpsWithRouteMinKmh &&
       fallback != null &&
+      headingDelta(fallback, tangent) <= 32) {
+    return blendBearings(tangent, fallback, secondaryWeight: 0.28);
+  }
+  // Only trust GPS over the polyline when moving fast and clearly off the line.
+  if (fallback != null &&
       snap.offsetMeters >= 12 &&
       headingDelta(fallback, tangent) > kWrongHeadingDegrees) {
     return fallback;

@@ -174,24 +174,39 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final fix = ref.read(locationProvider.notifier).liveFix.value;
     if (fix == null) return;
     ref.read(hazardProvider.notifier).updateAnchor(fix.lat, fix.lon);
-    final follow = ref.read(locationProvider).follow;
-    if (!_movedToUser || follow) {
-      final zoom = _movedToUser ? null : 16.0;
+  }
+
+  void _syncCameraToLiveFix(LiveGpsFix fix, {double? zoom}) {
+    if (!_movedToUser || ref.read(locationProvider).follow) {
+      final z = zoom ?? (_movedToUser ? null : 16.0);
       _movedToUser = true;
-      _moveToUser(fix.lat, fix.lon, zoom: zoom, headingHint: fix.heading);
+      _moveToUser(
+        fix.lat,
+        fix.lon,
+        zoom: z,
+        headingHint: fix.heading,
+        speedMps: fix.speedMps,
+      );
     }
   }
 
   void _applyLiveCamera({double? zoom}) {
     final fix = ref.read(locationProvider.notifier).liveFix.value;
     if (fix != null) {
-      _moveToUser(fix.lat, fix.lon, zoom: zoom, headingHint: fix.heading);
+      _syncCameraToLiveFix(fix, zoom: zoom);
       return;
     }
     final loc = ref.read(locationProvider);
     if (loc.latitude != null && loc.longitude != null) {
-      _moveToUser(loc.latitude!, loc.longitude!, zoom: zoom);
+      _moveToUser(loc.latitude!, loc.longitude!, zoom: zoom, speedMps: loc.speed);
     }
+  }
+
+  double _bearingMaxStepDeg(double? speedMps) {
+    final kmh = (speedMps ?? 0) * 3.6;
+    if (kmh < kBlendGpsWithRouteMinKmh) return 1.0;
+    if (kmh < kMinGpsSpeedForCourseHeadingKmh) return 7;
+    return 14;
   }
 
   bool _wantsCourseUp(NavigationState nav) {
@@ -291,7 +306,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
     });
   }
 
-  double? _courseForFix(double lat, double lon, {double? headingHint}) {
+  double? _courseForFix(
+    double lat,
+    double lon, {
+    double? headingHint,
+    double? speedMps,
+  }) {
     final nav = ref.read(navigationProvider);
     final loc = ref.read(locationProvider);
     final fix = ref.read(locationProvider.notifier).liveFix.value;
@@ -299,7 +319,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       lat: lat,
       lon: lon,
       gpsHeading: headingHint ?? loc.heading,
-      speedMps: fix?.speedMps ?? loc.speed,
+      speedMps: speedMps ?? fix?.speedMps ?? loc.speed,
       accuracyMeters: fix?.accuracy ?? loc.accuracy,
       lastRouteBearing: _lastRouteBearing,
       route: nav.hasRoute ? nav.route : const [],
@@ -324,7 +344,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
   }
 
-  void _moveToUser(double lat, double lon, {double? zoom, double? headingHint}) {
+  void _moveToUser(
+    double lat,
+    double lon, {
+    double? zoom,
+    double? headingHint,
+    double? speedMps,
+  }) {
     if (!_mapReady) {
       _pendingZoom = zoom ?? _pendingZoom ?? 16;
       return;
@@ -335,13 +361,19 @@ class _MapScreenState extends ConsumerState<MapScreen>
       final target = LatLng(lat, lon);
       // Course-up is independent of the 2D/3D tilt overlay.
       if (_headingUp && follow) {
-        var bearing = _courseForFix(lat, lon, headingHint: headingHint);
+        var bearing = _courseForFix(
+          lat,
+          lon,
+          headingHint: headingHint,
+          speedMps: speedMps,
+        );
         bearing ??= _lastRouteBearing ?? _lastAutoRotation;
-        if (bearing != null) {
-          _lastRouteBearing = bearing;
-          bearing = smoothCourseUpBearing(bearing, _lastAutoRotation);
-        }
-        bearing ??= _lastAutoRotation;
+        _lastRouteBearing = bearing;
+        bearing = smoothCourseUpBearing(
+          bearing,
+          _lastAutoRotation,
+          maxStepDeg: _bearingMaxStepDeg(speedMps),
+        );
         bearing = (bearing % 360 + 360) % 360;
         // Rotate around the puck first, then offset so the road ahead
         // fills the screen. Re-assert rotation so a following move()
@@ -574,7 +606,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
     ref.watch(screenWakeLockProvider);
     final entitlement = ref.watch(entitlementProvider);
     final premium = entitlement.fullAccess;
-    ref.listen(liveHudProvider, (_, __) {});
+    ref.listen<LiveHudController>(liveHudProvider, (_, __) {
+      if (!mounted) return;
+      final snap = ref.read(liveHudProvider).snapshot;
+      final fix = snap.fix;
+      if (fix == null || !snap.follow) return;
+      _syncCameraToLiveFix(fix);
+    });
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final topPad = MediaQuery.of(context).padding.top;
 

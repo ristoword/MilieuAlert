@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/zone_status.dart';
+import '../services/geo_utils.dart';
 import '../services/navigation_guidance.dart';
 import 'location_provider.dart';
 import 'navigation_provider.dart';
@@ -32,7 +33,7 @@ class LiveHudController extends ChangeNotifier {
     _fix = _ref.read(locationProvider.notifier).liveFix;
     _fix.addListener(_onFix);
     _ref.listen<NavigationState>(navigationProvider, (_, __) => _onFix());
-    _tick = Timer.periodic(const Duration(milliseconds: 280), (_) => _onTick());
+    _tick = Timer.periodic(const Duration(milliseconds: 120), (_) => _onTick());
     _onFix();
   }
 
@@ -99,6 +100,19 @@ class LiveHudController extends ChangeNotifier {
 
   void _publish(LiveGpsFix? fix, LiveNavInfo? live, LocationState loc) {
     final prev = snapshot.live;
+    final prevFix = snapshot.fix;
+    var fixMoved = false;
+    if (fix != null && prevFix != null) {
+      fixMoved = haversineMeters(
+            prevFix.lat,
+            prevFix.lon,
+            fix.lat,
+            fix.lon,
+          ) >=
+          0.35;
+    } else if (fix != null && prevFix == null) {
+      fixMoved = true;
+    }
     final same = prev != null &&
         live != null &&
         prev.stepIndex == live.stepIndex &&
@@ -106,7 +120,7 @@ class LiveHudController extends ChangeNotifier {
         prev.currentStep?.type == live.currentStep?.type &&
         (prev.metersToManeuver - live.metersToManeuver).abs() < 1 &&
         snapshot.follow == loc.follow;
-    if (same && snapshot.fix != null) return;
+    if (same && !fixMoved) return;
     snapshot = LiveHudSnapshot(
       fix: fix,
       live: live,
