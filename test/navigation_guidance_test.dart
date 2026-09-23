@@ -284,6 +284,36 @@ void main() {
     expect(crow, greaterThan(80));
   });
 
+  test('lanesForHud uses upcoming continue step lane data', () {
+    final steps = [
+      NavStep.fromJson({
+        'type': 'continue',
+        'modifier': '',
+        'name': 'A4',
+        'distanceMeters': 400,
+        'lanes': [
+          {'indications': ['straight'], 'valid': true},
+          {'indications': ['straight'], 'valid': true},
+          {'indications': ['slight right'], 'valid': false},
+          {'indications': ['slight right'], 'valid': false},
+        ],
+      }),
+      const NavStep(
+        type: 'turn',
+        modifier: 'right',
+        name: 'Uscita',
+        distanceMeters: 40,
+      ),
+    ];
+    final lanes = lanesForHud(
+      steps: steps,
+      stepIndex: 1,
+      metersToManeuver: 120,
+    );
+    expect(lanes, hasLength(4));
+    expect(lanes.where((l) => l.valid), hasLength(2));
+  });
+
   test('parses real OSRM lanes and never invents extras', () {
     final step = NavStep.fromJson({
       'type': 'continue',

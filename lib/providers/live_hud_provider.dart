@@ -110,6 +110,12 @@ class LiveHudController extends ChangeNotifier {
             fix.lon,
           ) >=
           0.35;
+      if (!fixMoved &&
+          fix.heading != null &&
+          prevFix.heading != null &&
+          headingDelta(fix.heading!, prevFix.heading!) >= 1.2) {
+        fixMoved = true;
+      }
     } else if (fix != null && prevFix == null) {
       fixMoved = true;
     }

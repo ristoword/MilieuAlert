@@ -7,6 +7,7 @@ import '../../../l10n/l10n_ext.dart';
 import '../../../models/navigation_models.dart';
 import '../../../models/zone_status.dart';
 import '../../../providers/navigation_provider.dart';
+import '../../../services/navigation_guidance.dart';
 import 'lane_guidance.dart';
 import 'live_speed_chip.dart';
 
@@ -126,7 +127,11 @@ class AppleGuidanceCard extends StatelessWidget {
       street = l10n.thenWalk(formatDistance(nav.walkMeters));
     }
     final lanes = !rerouting && nav.mode.isCar
-        ? (step?.lanes ?? const <NavLane>[])
+        ? lanesForHud(
+            steps: nav.steps,
+            stepIndex: live?.stepIndex ?? 0,
+            metersToManeuver: meters ?? 9999,
+          )
         : const <NavLane>[];
     final icon = rerouting
         ? Icons.sync_rounded

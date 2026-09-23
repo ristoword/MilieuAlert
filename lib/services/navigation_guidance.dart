@@ -634,6 +634,32 @@ GuidanceFix computeGuidance({
   );
 }
 
+/// OSRM often attaches [NavStep.lanes] on a `continue` step before the visible turn.
+/// Keep showing all N lanes until the maneuver passes.
+List<NavLane> lanesForHud({
+  required List<NavStep> steps,
+  required int stepIndex,
+  required double metersToManeuver,
+  double maxMeters = 900,
+}) {
+  if (steps.isEmpty || stepIndex < 0 || stepIndex >= steps.length) {
+    return const [];
+  }
+  final current = steps[stepIndex];
+  if (current.lanes.isNotEmpty) return current.lanes;
+  for (var i = stepIndex + 1; i < steps.length; i++) {
+    final s = steps[i];
+    if (s.lanes.isEmpty) continue;
+    if (metersToManeuver <= maxMeters) return s.lanes;
+    break;
+  }
+  for (var i = stepIndex - 1; i >= 0; i--) {
+    final s = steps[i];
+    if (s.lanes.isNotEmpty && metersToManeuver <= maxMeters) return s.lanes;
+  }
+  return const [];
+}
+
 bool _stillAhead({
   required double alongMeters,
   required double maneuverAt,

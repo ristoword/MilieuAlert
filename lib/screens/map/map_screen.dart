@@ -174,6 +174,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final fix = ref.read(locationProvider.notifier).liveFix.value;
     if (fix == null) return;
     ref.read(hazardProvider.notifier).updateAnchor(fix.lat, fix.lon);
+    final nav = ref.read(navigationProvider);
+    if (nav.navigating &&
+        ref.read(locationProvider).follow &&
+        _mapReady) {
+      _syncCameraToLiveFix(fix);
+    }
   }
 
   void _syncCameraToLiveFix(LiveGpsFix fix, {double? zoom}) {

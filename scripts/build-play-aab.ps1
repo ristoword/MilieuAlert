@@ -8,7 +8,10 @@ $versionName = ($versionLine -split '\+')[0]
 $versionCode = ($versionLine -split '\+')[1]
 
 flutter pub get
+if ($LASTEXITCODE -ne 0) { throw "flutter pub get failed (exit $LASTEXITCODE)" }
+
 flutter build appbundle --release
+if ($LASTEXITCODE -ne 0) { throw "flutter build appbundle failed (exit $LASTEXITCODE)" }
 
 $src = Join-Path $Root 'build\app\outputs\bundle\release\app-release.aab'
 if (-not (Test-Path $src)) { throw "AAB not found: $src" }
