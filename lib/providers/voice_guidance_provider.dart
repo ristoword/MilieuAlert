@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/hazard_strings.dart';
@@ -34,6 +36,13 @@ class VoiceGuidance {
   final Ref _ref;
   final Set<String> _spoken = {};
   DateTime? _lastSpeakAt;
+  final Map<String, _ProximityVoiceTracker> _proximityTrackers = {};
+  String? _activeCameraTrackerId;
+  String? _activeLezTrackerId;
+
+  static const List<int> _proximityBuckets = [750, 400, 200, 100];
+  static const double _proximityMaxMeters = 800;
+  static const Duration _proximityRepeatInterval = Duration(seconds: 18);
 
   TtsService get _tts => _ref.read(ttsServiceProvider);
   String get _lang => _ref.read(localeProvider).languageCode;
@@ -75,13 +84,52 @@ class VoiceGuidance {
     if (nav.mode.isCar) {
       _maybeSpeakCamera(live?.nextCamera, live?.nextCameraMeters);
     }
+    _maybeSpeakIncomingHazards();
+  }
+
+  void _maybeSpeakIncomingHazards() {
+    final incoming = _ref.read(hazardProvider).incoming;
+    final active = {for (final r in incoming) r.id};
+    for (final id in _proximityTrackers.keys.toList()) {
+      if (id.startsWith('haz-') && !active.contains(id.substring(4))) {
+        _clearProximityTracker(id);
+      }
+    }
+    for (final report in incoming) {
+      final meters = report.distanceMeters;
+      if (meters == null || meters > _proximityMaxMeters) {
+        _clearProximityTracker('haz-${report.id}');
+        continue;
+      }
+      final dist = formatDistance(meters);
+      final title = HazardStrings(_lang).bannerTitle(report.type, dist);
+      unawaited(
+        _speakProximityAlert(
+          trackerId: 'haz-${report.id}',
+          meters: meters,
+          text: title,
+          critical: meters <= 120,
+        ),
+      );
+    }
   }
 
   void onHazards(HazardState? prev, HazardState next) {
     final seen = {for (final r in prev?.incoming ?? const []) r.id};
     for (final report in next.incoming) {
       if (seen.contains(report.id)) continue;
-      _speakReport(report);
+      final meters = report.distanceMeters;
+      if (meters == null || meters > _proximityMaxMeters) continue;
+      final dist = formatDistance(meters);
+      final title = HazardStrings(_lang).bannerTitle(report.type, dist);
+      unawaited(
+        _speakProximityAlert(
+          trackerId: 'haz-${report.id}',
+          meters: meters,
+          text: title,
+          critical: meters <= 120,
+        ),
+      );
     }
   }
 
@@ -89,9 +137,11 @@ class VoiceGuidance {
     if (prev?.navigating == true && !next.navigating) {
       _spoken.removeWhere((k) =>
           k.startsWith('turn-') ||
-          k.startsWith('cam-') ||
           k == 'reroute' ||
           k == 'walk-leg');
+      _proximityTrackers.clear();
+      _activeCameraTrackerId = null;
+      _activeLezTrackerId = null;
     }
     if (next.recalculating && prev?.recalculating != true) {
       _spoken.remove('reroute');
@@ -159,20 +209,24 @@ class VoiceGuidance {
   }
 
   void _maybeSpeakLez(ZoneProximity? prev, ZoneProximity? next) {
-    if (next == null || next.status == ZoneStatus.safe) return;
-    if (prev != null &&
-        prev.zoneId == next.zoneId &&
-        prev.status == next.status &&
-        prev.isVehicleAllowed == next.isVehicleAllowed) {
+    if (next == null || next.status == ZoneStatus.safe) {
+      if (_activeLezTrackerId != null) {
+        _clearProximityTracker(_activeLezTrackerId!);
+        _activeLezTrackerId = null;
+      }
       return;
     }
-    final key =
-        'lez-${next.zoneId}-${next.status.name}-${next.isVehicleAllowed}';
+    final trackerId = 'lez-${next.zoneId}-${next.status.name}';
+    if (_activeLezTrackerId != null && _activeLezTrackerId != trackerId) {
+      _clearProximityTracker(_activeLezTrackerId!);
+    }
+    _activeLezTrackerId = trackerId;
+
     final dist = formatDistance(next.distanceMeters);
     final allowed = next.isVehicleAllowed != false;
     final text = switch (next.status) {
       ZoneStatus.approaching => _t(
-          it: 'Zona ambientale tra $dist. ${next.zoneName}',
+          it: 'Milieuzone tra $dist. ${next.zoneName}',
           nl: 'Milieuzone over $dist. ${next.zoneName}',
           en: 'Low emission zone in $dist. ${next.zoneName}',
         ),
@@ -189,13 +243,37 @@ class VoiceGuidance {
             ),
       ZoneStatus.safe => '',
     };
-    _speak(key, text, critical: next.status == ZoneStatus.inside && !allowed);
+    final meters = next.status == ZoneStatus.approaching
+        ? (next.distanceMeters ?? _proximityMaxMeters)
+        : 0.0;
+    final maxRange = next.status == ZoneStatus.approaching
+        ? _proximityMaxMeters
+        : 50000.0;
+    unawaited(
+      _speakProximityAlert(
+        trackerId: trackerId,
+        meters: meters,
+        text: text,
+        maxRange: maxRange,
+        critical: next.status == ZoneStatus.inside && !allowed,
+      ),
+    );
   }
 
   void _maybeSpeakCamera(SpeedCamera? camera, double? meters) {
-    if (camera == null || meters == null || meters > 500) return;
-    final bucket = meters <= 120 ? 'near' : 'far';
-    final key = 'cam-${camera.id}-$bucket';
+    if (camera == null || meters == null || meters > _proximityMaxMeters) {
+      if (_activeCameraTrackerId != null) {
+        _clearProximityTracker(_activeCameraTrackerId!);
+        _activeCameraTrackerId = null;
+      }
+      return;
+    }
+    final trackerId = 'cam-${camera.id}';
+    if (_activeCameraTrackerId != null && _activeCameraTrackerId != trackerId) {
+      _clearProximityTracker(_activeCameraTrackerId!);
+    }
+    _activeCameraTrackerId = trackerId;
+
     final dist = formatDistance(meters);
     final limit = camera.maxspeed;
     final limitBit = (limit != null && limit.isNotEmpty)
@@ -206,13 +284,14 @@ class VoiceGuidance {
       nl: 'Flitser over $dist$limitBit',
       en: 'Speed camera in $dist$limitBit',
     );
-    _speak(key, text, critical: meters <= 120);
-  }
-
-  void _speakReport(HazardReport report) {
-    final dist = formatDistance(report.distanceMeters);
-    final title = HazardStrings(_lang).bannerTitle(report.type, dist);
-    _speak('haz-${report.id}', title);
+    unawaited(
+      _speakProximityAlert(
+        trackerId: trackerId,
+        meters: meters,
+        text: text,
+        critical: meters <= 120,
+      ),
+    );
   }
 
   String _turnPhrase(NavStep step, String bucket, double meters) {
@@ -315,6 +394,58 @@ class VoiceGuidance {
     );
   }
 
+  void _clearProximityTracker(String trackerId) {
+    _proximityTrackers.remove(trackerId);
+  }
+
+  Future<void> _speakProximityAlert({
+    required String trackerId,
+    required double meters,
+    required String text,
+    double maxRange = _proximityMaxMeters,
+    bool critical = false,
+  }) async {
+    if (text.trim().isEmpty) return;
+    if (meters > maxRange) {
+      _clearProximityTracker(trackerId);
+      return;
+    }
+
+    final tracker =
+        _proximityTrackers.putIfAbsent(trackerId, _ProximityVoiceTracker.new);
+    final now = DateTime.now();
+
+    var bucketHit = _proximityBuckets.last;
+    for (final b in _proximityBuckets) {
+      if (meters <= b) {
+        bucketHit = b;
+        break;
+      }
+    }
+
+    final newBucket = !tracker.bucketsSpoken.contains(bucketHit);
+    final periodicDue = tracker.lastSpokenAt == null ||
+        now.difference(tracker.lastSpokenAt!) >= _proximityRepeatInterval;
+
+    if (!newBucket && !periodicDue) return;
+
+    var speakCritical = critical;
+    if (_tts.speaking && !speakCritical) return;
+    if (speakCritical && _tts.speaking) {
+      await _tts.stop();
+    }
+
+    tracker.bucketsSpoken.add(bucketHit);
+    tracker.lastSpokenAt = now;
+    _lastSpeakAt = now;
+
+    await _tts.speak(
+      text,
+      languageCode: _lang,
+      critical: speakCritical,
+    );
+  }
+
   Future<void> _speak(
     String key,
     String text, {
@@ -341,4 +472,9 @@ class VoiceGuidance {
       critical: critical,
     );
   }
+}
+
+class _ProximityVoiceTracker {
+  final Set<int> bucketsSpoken = {};
+  DateTime? lastSpokenAt;
 }

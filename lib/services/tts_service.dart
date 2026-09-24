@@ -40,12 +40,14 @@ class TtsService {
     final picked = pickVoice(voices, lang: lang);
     _debugLogVoices(voices, picked, lang);
 
+    // Web Speech API: rate 1.0 = normal (2.0 ≈ double speed).
+    // flutter_tts (Android/iOS): 0.5 ≈ normal, 1.0 ≈ 2× — see speech_engine_stub.dart.
     await engine.engineSpeak(
       text: trimmed,
       lang: lang,
       voiceName: picked?.name,
-      pitch: 1.14,
-      rate: 0.98,
+      pitch: kIsWeb ? 1.0 : 1.0,
+      rate: kIsWeb ? 1.0 : 0.5,
     );
   }
 

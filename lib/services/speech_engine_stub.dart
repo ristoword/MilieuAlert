@@ -62,8 +62,11 @@ Future<void> engineSpeak({
     } catch (_) {}
   }
   try {
-    await _tts.setPitch(pitch);
-    await _tts.setSpeechRate(rate.clamp(0.1, 1.0));
+    await _tts.setPitch(pitch.clamp(0.5, 1.5));
+    // flutter_tts: platform normal is ~0.5; 1.0 is roughly double speed.
+    final nativeRate = rate.clamp(0.1, 1.0);
+    final speechRate = nativeRate > 0.65 ? 0.5 : nativeRate;
+    await _tts.setSpeechRate(speechRate);
   } catch (_) {}
   await _tts.speak(text);
 }

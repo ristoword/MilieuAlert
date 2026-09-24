@@ -141,8 +141,9 @@ Future<void> engineSpeak({
 
   final utterance = SpeechSynthesisUtterance(text);
   utterance.lang = lang;
-  utterance.pitch = pitch.clamp(0.1, 2.0);
-  utterance.rate = rate.clamp(0.1, 2.0);
+  utterance.pitch = pitch.clamp(0.5, 1.5);
+  // Cap at 1.0 so misconfigured callers never trigger Chrome "2×" speech.
+  utterance.rate = rate.clamp(0.5, 1.0);
   utterance.volume = 1;
   if (selected != null) {
     utterance.voice = selected;

@@ -369,12 +369,21 @@ abstract class AppLocalizations {
   String get disclaimer;
 
   /// No description provided for @notGovernmentDisclaimer.
+  ///
+  /// In it, this message translates to:
+  /// **'MilieuAlert non è un ente governativo e non è affiliata né autorizzata da alcun governo o comune. Le info milieuzone/ZTL/LEZ sono riepiloghi da fonti pubbliche; verifica sempre sul sito dell\'autorità competente.'**
   String get notGovernmentDisclaimer;
 
   /// No description provided for @aboutSection.
+  ///
+  /// In it, this message translates to:
+  /// **'Informazioni'**
   String get aboutSection;
 
   /// No description provided for @officialSourcesSection.
+  ///
+  /// In it, this message translates to:
+  /// **'Fonti ufficiali'**
   String get officialSourcesSection;
 
   /// No description provided for @car.
