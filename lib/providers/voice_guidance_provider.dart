@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/hazard_strings.dart';
-import '../models/hazard_report.dart';
 import '../models/navigation_models.dart';
 import '../models/zone_status.dart';
 import '../services/tts_service.dart';
