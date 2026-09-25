@@ -70,13 +70,13 @@ CREATE TABLE IF NOT EXISTS subscription_plans (
 
 INSERT INTO subscription_plans (id, name, description, price_monthly, price_yearly, features) VALUES
 ('free', 'Free', 'Basic zone alerts for Netherlands and Belgium', 0, 0, '{"zones": ["NL", "BE"], "alerts": true, "ai_queries": 5, "trip_log": false}'),
-('basic', 'Basic', 'All European zones + trip history', 2.99, 29.99, '{"zones": "all", "alerts": true, "ai_queries": 50, "trip_log": true}'),
-('pro', 'Pro', 'All features + AI assistant + route planning', 2.99, 29.99, '{"zones": "all", "alerts": true, "ai_queries": "unlimited", "trip_log": true, "routes": true, "ai_assistant": true}'),
+('basic', 'Basic', 'All European zones + trip history', 1.99, 29.99, '{"zones": "all", "alerts": true, "ai_queries": 50, "trip_log": true}'),
+('pro', 'Pro', 'All features + AI assistant + route planning', 1.99, 29.99, '{"zones": "all", "alerts": true, "ai_queries": "unlimited", "trip_log": true, "routes": true, "ai_assistant": true}'),
     ('business', 'Business', 'Fleet management + API access', 19.99, 199.99, '{"zones": "all", "alerts": true, "ai_queries": "unlimited", "trip_log": true, "routes": true, "ai_assistant": true, "fleet": true, "api_access": true}')
 ON CONFLICT (id) DO NOTHING;
 
-UPDATE subscription_plans SET price_monthly = 2.99, price_yearly = 29.99 WHERE id = 'pro';
-UPDATE subscription_plans SET price_monthly = 2.99, price_yearly = 29.99 WHERE id = 'basic';
+UPDATE subscription_plans SET price_monthly = 1.99, price_yearly = 29.99 WHERE id = 'pro';
+UPDATE subscription_plans SET price_monthly = 1.99, price_yearly = 29.99 WHERE id = 'basic';
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_user_vehicles_user_id ON user_vehicles(user_id);

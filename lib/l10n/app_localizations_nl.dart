@@ -294,10 +294,10 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get paywallExpiredBody =>
-      '€2,99 per maand ontgrendelt alles: milieuzone, flitsers, EcoEntry. Basisnavigator blijft (kaart, A–B, heading-up, meters).';
+      '€1,99 per maand ontgrendelt alles: milieuzone, flitsers, EcoEntry. Basisnavigator blijft (kaart, A–B, heading-up, meters).';
 
   @override
-  String get paywallUnlock => 'Alles ontgrendelen — €2,99/maand';
+  String get paywallUnlock => 'Alles ontgrendelen — €1,99/maand';
 
   @override
   String get paywallTrialTitle => '15 dagen volledige proef';
@@ -309,7 +309,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get paywallTrialHint =>
-      'Daarna €2,99/maand voor milieuzone, flitsers en EcoEntry.';
+      'Daarna €1,99/maand voor milieuzone, flitsers en EcoEntry.';
 
   @override
   String get paywallRedeem => 'Ik heb een code / GS-licentie';
@@ -572,7 +572,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get paywallTrialHintShort =>
-      '€2,99/maand: milieuzone, flitsers, EcoEntry.';
+      '€1,99/maand: milieuzone, flitsers, EcoEntry.';
 
   @override
   String get personalData => 'Persoonsgegevens';

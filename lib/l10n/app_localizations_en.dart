@@ -294,10 +294,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paywallExpiredBody =>
-      '€2.99 per month unlocks everything: milieuzone alerts, speed cameras, EcoEntry. Basic navigator stays free (map, A–B route, heading-up, metres).';
+      '€1.99 per month unlocks everything: milieuzone alerts, speed cameras, EcoEntry. Basic navigator stays free (map, A–B route, heading-up, metres).';
 
   @override
-  String get paywallUnlock => 'Unlock all — €2.99/month';
+  String get paywallUnlock => 'Unlock all — €1.99/month';
 
   @override
   String get paywallTrialTitle => '15-day full trial';
@@ -309,7 +309,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paywallTrialHint =>
-      'Then €2.99/month for milieuzone, speed cameras and EcoEntry.';
+      'Then €1.99/month for milieuzone, speed cameras and EcoEntry.';
 
   @override
   String get paywallRedeem => 'I have a code / GS licence';
@@ -573,7 +573,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paywallTrialHintShort =>
-      '€2.99/month: milieuzone, speed cameras, EcoEntry.';
+      '€1.99/month: milieuzone, speed cameras, EcoEntry.';
 
   @override
   String get personalData => 'Personal data';

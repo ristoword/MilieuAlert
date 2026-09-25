@@ -294,10 +294,10 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get paywallExpiredBody =>
-      '2,99 € pro Monat schaltet alles frei: Milieuzone, Blitzer, EcoEntry. Basis-Navigator bleibt (Karte, A-B, Heading-up, Meter).';
+      '1,99 € pro Monat schaltet alles frei: Milieuzone, Blitzer, EcoEntry. Basis-Navigator bleibt (Karte, A-B, Heading-up, Meter).';
 
   @override
-  String get paywallUnlock => 'Alles freischalten — 2,99 €/Monat';
+  String get paywallUnlock => 'Alles freischalten — 1,99 €/Monat';
 
   @override
   String get paywallTrialTitle => '15 Tage voller Test';
@@ -309,7 +309,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get paywallTrialHint =>
-      'Danach 2,99 €/Monat für Milieuzone, Blitzer und EcoEntry.';
+      'Danach 1,99 €/Monat für Milieuzone, Blitzer und EcoEntry.';
 
   @override
   String get paywallRedeem => 'Ich habe einen Code / GS-Lizenz';
@@ -572,7 +572,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get paywallTrialHintShort =>
-      '2,99 €/Monat: Milieuzone, Blitzer, EcoEntry.';
+      '1,99 €/Monat: Milieuzone, Blitzer, EcoEntry.';
 
   @override
   String get personalData => 'Persönliche Daten';

@@ -55,7 +55,7 @@ function jsonLd(lang, base = getBaseUrl()) {
     offers: {
       '@type': 'Offer',
       url: canonical,
-      price: '2.99',
+      price: '1.99',
       priceCurrency: 'EUR',
       availability: 'https://schema.org/InStock'
     },

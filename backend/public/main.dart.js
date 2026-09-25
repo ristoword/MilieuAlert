@@ -36731,7 +36731,7 @@ var $async$b0c=A.u(function(c,d){if(c===1)return A.p(d,r)
 for(;;)switch(s){case 0:s=3
 return A.n(A.b1j(A.d1("https://gestionesemplificata.com/prodotti#milieualert",0,null),B.vm),$async$b0c)
 case 3:p=d
-q=new A.qd(p,p?"Apri Gestione Semplificata per l\u2019abbonamento 2,99 \u20ac/mese.":"Impossibile aprire la pagina di pagamento.",null)
+q=new A.qd(p,p?"Apri Gestione Semplificata per l\u2019abbonamento 1,99 \u20ac/mese.":"Impossibile aprire la pagina di pagamento.",null)
 s=1
 break
 case 1:return A.q(q,r)}})
@@ -113155,7 +113155,7 @@ h=A.b([o,B.bl,n,B.ax,m,B.bl,new A.C5(l,d),new A.C5(k,d),new A.C5(j,d),B.afu,i,B.
 o=e.y
 if(o!=null)B.b.O(h,A.b([B.ax,A.a0(o,d,d,d,d,A.bh().$2$color$fontSize(s?B.R:B.aE,12),d,d)],f))
 h.push(B.ax)
-h.push(A.a0(c.Cl("milieualert_premium_2_99","2.99"),d,d,d,d,A.bh().$2$color$fontSize(B.aE,11),B.f8,d))
+h.push(A.a0(c.Cl("milieualert_premium_2_99","1.99"),d,d,d,d,A.bh().$2$color$fontSize(B.aE,11),B.f8,d))
 return new A.aM(new A.af(0,0,0,p.f.d),new A.hG(new A.aM(B.Tg,A.bQ(h,B.c7,B.m,B.ar),d),22,d,d),d)}}
 A.aSE.prototype={
 $0(){var s=this.a
@@ -113229,11 +113229,11 @@ gBs(){return"MilieuAlert verwendet Ihren Standort zur Navigation und um Sie vor 
 gBt(){return"Weiter"},
 gBu(){return"Ablehnen"},
 gtp(){return"15 Tage abgelaufen"},
-gtn(){return"2,99 \u20ac pro Monat schaltet alles frei: Milieuzone, Blitzer, EcoEntry. Basis-Navigator bleibt (Karte, A-B, Heading-up, Meter)."},
-gtq(){return"Alles freischalten \u2014 2,99 \u20ac/Monat"},
+gtn(){return"1,99 \u20ac pro Monat schaltet alles frei: Milieuzone, Blitzer, EcoEntry. Basis-Navigator bleibt (Karte, A-B, Heading-up, Meter)."},
+gtq(){return"Alles freischalten \u2014 1,99 \u20ac/Monat"},
 gCc(){return"15 Tage voller Test"},
 wd(a){return"Test: noch "+a+" Tage"},
-gCb(){return"Danach 2,99 \u20ac/Monat f\xfcr Milieuzone, Blitzer und EcoEntry."},
+gCb(){return"Danach 1,99 \u20ac/Monat f\xfcr Milieuzone, Blitzer und EcoEntry."},
 gCa(){return"Ich habe einen Code / GS-Lizenz"},
 gxg(){return"Ort suchen"},
 gxh(){return"Ort oder Adresse suchen"},
@@ -113377,11 +113377,11 @@ gBs(){return"MilieuAlert uses your location to navigate and warn you about milie
 gBt(){return"Continue"},
 gBu(){return"Deny"},
 gtp(){return"15-day trial ended"},
-gtn(){return"\u20ac2.99 per month unlocks everything: milieuzone alerts, speed cameras, EcoEntry. Basic navigator stays free (map, A\u2013B route, heading-up, metres)."},
-gtq(){return"Unlock all \u2014 \u20ac2.99/month"},
+gtn(){return"\u20ac1.99 per month unlocks everything: milieuzone alerts, speed cameras, EcoEntry. Basic navigator stays free (map, A\u2013B route, heading-up, metres)."},
+gtq(){return"Unlock all \u2014 \u20ac1.99/month"},
 gCc(){return"15-day full trial"},
 wd(a){return"Trial: "+a+" days left"},
-gCb(){return"Then \u20ac2.99/month for milieuzone, speed cameras and EcoEntry."},
+gCb(){return"Then \u20ac1.99/month for milieuzone, speed cameras and EcoEntry."},
 gCa(){return"I have a code / GS licence"},
 gxg(){return"Search a place"},
 gxh(){return"Search a place or address"},
@@ -113525,11 +113525,11 @@ gBs(){return"MilieuAlert utilise votre position pour naviguer et vous avertir de
 gBt(){return"Continuer"},
 gBu(){return"Refuser"},
 gtp(){return"15 jours expir\xe9s"},
-gtn(){return"2,99 \u20ac par mois pour tout d\xe9bloquer : milieuzone, autovelox, EcoEntry. Le navigateur de base reste (carte, A-B, heading-up, m\xe8tres)."},
-gtq(){return"Tout d\xe9bloquer \u2014 2,99 \u20ac/mois"},
+gtn(){return"1,99 \u20ac par mois pour tout d\xe9bloquer : milieuzone, autovelox, EcoEntry. Le navigateur de base reste (carte, A-B, heading-up, m\xe8tres)."},
+gtq(){return"Tout d\xe9bloquer \u2014 1,99 \u20ac/mois"},
 gCc(){return"Essai 15 jours"},
 wd(a){return"Essai : "+a+" jours restants"},
-gCb(){return"Puis 2,99 \u20ac/mois pour milieuzone, autovelox et EcoEntry."},
+gCb(){return"Puis 1,99 \u20ac/mois pour milieuzone, autovelox et EcoEntry."},
 gCa(){return"J\u2019ai un code / licence GS"},
 gxg(){return"Rechercher un lieu"},
 gxh(){return"Rechercher un lieu ou une adresse"},
@@ -113673,11 +113673,11 @@ gBs(){return"MilieuAlert usa la tua posizione per navigare e avvisarti delle mil
 gBt(){return"Continua"},
 gBu(){return"Nega"},
 gtp(){return"15 giorni scaduti"},
-gtn(){return"2,99 euro al mese per sbloccare tutto: milieuzone, autovelox, EcoEntry. Resta il navigatore base (mappa, percorso A-B, heading-up, metri)."},
-gtq(){return"Sblocca tutto \u2014 2,99 \u20ac/mese"},
+gtn(){return"1,99 euro al mese per sbloccare tutto: milieuzone, autovelox, EcoEntry. Resta il navigatore base (mappa, percorso A-B, heading-up, metri)."},
+gtq(){return"Sblocca tutto \u2014 1,99 \u20ac/mese"},
 gCc(){return"Prova 15 giorni"},
 wd(a){return"Prova: "+a+" giorni rimasti"},
-gCb(){return"Poi 2,99 \u20ac/mese per milieuzone, autovelox, EcoEntry."},
+gCb(){return"Poi 1,99 \u20ac/mese per milieuzone, autovelox, EcoEntry."},
 gCa(){return"Ho un codice / licenza GS"},
 gxg(){return"Cerca un luogo"},
 gxh(){return"Cerca un luogo o un indirizzo"},
@@ -113821,11 +113821,11 @@ gBs(){return"MilieuAlert gebruikt je locatie om te navigeren en je te waarschuwe
 gBt(){return"Doorgaan"},
 gBu(){return"Weigeren"},
 gtp(){return"15 dagen verlopen"},
-gtn(){return"\u20ac2,99 per maand ontgrendelt alles: milieuzone, flitsers, EcoEntry. Basisnavigator blijft (kaart, A\u2013B, heading-up, meters)."},
-gtq(){return"Alles ontgrendelen \u2014 \u20ac2,99/maand"},
+gtn(){return"\u20ac1,99 per maand ontgrendelt alles: milieuzone, flitsers, EcoEntry. Basisnavigator blijft (kaart, A\u2013B, heading-up, meters)."},
+gtq(){return"Alles ontgrendelen \u2014 \u20ac1,99/maand"},
 gCc(){return"15 dagen volledige proef"},
 wd(a){return"Proef: nog "+a+" dagen"},
-gCb(){return"Daarna \u20ac2,99/maand voor milieuzone, flitsers en EcoEntry."},
+gCb(){return"Daarna \u20ac1,99/maand voor milieuzone, flitsers en EcoEntry."},
 gCa(){return"Ik heb een code / GS-licentie"},
 gxg(){return"Zoek een plaats"},
 gxh(){return"Zoek een plaats of adres"},

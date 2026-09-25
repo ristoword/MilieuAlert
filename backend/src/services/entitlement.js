@@ -5,11 +5,11 @@
  * (trial_started_at on the user row + client prefs). After that,
  * unpaid users keep only the basic navigator unless premium / complimentary.
  *
- * Play / GS product: milieualert_premium_2_99 — €2.99 / month subscription.
+ * Play / GS product: milieualert_premium_2_99 (legacy SKU id) — €1.99 / month subscription.
  */
 
 const TRIAL_DAYS = 15;
-const PREMIUM_PRICE_EUR = '2.99';
+const PREMIUM_PRICE_EUR = '1.99';
 const PLAY_PRODUCT_ID = 'milieualert_premium_2_99';
 const GS_CHECKOUT_URL = 'https://gestionesemplificata.com/prodotti#milieualert';
 

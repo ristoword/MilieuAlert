@@ -6,11 +6,11 @@ Store listing stays **Free**. Unlock after the 15-day trial is an in-app **subsc
 
 | Field | Value |
 |---|---|
-| Product ID | `milieualert_premium_2_99` |
-| Type | **Subscription** (preferred, matches Gestione Semplificata monthly billing). One-time unlock at 2.99 EUR is acceptable for a first listing if subscriptions are not ready. |
+| Product ID | `milieualert_premium_2_99` (legacy id; set **1.99 EUR** in Play Console / GS `milieualert_monthly`) |
+| Type | **Subscription** (preferred, matches Gestione Semplificata monthly billing). |
 | Name | MilieuAlert Premium |
 | Description | Sblocca milieuzone, autovelox/flitsers, EcoEntry, AI, POI e community. |
-| Price | **2.99 EUR / month** |
+| Price | **1.99 EUR / month** |
 | Base plan ID (if subscription) | `monthly` |
 | Grace period | Play default |
 | Package | `com.milieuzone.milieu_alert` |

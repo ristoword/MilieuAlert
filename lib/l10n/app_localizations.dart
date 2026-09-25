@@ -623,13 +623,13 @@ abstract class AppLocalizations {
   /// No description provided for @paywallExpiredBody.
   ///
   /// In it, this message translates to:
-  /// **'2,99 euro al mese per sbloccare tutto: milieuzone, autovelox, EcoEntry. Resta il navigatore base (mappa, percorso A-B, heading-up, metri).'**
+  /// **'1,99 euro al mese per sbloccare tutto: milieuzone, autovelox, EcoEntry. Resta il navigatore base (mappa, percorso A-B, heading-up, metri).'**
   String get paywallExpiredBody;
 
   /// No description provided for @paywallUnlock.
   ///
   /// In it, this message translates to:
-  /// **'Sblocca tutto — 2,99 €/mese'**
+  /// **'Sblocca tutto — 1,99 €/mese'**
   String get paywallUnlock;
 
   /// No description provided for @paywallTrialTitle.
@@ -647,7 +647,7 @@ abstract class AppLocalizations {
   /// No description provided for @paywallTrialHint.
   ///
   /// In it, this message translates to:
-  /// **'Poi 2,99 €/mese per milieuzone, autovelox, EcoEntry.'**
+  /// **'Poi 1,99 €/mese per milieuzone, autovelox, EcoEntry.'**
   String get paywallTrialHint;
 
   /// No description provided for @paywallRedeem.
@@ -1085,7 +1085,7 @@ abstract class AppLocalizations {
   /// No description provided for @paywallTrialHintShort.
   ///
   /// In it, this message translates to:
-  /// **'2,99 €/mese: milieuzone, autovelox, EcoEntry.'**
+  /// **'1,99 €/mese: milieuzone, autovelox, EcoEntry.'**
   String get paywallTrialHintShort;
 
   /// No description provided for @personalData.

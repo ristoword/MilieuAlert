@@ -295,10 +295,10 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get paywallExpiredBody =>
-      '2,99 € par mois pour tout débloquer : milieuzone, autovelox, EcoEntry. Le navigateur de base reste (carte, A-B, heading-up, mètres).';
+      '1,99 € par mois pour tout débloquer : milieuzone, autovelox, EcoEntry. Le navigateur de base reste (carte, A-B, heading-up, mètres).';
 
   @override
-  String get paywallUnlock => 'Tout débloquer — 2,99 €/mois';
+  String get paywallUnlock => 'Tout débloquer — 1,99 €/mois';
 
   @override
   String get paywallTrialTitle => 'Essai 15 jours';
@@ -310,7 +310,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get paywallTrialHint =>
-      'Puis 2,99 €/mois pour milieuzone, autovelox et EcoEntry.';
+      'Puis 1,99 €/mois pour milieuzone, autovelox et EcoEntry.';
 
   @override
   String get paywallRedeem => 'J’ai un code / licence GS';
@@ -572,7 +572,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get paywallTrialHintShort =>
-      '2,99 €/mois : milieuzone, autovelox, EcoEntry.';
+      '1,99 €/mois : milieuzone, autovelox, EcoEntry.';
 
   @override
   String get personalData => 'Données personnelles';

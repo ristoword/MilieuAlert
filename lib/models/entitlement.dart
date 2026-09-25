@@ -1,6 +1,6 @@
 class Entitlement {
   static const int trialDays = 15;
-  static const String priceEur = '2.99';
+  static const String priceEur = '1.99';
   static const String playProductId = 'milieualert_premium_2_99';
   static const String gsCheckoutUrl =
       'https://gestionesemplificata.com/prodotti#milieualert';

@@ -134,8 +134,8 @@
   "locationDisclosureContinue": "Continua",
   "locationDisclosureDeny": "Nega",
   "paywallExpiredTitle": "15 giorni scaduti",
-  "paywallExpiredBody": "2,99 euro al mese per sbloccare tutto: milieuzone, autovelox, EcoEntry. Resta il navigatore base (mappa, percorso A-B, heading-up, metri).",
-  "paywallUnlock": "Sblocca tutto — 2,99 €/mese",
+  "paywallExpiredBody": "1,99 euro al mese per sbloccare tutto: milieuzone, autovelox, EcoEntry. Resta il navigatore base (mappa, percorso A-B, heading-up, metri).",
+  "paywallUnlock": "Sblocca tutto — 1,99 €/mese",
   "paywallTrialTitle": "Prova 15 giorni",
   "paywallTrialDays": "Prova: {days} giorni rimasti",
   "@paywallTrialDays": {
@@ -143,7 +143,7 @@
       "days": {"type": "int"}
     }
   },
-  "paywallTrialHint": "Poi 2,99 €/mese per milieuzone, autovelox, EcoEntry.",
+  "paywallTrialHint": "Poi 1,99 €/mese per milieuzone, autovelox, EcoEntry.",
   "paywallRedeem": "Ho un codice / licenza GS",
   "euro": "Euro {level}",
   "@euro": {
@@ -318,7 +318,7 @@
       "price": {"type": "String"}
     }
   },
-  "paywallTrialHintShort": "2,99 €/mese: milieuzone, autovelox, EcoEntry.",
+  "paywallTrialHintShort": "1,99 €/mese: milieuzone, autovelox, EcoEntry.",
   "personalData": "Dati personali",
   "name": "Nome",
   "enterName": "Inserisci il tuo nome",

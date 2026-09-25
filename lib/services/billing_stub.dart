@@ -81,7 +81,7 @@ Future<BillingResult> billingPurchase({
     ok: launched,
     openedExternal: launched,
     message: launched
-        ? 'Apri Gestione Semplificata per l’abbonamento 2,99 €/mese.'
+        ? 'Apri Gestione Semplificata per l’abbonamento 1,99 €/mese.'
         : 'Impossibile aprire la pagina di pagamento.',
   );
 }

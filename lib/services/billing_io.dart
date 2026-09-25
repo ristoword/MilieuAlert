@@ -107,7 +107,7 @@ Future<BillingResult> billingPurchase({
     ok: launched,
     openedExternal: launched,
     message: launched
-        ? 'Prodotto Play non ancora in Console: apri Gestione Semplificata (2,99 €/mese).'
+        ? 'Prodotto Play non ancora in Console: apri Gestione Semplificata (1,99 €/mese).'
         : 'Impossibile aprire il pagamento.',
   );
 }

@@ -93,8 +93,8 @@ describe('MilieuAlert entitlement', () => {
     assert.equal(start.toISOString(), '2026-09-01T00:00:00.000Z');
   });
 
-  it('documents the 2.99 Play product', () => {
-    assert.equal(PREMIUM_PRICE_EUR, '2.99');
+  it('documents the 1.99 Play product', () => {
+    assert.equal(PREMIUM_PRICE_EUR, '1.99');
     assert.equal(PLAY_PRODUCT_ID, 'milieualert_premium_2_99');
     assert.equal(TRIAL_DAYS, 15);
     assert.equal(isComplimentary({ email: 'random@example.com' }), false);
