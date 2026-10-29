@@ -1291,6 +1291,30 @@ abstract class AppLocalizations {
   /// In it, this message translates to:
   /// **'Lavoro'**
   String get placeWork;
+
+  /// No description provided for @parkingPayTitle.
+  ///
+  /// In it, this message translates to:
+  /// **'Paga la sosta'**
+  String get parkingPayTitle;
+
+  /// No description provided for @parkingPayHint.
+  ///
+  /// In it, this message translates to:
+  /// **'Apre l’app ufficiale EasyPark'**
+  String get parkingPayHint;
+
+  /// No description provided for @parkingTooltip.
+  ///
+  /// In it, this message translates to:
+  /// **'Parcheggio (EasyPark)'**
+  String get parkingTooltip;
+
+  /// No description provided for @parkingOpenError.
+  ///
+  /// In it, this message translates to:
+  /// **'Impossibile aprire EasyPark.'**
+  String get parkingOpenError;
 }
 
 class _AppLocalizationsDelegate

@@ -201,7 +201,11 @@
     "poi_cafe": "Caffè",
     "poi_pharmacy": "Farmacie",
     "place_home": "Casa",
-    "place_work": "Lavoro"
+    "place_work": "Lavoro",
+    "parking_pay_title": "Paga la sosta",
+    "parking_pay_hint": "Apre l’app ufficiale EasyPark",
+    "parking_tooltip": "Parcheggio (EasyPark)",
+    "parking_open_error": "Impossibile aprire EasyPark."
   },
   "play_listing": {
     "title": "MilieuAlert",

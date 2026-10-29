@@ -197,5 +197,9 @@
   "poiCafe": "Cafés",
   "poiPharmacy": "Apotheken",
   "placeHome": "Thuis",
-  "placeWork": "Werk"
+  "placeWork": "Werk",
+  "parkingPayTitle": "Betaal je parkeren",
+  "parkingPayHint": "Opent de officiële EasyPark-app",
+  "parkingTooltip": "Parkeren (EasyPark)",
+  "parkingOpenError": "EasyPark kon niet worden geopend."
 }

@@ -679,4 +679,16 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get placeWork => 'Travail';
+
+  @override
+  String get parkingPayTitle => 'Payer le stationnement';
+
+  @override
+  String get parkingPayHint => 'Ouvre l’application officielle EasyPark';
+
+  @override
+  String get parkingTooltip => 'Stationnement (EasyPark)';
+
+  @override
+  String get parkingOpenError => 'Impossible d’ouvrir EasyPark.';
 }

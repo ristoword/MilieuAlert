@@ -42,6 +42,7 @@ import 'widgets/hazard_detail_sheet.dart';
 import 'widgets/incident_banners.dart';
 import 'widgets/map_compass.dart';
 import 'widgets/map_pins.dart';
+import 'widgets/parking_prompt.dart';
 import 'widgets/report_sheet.dart';
 import 'widgets/search_sheet.dart';
 import 'widgets/transient_alert.dart';
@@ -533,6 +534,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
             }
             showHazardFeedSheet(context);
           },
+        ),
+        const SizedBox(height: 8),
+        _RoundMapButton(
+          icon: Icons.local_parking_rounded,
+          tooltip: l10nOf(context).parkingTooltip,
+          onTap: () => launchEasyPark(context),
         ),
         const SizedBox(height: 8),
         _recenterButton(follow),
@@ -1040,6 +1047,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       child: _sideMapButtons(follow, premium),
                     ),
                   ),
+                  const ParkingArrivalCard(),
                   _LiveEtaTray(
                 expanded: _trayExpanded,
                 onToggleExpanded: _toggleTray,

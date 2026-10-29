@@ -197,5 +197,9 @@
   "poiCafe": "Cafés",
   "poiPharmacy": "Pharmacies",
   "placeHome": "Maison",
-  "placeWork": "Travail"
+  "placeWork": "Travail",
+  "parkingPayTitle": "Payer le stationnement",
+  "parkingPayHint": "Ouvre l’application officielle EasyPark",
+  "parkingTooltip": "Stationnement (EasyPark)",
+  "parkingOpenError": "Impossible d’ouvrir EasyPark."
 }
