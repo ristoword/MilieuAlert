@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,8 +14,18 @@ const kPremiumPref = 'is_premium';
 class EntitlementNotifier extends StateNotifier<Entitlement> {
   EntitlementNotifier(this._prefs, this._ref)
       : super(_fromPrefs(_prefs, _ref.read(authProvider))) {
+    BillingService.init(
+      token: () => _ref.read(authProvider).token,
+      onEntitlement: _applyPurchase,
+    );
     _ensureLocalStart();
     refresh();
+  }
+
+  Future<void> _applyPurchase(Entitlement next) async {
+    await _prefs.setBool(kPremiumPref, next.premium);
+    if (!mounted) return;
+    state = next;
   }
 
   final SharedPreferences _prefs;
@@ -51,6 +63,9 @@ class EntitlementNotifier extends StateNotifier<Entitlement> {
     await _ensureLocalStart();
     final auth = _ref.read(authProvider);
     Map<String, dynamic>? data = payload;
+    if (auth.token != null && auth.token!.isNotEmpty) {
+      unawaited(BillingService.restore(token: auth.token));
+    }
     if (data == null && auth.token != null && auth.token!.isNotEmpty) {
       data = await BillingService.fetchEntitlement(
         token: auth.token!,

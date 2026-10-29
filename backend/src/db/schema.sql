@@ -122,3 +122,13 @@ CREATE INDEX IF NOT EXISTS idx_hazard_reports_expires ON hazard_reports(expires_
 CREATE INDEX IF NOT EXISTS idx_hazard_reports_type ON hazard_reports(type);
 CREATE INDEX IF NOT EXISTS idx_hazard_reports_geo ON hazard_reports(lat, lon);
 CREATE INDEX IF NOT EXISTS idx_hazard_comments_report ON hazard_comments(report_id, created_at);
+
+-- One Google Play purchase token belongs to exactly one account.
+CREATE TABLE IF NOT EXISTS play_purchases (
+    purchase_token TEXT PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    product_id VARCHAR(120) NOT NULL,
+    expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);

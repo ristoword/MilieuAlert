@@ -36,8 +36,6 @@ async function runMigrations() {
             'info@gestionesemplificata.com',
             'francibasile603@gmail.com'
           )
-          OR LOWER(COALESCE(display_name, '')) ~ 'giancarlo[[:space:]]+borzi|roberto[[:space:]]+dasso|francesco[[:space:]]+basile'
-          OR LOWER(email) LIKE 'admin@%'
           OR LOWER(COALESCE(subscription_plan, '')) IN ('staff', 'comp', 'complimentary', 'admin')
         )
     `);

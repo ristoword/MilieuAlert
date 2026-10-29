@@ -454,6 +454,39 @@ void main() {
     );
   });
 
+  test('course-up turns with the route after a slow corner', () {
+    final northEnd = startLat + 200 / mPerDeg;
+    final eastLon = lon + 200 / (mPerDeg * 0.615);
+    final bent = [
+      LatLng(startLat, lon),
+      LatLng(northEnd, lon),
+      LatLng(northEnd, eastLon),
+    ];
+    // Rolling out of the turn at 6 km/h with a poor fix: follow the new street.
+    expect(
+      courseUpBearing(
+        lat: northEnd,
+        lon: lon + 60 / (mPerDeg * 0.615),
+        speedMps: 6 / 3.6,
+        accuracyMeters: 60,
+        lastRouteBearing: 0,
+        route: bent,
+      ),
+      closeTo(90, 10),
+    );
+    // Stopped at the light: keep the last bearing instead of spinning.
+    expect(
+      courseUpBearing(
+        lat: northEnd,
+        lon: lon + 60 / (mPerDeg * 0.615),
+        speedMps: 0.3,
+        lastRouteBearing: 0,
+        route: bent,
+      ),
+      0,
+    );
+  });
+
   test('OSRM annotation speed is only a legal-limit fallback', () {
     final cum = cumulativeDistances(route);
     final fromOsrm = currentSpeedLimitKmh(

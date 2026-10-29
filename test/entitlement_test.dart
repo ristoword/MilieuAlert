@@ -36,13 +36,14 @@ void main() {
       ),
       isTrue,
     );
+    // Self-chosen names or look-alike emails never unlock premium.
     expect(
-      Entitlement.isComplimentaryIdentity(null, 'Giancarlo Borzi'),
-      isTrue,
+      Entitlement.isComplimentaryIdentity('x@example.com', 'Giancarlo Borzi'),
+      isFalse,
     );
     expect(
-      Entitlement.isComplimentaryIdentity(null, 'Roberto Dasso'),
-      isTrue,
+      Entitlement.isComplimentaryIdentity('admin@gmail.com', 'Roberto Dasso'),
+      isFalse,
     );
     expect(
       Entitlement.isComplimentaryIdentity(

@@ -210,8 +210,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   double _bearingMaxStepDeg(double? speedMps) {
     final kmh = (speedMps ?? 0) * 3.6;
-    if (kmh < kBlendGpsWithRouteMinKmh) return 1.0;
-    if (kmh < kMinGpsSpeedForCourseHeadingKmh) return 7;
+    if (kmh < kCourseUpHoldBelowKmh) return 2;
+    if (kmh < kMinGpsSpeedForCourseHeadingKmh) return 8;
     return 14;
   }
 

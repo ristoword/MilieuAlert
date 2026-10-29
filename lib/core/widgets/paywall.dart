@@ -325,7 +325,7 @@ class _PaywallSheetState extends ConsumerState<PaywallSheet> {
               ],
               const SizedBox(height: 8),
               Text(
-                l10n.playBillingLine(Entitlement.playProductId, Entitlement.priceEur),
+                l10n.playBillingLine('MilieuAlert Premium', Entitlement.priceEur),
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 11,

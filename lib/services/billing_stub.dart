@@ -71,6 +71,14 @@ Future<Map<String, dynamic>?> billingFetchEntitlement({
   }
 }
 
+/// Web/PWA has no Google Play billing; checkout happens on the website.
+void billingInit({
+  required String? Function() token,
+  required void Function(Entitlement entitlement) onEntitlement,
+}) {}
+
+Future<void> billingRestore({String? token}) async {}
+
 Future<BillingResult> billingPurchase({
   String? token,
   String? trialStartedAt,

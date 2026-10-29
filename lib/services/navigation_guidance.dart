@@ -14,6 +14,8 @@ const double kCourseUpLookAheadMeters = 55;
 const double kMinGpsSpeedForCourseHeadingKmh = 8;
 /// When moving faster than this, blend GPS course with the route if they agree.
 const double kBlendGpsWithRouteMinKmh = 5;
+/// On the route, freeze map rotation only below this speed (stopped at a light).
+const double kCourseUpHoldBelowKmh = 3;
 const double kMinGpsSpeedForCourseHeadingMps =
     kMinGpsSpeedForCourseHeadingKmh / 3.6;
 const double kMaxGpsAccuracyForCourseHeadingM = 40;
@@ -388,9 +390,12 @@ double? courseUpBearing({
     lookAheadMeters: lookAheadMeters,
   );
   // Almost stopped: hold the last stable bearing so the map does not spin.
-  if (!gpsOk) {
+  // On the line the tangent is reliable even with a weak GPS course, so only
+  // a real stop freezes rotation (otherwise the map stays sideways after a turn).
+  if (speedKmh < kCourseUpHoldBelowKmh) {
     return lastRouteBearing ?? tangent;
   }
+  if (!gpsOk) return tangent;
   if (speedKmh >= kBlendGpsWithRouteMinKmh &&
       fallback != null &&
       headingDelta(fallback, tangent) <= 32) {

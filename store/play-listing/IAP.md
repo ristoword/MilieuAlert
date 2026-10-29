@@ -24,4 +24,4 @@ Until the product exists in Console, the Pay button:
 
 ## Trial
 
-Day 0 starts at the **earliest** of first account `created_at` / first app open (`trial_started_at` in SharedPreferences + `users.trial_started_at`). After 15 days, unpaid users keep only the basic navigator (map, A–B, heading-up, meters). Complimentary emails (Giancarlo Borzi, Roberto Dasso, Francesco Basile, admin) stay full access (`plan=comp`).
+Day 0 starts at the **earliest** of first account `created_at` / first app open (`trial_started_at` in SharedPreferences + `users.trial_started_at`). After 15 days, unpaid users keep only the basic navigator (map, A–B, heading-up, meters). Complimentary access only for exact staff emails (COMPLIMENTARY_EMAILS) or accounts granted `plan=comp`; display names never unlock premium.

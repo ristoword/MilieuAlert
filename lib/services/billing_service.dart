@@ -10,6 +10,14 @@ class BillingService {
   static const gsCheckoutUrl = Entitlement.gsCheckoutUrl;
   static const apiBase = AppConstants.apiBaseUrl;
 
+  static void init({
+    required String? Function() token,
+    required void Function(Entitlement entitlement) onEntitlement,
+  }) =>
+      billingInit(token: token, onEntitlement: onEntitlement);
+
+  static Future<void> restore({String? token}) => billingRestore(token: token);
+
   static Future<Map<String, dynamic>?> fetchEntitlement({
     required String token,
     String? trialStartedAt,

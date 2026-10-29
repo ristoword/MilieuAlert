@@ -64,10 +64,8 @@ describe('MilieuAlert entitlement', () => {
   it('never locks complimentary staff accounts', () => {
     for (const user of [
       { email: 'admin@gestionesemplificata.com', is_premium: false },
-      { email: 'x@example.com', display_name: 'Giancarlo Borzi', is_premium: false },
-      { email: 'x@example.com', display_name: 'Roberto Dasso', is_premium: false },
+      { email: 'x@example.com', display_name: 'Giancarlo Borzi', subscription_plan: 'comp', is_premium: false },
       { email: 'francibasile603@gmail.com', is_premium: false },
-      { email: 'x@example.com', display_name: 'Francesco Basile', is_premium: false },
       { email: 'x@example.com', subscription_plan: 'staff', is_premium: false },
     ]) {
       const e = computeEntitlement(
@@ -98,5 +96,10 @@ describe('MilieuAlert entitlement', () => {
     assert.equal(PLAY_PRODUCT_ID, 'milieualert_premium_2_99');
     assert.equal(TRIAL_DAYS, 15);
     assert.equal(isComplimentary({ email: 'random@example.com' }), false);
+    assert.equal(isComplimentary({ email: 'admin@gmail.com' }), false);
+    assert.equal(
+      isComplimentary({ email: 'x@example.com', display_name: 'Roberto Dasso' }),
+      false
+    );
   });
 });

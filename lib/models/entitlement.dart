@@ -119,16 +119,9 @@ class Entitlement {
       'info@gestionesemplificata.com',
       'francibasile603@gmail.com',
     };
+    // Offline fallback only; the API `complimentary` flag covers other staff.
+    // Never match on display name: anyone can type it at sign-up.
     final mail = (email ?? '').trim().toLowerCase();
-    if (emails.contains(mail) ||
-        mail.startsWith('admin@') ||
-        mail.contains('francibasile')) {
-      return true;
-    }
-    return hay.contains('giancarlo borzi') ||
-        hay.contains('roberto dasso') ||
-        hay.contains('francesco basile') ||
-        hay.contains('borzi') ||
-        hay.contains('dasso');
+    return emails.contains(mail);
   }
 }

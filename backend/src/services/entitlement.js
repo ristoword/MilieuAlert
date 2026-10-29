@@ -28,9 +28,6 @@ const DEFAULT_COMPLIMENTARY_EMAILS = [
   'francibasile603@gmail.com',
 ];
 
-const COMPLIMENTARY_NAME_RE =
-  /giancarlo\s+borzi|roberto\s+dasso|francesco\s+basile|\bborzi\b|\bdasso\b/i;
-
 function extraComplimentaryEmails() {
   const raw = process.env.COMPLIMENTARY_EMAILS || '';
   return raw
@@ -64,11 +61,9 @@ function isComplimentary(user) {
   if (email && complimentaryEmailSet().has(email)) return true;
   const plan = String(user.subscription_plan || '').trim().toLowerCase();
   if (COMPLIMENTARY_PLANS.has(plan)) return true;
-  const name = String(user.display_name || '').trim();
-  if (name && COMPLIMENTARY_NAME_RE.test(name)) return true;
-  if (email && (email.startsWith('admin@') || /borzi|dasso|francibasile/.test(email))) {
-    return true;
-  }
+  // Display names and email patterns are user-controlled: never grant on them.
+  // Staff get subscription_plan 'comp' (POST /api/billing/grant) or are
+  // listed in COMPLIMENTARY_EMAILS.
   return false;
 }
 

@@ -8,6 +8,12 @@ export 'speech_types.dart';
 
 enum _TtsVoiceKind { female, male, unknown }
 
+/// flutter_tts rate on Android/iOS (0.5 = platform normal).
+const double kNativeSpeechRate = 0.43;
+
+/// Web Speech API rate (1.0 = normal).
+const double kWebSpeechRate = 0.88;
+
 class TtsService {
   bool _ready = false;
 
@@ -42,12 +48,13 @@ class TtsService {
 
     // Web Speech API: rate 1.0 = normal (2.0 ≈ double speed).
     // flutter_tts (Android/iOS): 0.5 ≈ normal, 1.0 ≈ 2× — see speech_engine_stub.dart.
+    // Navigation prompts use a calm pace (~0.85×) so they stay clear while driving.
     await engine.engineSpeak(
       text: trimmed,
       lang: lang,
       voiceName: picked?.name,
-      pitch: kIsWeb ? 1.0 : 1.0,
-      rate: kIsWeb ? 1.0 : 0.5,
+      pitch: 1.0,
+      rate: kIsWeb ? kWebSpeechRate : kNativeSpeechRate,
     );
   }
 

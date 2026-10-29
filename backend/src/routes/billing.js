@@ -11,6 +11,7 @@ const {
 const { attachEntitlement } = require('../services/trialStore');
 const { requireBillingAdminKey } = require('../middleware/billingAdmin');
 const { notifyPremium } = require('../services/gsSync');
+const playVerify = require('../services/playVerify');
 
 const router = express.Router();
 
@@ -37,8 +38,14 @@ async function loadUser(id) {
   return result.rows[0] || null;
 }
 
-async function grantPremium(userId, { plan = 'pro', days = 31, source } = {}) {
-  const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+async function grantPremium(
+  userId,
+  { plan = 'pro', days = 31, expires: expiresAt, source } = {}
+) {
+  const expires =
+    expiresAt instanceof Date
+      ? expiresAt
+      : new Date(Date.now() + days * 24 * 60 * 60 * 1000);
   await pool.query(
     `UPDATE users SET
        is_premium = TRUE,
@@ -89,13 +96,51 @@ router.post('/play', authenticateToken, async (req, res) => {
         error: `Unknown product. Expected ${PLAY_PRODUCT_ID}`,
       });
     }
-    if (!purchaseToken && process.env.NODE_ENV === 'production') {
-      // Token is still required in production so a random client cannot
-      // flip premium. Play Console product verification (Google Play
-      // Developer API) is the follow-up once the subscription exists.
+    if (!purchaseToken || purchaseToken === 'pending' || purchaseToken.length > 4096) {
       return res.status(400).json({ error: 'purchaseToken required' });
     }
-    await grantPremium(req.user.id, { source: 'play', days: 31 });
+
+    if (!playVerify.isConfigured()) {
+      // Fail closed in production: never grant premium on an unverified token.
+      if (process.env.NODE_ENV === 'production') {
+        console.error('Play billing: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON missing');
+        return res
+          .status(503)
+          .json({ error: 'Play verification not configured' });
+      }
+      await grantPremium(req.user.id, { source: 'play-dev', days: 31 });
+      return respondUser(res, req.user.id);
+    }
+
+    const owner = await pool.query(
+      'SELECT user_id FROM play_purchases WHERE purchase_token = $1',
+      [purchaseToken]
+    );
+    if (owner.rows.length > 0 && owner.rows[0].user_id !== req.user.id) {
+      return res
+        .status(409)
+        .json({ error: 'Purchase already linked to another account' });
+    }
+
+    const verified = await playVerify.verifySubscription(
+      PLAY_PRODUCT_ID,
+      purchaseToken
+    );
+    if (!verified || !verified.active) {
+      return res.status(402).json({ error: 'Subscription not active' });
+    }
+
+    await pool.query(
+      `INSERT INTO play_purchases (purchase_token, user_id, product_id, expires_at)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (purchase_token) DO UPDATE
+         SET expires_at = EXCLUDED.expires_at, updated_at = NOW()`,
+      [purchaseToken, req.user.id, PLAY_PRODUCT_ID, verified.expiresAt]
+    );
+    await grantPremium(req.user.id, {
+      source: 'play',
+      expires: verified.expiresAt,
+    });
     return respondUser(res, req.user.id);
   } catch (err) {
     console.error('Play billing error:', err);
