@@ -79,6 +79,8 @@ app.get('/api/status', (req, res) => {
       'POST /api/billing/play',
       'POST /api/billing/redeem',
       'GET /api/admin/users (x-billing-admin-key)',
+      'POST /api/admin/users (x-billing-admin-key)',
+      'POST /api/admin/users/:id/password (x-billing-admin-key)',
       'POST /api/ai/chat',
       'POST /api/ai/assist',
       'POST /api/ai/zone-check',
