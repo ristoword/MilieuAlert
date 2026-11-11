@@ -11,7 +11,7 @@ const {
 } = require('../services/trialStore');
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-me';
+const { JWT_SECRET } = require('../config/secrets');
 
 async function loadVehicles(userId) {
   const vehicles = await pool.query(

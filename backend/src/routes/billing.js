@@ -10,6 +10,7 @@ const {
 } = require('../services/entitlement');
 const { attachEntitlement } = require('../services/trialStore');
 const { requireBillingAdminKey } = require('../middleware/billingAdmin');
+const { safeEqual } = require('../config/secrets');
 const { notifyPremium } = require('../services/gsSync');
 const playVerify = require('../services/playVerify');
 
@@ -156,7 +157,7 @@ router.post('/redeem', authenticateToken, async (req, res) => {
     const adminKey = process.env.BILLING_ADMIN_KEY || '';
     const ok =
       (allowed.size > 0 && allowed.has(code)) ||
-      (adminKey && code === adminKey);
+      (adminKey && safeEqual(code, adminKey));
     if (!ok) {
       return res.status(403).json({ error: 'Invalid code' });
     }

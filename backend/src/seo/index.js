@@ -4,6 +4,7 @@ const { getPage } = require('./content');
 const { buildSitemapXml } = require('./sitemap');
 const { buildRobotsTxt } = require('./robots');
 const { renderPrivacy, privacyPath, privacyUrl, privacyHreflangMap } = require('./privacy');
+const { renderTerms } = require('./terms');
 
 function sendHtml(res, html) {
   res
@@ -33,6 +34,12 @@ function mount(app) {
   app.get('/privacy', (_req, res) => sendHtml(res, renderPrivacy(null)));
   LOCALES.forEach((lang) => {
     app.get(`/privacy/${lang}`, (_req, res) => sendHtml(res, renderPrivacy(lang)));
+  });
+
+  // Terms of service (Play Console "Termini di servizio" URL).
+  app.get('/terms', (_req, res) => sendHtml(res, renderTerms(null)));
+  LOCALES.forEach((lang) => {
+    app.get(`/terms/${lang}`, (_req, res) => sendHtml(res, renderTerms(lang)));
   });
 
   LOCALES.forEach((lang) => {

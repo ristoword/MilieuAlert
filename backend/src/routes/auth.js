@@ -9,7 +9,7 @@ const { attachEntitlement, clientTrialHeader } = require('../services/trialStore
 const { notifyRegistration } = require('../services/gsSync');
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-me';
+const { JWT_SECRET } = require('../config/secrets');
 
 router.post('/register', async (req, res) => {
   try {

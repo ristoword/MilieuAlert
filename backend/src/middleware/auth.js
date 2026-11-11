@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-me';
+const { JWT_SECRET } = require('../config/secrets');
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];

@@ -102,6 +102,16 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Stricter limit on credential endpoints (brute-force protection).
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts, try again later' },
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/billing', billingRoutes);
@@ -116,6 +126,7 @@ app.use('/api/hazards', hazardRoutes);
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
   if (req.path === '/privacy' || req.path.startsWith('/privacy/')) return next();
+  if (req.path === '/terms' || req.path.startsWith('/terms/')) return next();
   if (['/en', '/nl', '/it', '/robots.txt', '/sitemap.xml'].includes(req.path)) return next();
   res.sendFile(path.join(webBuildPath, 'index.html'));
 });
