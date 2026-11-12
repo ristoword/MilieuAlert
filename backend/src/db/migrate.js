@@ -34,7 +34,8 @@ async function runMigrations() {
             'admin@gestionesemplificata.com',
             'assistenza@gestionesemplificata.com',
             'info@gestionesemplificata.com',
-            'francibasile603@gmail.com'
+            'francibasile603@gmail.com',
+            'gestionesemplificata@gmail.com'
           )
           OR LOWER(COALESCE(subscription_plan, '')) IN ('staff', 'comp', 'complimentary', 'admin')
         )

@@ -52,6 +52,10 @@ void main() {
       ),
       isTrue,
     );
+    expect(
+      Entitlement.isComplimentaryIdentity('gestionesemplificata@gmail.com', null),
+      isTrue,
+    );
     expect(Entitlement.playProductId, 'milieualert_premium_2_99');
     expect(Entitlement.priceEur, '1.99');
   });

@@ -26,6 +26,7 @@ const DEFAULT_COMPLIMENTARY_EMAILS = [
   'assistenza@gestionesemplificata.com',
   'info@gestionesemplificata.com',
   'francibasile603@gmail.com',
+  'gestionesemplificata@gmail.com',
 ];
 
 function extraComplimentaryEmails() {

@@ -66,6 +66,7 @@ describe('MilieuAlert entitlement', () => {
       { email: 'admin@gestionesemplificata.com', is_premium: false },
       { email: 'x@example.com', display_name: 'Giancarlo Borzi', subscription_plan: 'comp', is_premium: false },
       { email: 'francibasile603@gmail.com', is_premium: false },
+      { email: 'gestionesemplificata@gmail.com', is_premium: false },
       { email: 'x@example.com', subscription_plan: 'staff', is_premium: false },
     ]) {
       const e = computeEntitlement(

@@ -118,6 +118,7 @@ class Entitlement {
       'assistenza@gestionesemplificata.com',
       'info@gestionesemplificata.com',
       'francibasile603@gmail.com',
+      'gestionesemplificata@gmail.com',
     };
     // Offline fallback only; the API `complimentary` flag covers other staff.
     // Never match on display name: anyone can type it at sign-up.
