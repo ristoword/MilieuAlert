@@ -91,6 +91,17 @@ const PAGES = {
 <p>Per cancellare l’account: Impostazioni nell’app oppure la stessa email. La revoca del GPS si fa dalle autorizzazioni Android / iOS / browser.</p>`
       },
       {
+        h2: 'Cancellazione dell’account MilieuAlert e dei dati',
+        html: `<p>Puoi chiedere in qualsiasi momento la cancellazione del tuo account MilieuAlert e dei dati associati.</p>
+<ol>
+<li>Scrivi a <a href="mailto:${CONTACT_EMAIL}?subject=Cancellazione%20account%20MilieuAlert">${CONTACT_EMAIL}</a> dall’indirizzo email con cui ti sei registrato, con oggetto «Cancellazione account MilieuAlert».</li>
+<li>Verifichiamo la richiesta e cancelliamo l’account entro 30 giorni.</li>
+</ol>
+<p><strong>Dati cancellati:</strong> email, nome visualizzato, password (hash), preferenze e profilo veicolo, cronologia viaggi e log di zona, identificativo dispositivo associato all’account, stato dell’abbonamento sul nostro server.</p>
+<p><strong>Dati che possono essere conservati:</strong> segnalazioni community già pubblicate (tipo di evento e coordinate, senza identità) finché scadono; log tecnici fino a 90 giorni; dati di pagamento gestiti da Google Play secondo gli obblighi di legge. La cancellazione dell’account non annulla l’abbonamento: va disdetto da Google Play.</p>
+<p>Puoi anche chiedere la cancellazione parziale dei dati (ad esempio la sola cronologia viaggi) allo stesso indirizzo, senza chiudere l’account.</p>`
+      },
+      {
         h2: '7. Minori',
         html: `<p>MilieuAlert è un navigatore per conducenti, non è destinato ai bambini e non è una kids app. Non raccogliamo consapevolmente dati di minori di 16 anni.</p>`
       },
@@ -151,6 +162,17 @@ const PAGES = {
         html: `<p>Inzage, rectificatie, wissing, beperking, overdraagbaarheid, bezwaar en intrekking van toestemming via <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>. Klacht bij je nationale AP. GPS uitzetten: Android-/iOS-/browserrechten.</p>`
       },
       {
+        h2: 'MilieuAlert-account en gegevens verwijderen',
+        html: `<p>Je kunt op elk moment vragen om je MilieuAlert-account en bijbehorende gegevens te verwijderen.</p>
+<ol>
+<li>Mail naar <a href="mailto:${CONTACT_EMAIL}?subject=MilieuAlert%20account%20verwijderen">${CONTACT_EMAIL}</a> vanaf het e-mailadres waarmee je je registreerde, met als onderwerp «MilieuAlert account verwijderen».</li>
+<li>We controleren het verzoek en verwijderen het account binnen 30 dagen.</li>
+</ol>
+<p><strong>Verwijderd:</strong> e-mail, weergavenaam, wachtwoord (hash), voorkeuren en voertuigprofiel, ritgeschiedenis en zonelogs, aan het account gekoppeld apparaat-ID, abonnementsstatus op onze server.</p>
+<p><strong>Mogelijk bewaard:</strong> reeds gepubliceerde communitymeldingen (type en coördinaten, zonder identiteit) tot ze verlopen; technische logs tot 90 dagen; betalingsgegevens bij Google Play volgens wettelijke plichten. Het account verwijderen zegt het abonnement niet op: zeg dat op via Google Play.</p>
+<p>Gedeeltelijke verwijdering (bijvoorbeeld alleen de ritgeschiedenis) kan via hetzelfde adres, zonder het account te sluiten.</p>`
+      },
+      {
         h2: '7. Kinderen',
         html: `<p>MilieuAlert is een navigator voor bestuurders, geen kids-app. We verzamelen niet bewust gegevens van kinderen onder 16.</p>`
       },
@@ -209,6 +231,17 @@ const PAGES = {
       {
         h2: '6. Your rights',
         html: `<p>Access, rectification, erasure, restriction, portability, objection and withdrawal of consent: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>. You may lodge a complaint with your EU data protection authority. Turn GPS off in Android / iOS / browser settings.</p>`
+      },
+      {
+        h2: 'Delete your MilieuAlert account and data',
+        html: `<p>You can ask at any time for your MilieuAlert account and associated data to be deleted.</p>
+<ol>
+<li>Email <a href="mailto:${CONTACT_EMAIL}?subject=Delete%20MilieuAlert%20account">${CONTACT_EMAIL}</a> from the address you registered with, subject “Delete MilieuAlert account”.</li>
+<li>We verify the request and delete the account within 30 days.</li>
+</ol>
+<p><strong>Deleted:</strong> email, display name, password (hash), preferences and vehicle profile, trip history and zone logs, the device ID linked to the account, subscription status on our server.</p>
+<p><strong>May be retained:</strong> community reports already published (event type and coordinates, no identity) until they expire; technical logs up to 90 days; payment data held by Google Play as required by law. Deleting the account does not cancel the subscription: cancel it in Google Play.</p>
+<p>You can also request partial deletion (for example only your trip history) at the same address without closing the account.</p>`
       },
       {
         h2: '7. Children',
