@@ -450,6 +450,7 @@ router.get('/cameras', async (req, res) => {
 
   const cameras = [];
   const limits = [];
+  const signals = [];
   try {
     let query;
     if (pathPts.length >= 2) {
@@ -458,6 +459,7 @@ router.get('/cameras', async (req, res) => {
           (p) => `
   node["highway"="speed_camera"](around:180,${p.lat},${p.lon});
   node["enforcement"="maxspeed"](around:180,${p.lat},${p.lon});
+  node["highway"="traffic_signals"](around:180,${p.lat},${p.lon});
   way["highway"]["maxspeed"](around:120,${p.lat},${p.lon});`
         )
         .join('\n');
@@ -467,6 +469,7 @@ router.get('/cameras', async (req, res) => {
 (
   node["highway"="speed_camera"](${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon});
   node["enforcement"="maxspeed"](${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon});
+  node["highway"="traffic_signals"](${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon});
   way["maxspeed"](${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon});
 );
 out body center;`;
@@ -474,11 +477,21 @@ out body center;`;
     const data = await fetchOverpassJson(query, 22000);
 
     const cameraIds = new Set();
+    const signalIds = new Set();
     for (const el of data.elements || []) {
       const tags = el.tags || {};
       const lat = el.lat || (el.center && el.center.lat);
       const lon = el.lon || (el.center && el.center.lon);
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      if (
+        el.type === 'node' &&
+        tags.highway === 'traffic_signals' &&
+        !signalIds.has(el.id)
+      ) {
+        signalIds.add(el.id);
+        signals.push({ lat, lon });
+        continue;
+      }
       const isCamera =
         tags.highway === 'speed_camera' || tags.enforcement === 'maxspeed';
       if (isCamera && el.type === 'node' && !cameraIds.has(el.id)) {
@@ -506,6 +519,7 @@ out body center;`;
   res.json({
     cameras: mergeCameras(cameras, community, 200),
     limits: limits.slice(0, 400),
+    signals: signals.slice(0, 1500),
   });
 });
 
