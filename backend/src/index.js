@@ -31,7 +31,8 @@ app.use(express.json({ limit: '10mb' }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 250,
+  // Navigation polls hazards and route conditions; 250 ran out while driving.
+  max: 900,
   standardHeaders: true,
   legacyHeaders: false,
 });

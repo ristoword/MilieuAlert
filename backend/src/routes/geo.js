@@ -14,6 +14,12 @@ const {
 const { serializeOsrmRoute } = require('../services/osrmRoute');
 const { normalizeTravelMode } = require('../services/travelMode');
 const { planTransitRoute } = require('../services/transitRoute');
+const {
+  MAX_PATH_POINTS,
+  queryOverpass,
+  elementsAlongPath,
+} = require('../services/overpass');
+const { routeUrls, fetchRoute } = require('../services/osrm');
 const router = express.Router();
 
 const USER_AGENT =
@@ -21,7 +27,8 @@ const USER_AGENT =
 
 const tileLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 400,
+  // A moving, rotating, tilted map asks for many tiles; phones also share IPs.
+  max: 1500,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -49,11 +56,6 @@ router.get('/tiles/:z/:x/:file', tileLimiter, async (req, res) => {
 });
 
 
-const OVERPASS_CAMERA_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-];
-
 function overpassHttpError(status, host) {
   if (status === 504) return `overpass 504 gateway timeout (${host})`;
   if (status === 429) return `overpass 429 rate limited (${host})`;
@@ -77,7 +79,7 @@ async function fetchJson(url, options = {}, timeoutMs = 25000) {
       const host = new URL(url).hostname;
       throw new Error(overpassHttpError(res.status, host));
     }
-    return res.json();
+    return await res.json();
   } catch (err) {
     if (err.name === 'AbortError') {
       const host = new URL(url).hostname;
@@ -89,24 +91,9 @@ async function fetchJson(url, options = {}, timeoutMs = 25000) {
   }
 }
 
-async function fetchOverpassJson(query, timeoutMs = 25000) {
-  let lastErr;
-  for (const endpoint of OVERPASS_CAMERA_ENDPOINTS) {
-    try {
-      return await fetchJson(
-        endpoint,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: query,
-        },
-        timeoutMs,
-      );
-    } catch (err) {
-      lastErr = err;
-    }
-  }
-  throw lastErr || new Error('overpass failed');
+/** Single query (nearby places, area cameras): hedged across mirrors, cached. */
+function fetchOverpassJson(query, timeoutMs = 25000) {
+  return queryOverpass(query, { timeoutMs });
 }
 
 function haversineMeters(lat1, lon1, lat2, lon2) {
@@ -344,16 +331,10 @@ router.get('/route', async (req, res) => {
   }
 
   try {
-    const profile = mode === 'foot' ? 'foot' : 'driving';
-    const extras =
-      mode === 'car'
-        ? '&annotations=speed'
-        : '';
-    const url =
-      `https://router.project-osrm.org/route/v1/${profile}/` +
-      `${fromLon},${fromLat};${toLon},${toLat}` +
-      `?overview=full&geometries=geojson&alternatives=true&steps=true${extras}`;
-    const data = await fetchJson(url);
+    const data = await fetchRoute(
+      routeUrls(mode, { fromLat, fromLon, toLat, toLon }),
+      { userAgent: USER_AGENT }
+    );
     const osrmOpts = {
       mode,
       includeLanes: mode === 'car',
@@ -398,7 +379,7 @@ function parsePathPoints(raw) {
       return { lat, lon };
     })
     .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon))
-    .slice(0, 36);
+    .slice(0, MAX_PATH_POINTS);
 }
 
 function cameraBbox(req, pathPts) {
@@ -452,44 +433,42 @@ router.get('/cameras', async (req, res) => {
   const limits = [];
   const signals = [];
   try {
-    let query;
+    let data;
     if (pathPts.length >= 2) {
-      const around = pathPts
-        .map(
-          (p) => `
-  node["highway"="speed_camera"](around:180,${p.lat},${p.lon});
-  node["enforcement"="maxspeed"](around:180,${p.lat},${p.lon});
-  node["highway"="traffic_signals"](around:180,${p.lat},${p.lon});
-  way["highway"]["maxspeed"](around:120,${p.lat},${p.lon});`
-        )
-        .join('\n');
-      query = `[out:json][timeout:22];\n(\n${around}\n);\nout body center;`;
+      data = await elementsAlongPath(pathPts);
+      if (data.failed) {
+        console.error(
+          `geo cameras: ${data.failed}/${data.chunks} route chunks failed:`,
+          data.lastError && data.lastError.message
+        );
+      }
     } else {
-      query = `[out:json][timeout:22];
+      data = await fetchOverpassJson(
+        `[out:json][timeout:22];
 (
   node["highway"="speed_camera"](${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon});
   node["enforcement"="maxspeed"](${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon});
   node["highway"="traffic_signals"](${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon});
   way["maxspeed"](${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon});
 );
-out body center;`;
+out body center;`,
+        22000
+      );
     }
-    const data = await fetchOverpassJson(query, 22000);
 
     const cameraIds = new Set();
     const signalIds = new Set();
+    const limitIds = new Set();
     for (const el of data.elements || []) {
       const tags = el.tags || {};
       const lat = el.lat || (el.center && el.center.lat);
       const lon = el.lon || (el.center && el.center.lon);
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-      if (
-        el.type === 'node' &&
-        tags.highway === 'traffic_signals' &&
-        !signalIds.has(el.id)
-      ) {
-        signalIds.add(el.id);
-        signals.push({ lat, lon });
+      if (el.type === 'node' && tags.highway === 'traffic_signals') {
+        if (!signalIds.has(el.id)) {
+          signalIds.add(el.id);
+          signals.push({ lat, lon });
+        }
         continue;
       }
       const isCamera =
@@ -504,7 +483,10 @@ out body center;`;
           source: 'osm',
         });
       }
-      if (tags.maxspeed) {
+      // Chunks overlap, so the same road can come back twice.
+      const limitKey = `${el.type}:${el.id}`;
+      if (tags.maxspeed && !limitIds.has(limitKey)) {
+        limitIds.add(limitKey);
         const parsed = parseInt(String(tags.maxspeed).replace(/[^\d]/g, ''), 10);
         if (parsed > 0 && parsed < 200) {
           limits.push({ lat, lon, maxspeed: parsed });
@@ -518,7 +500,7 @@ out body center;`;
   const community = await loadCommunityCameras(bbox);
   res.json({
     cameras: mergeCameras(cameras, community, 200),
-    limits: limits.slice(0, 400),
+    limits: limits.slice(0, 2500),
     signals: signals.slice(0, 1500),
   });
 });

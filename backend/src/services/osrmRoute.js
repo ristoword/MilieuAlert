@@ -20,21 +20,18 @@ function mapLane(lane) {
 }
 
 /**
- * Real OSRM turn lanes for a step. Never invents lanes when the
- * intersection has none.
+ * Real OSRM turn lanes for a step's manoeuvre. Never invents lanes, and never
+ * borrows them from a later junction of the same step: those arrows belong to
+ * another manoeuvre and would point the driver the wrong way.
  */
 function serializeLanes(step) {
   const intersections = (step && step.intersections) || [];
-  if (!intersections.length) return [];
   const maneuverLoc = (step.maneuver && step.maneuver.location) || [];
-  let fallback = null;
   for (const it of intersections) {
     if (!Array.isArray(it.lanes) || it.lanes.length === 0) continue;
-    const mapped = it.lanes.map(mapLane);
-    if (sameCoord(it.location, maneuverLoc)) return mapped;
-    if (!fallback) fallback = mapped;
+    if (sameCoord(it.location, maneuverLoc)) return it.lanes.map(mapLane);
   }
-  return fallback || [];
+  return [];
 }
 
 function serializeOsrmRoute(route, options = {}) {
